@@ -20,8 +20,17 @@
 .rings:before,.rings:after{content:"";position:absolute;top:4px;width:21px;height:21px;border:1px solid #eee;border-radius:50%}.rings:before{left:3px}.rings:after{right:3px}
 .tri{width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:28px solid #eee}.tri:after{content:"";position:absolute;left:-13px;top:5px;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:22px solid var(--bg)}
 .slabel{font-size:clamp(10px,2.65vw,13px);line-height:1.05;text-align:center}.sdot{position:absolute;bottom:8px;width:6px;height:6px;border-radius:50%;background:#666761}.active .sdot{background:var(--red);box-shadow:0 0 10px rgba(255,59,48,.65);animation:pulse 2.2s infinite}
-.p-artwrap{position:absolute;left:21.7%;top:37.0%;width:54.7%;aspect-ratio:1}.art{position:absolute;inset:0;border-radius:15px;background-image:var(--art);background-size:cover;background-position:center;animation:float 10s ease-in-out infinite}
-.p-side{position:absolute;top:43.3%;font:400 8px/1.45 Plex;letter-spacing:.08em;color:#aaa;text-transform:uppercase}.p-side.left{left:5.2%}.p-side.right{right:4.8%;width:13.8%}.smallrule{width:22px;height:1px;background:#c5c5bf;margin-top:14px}.dots3{display:grid;gap:8px;margin-top:14px;justify-content:center}.dots3 i{width:5px;height:5px;border-radius:50%;background:#777}.dots3 i:nth-child(2){background:var(--red)}
+.p-artwrap{position:absolute;left:21.7%;top:36.2%;width:54.7%;aspect-ratio:1}
+.art{position:absolute;inset:0;border-radius:15px;background-image:var(--art);background-size:cover;background-position:center;filter:brightness(.88) contrast(1.03)}
+.p-orbit{position:absolute;inset:0;transform-origin:50% 50%;animation:orbitSweep 15s linear infinite;animation-play-state:paused;pointer-events:none}
+.p-orbit.playing-orbit{animation-play-state:running}
+.p-orbit:before{content:"";position:absolute;left:7%;right:7%;top:49.5%;height:1.5px;background:linear-gradient(90deg,rgba(238,240,236,0),rgba(238,240,236,.48) 14%,rgba(245,246,241,.98) 50%,rgba(238,240,236,.56) 84%,rgba(238,240,236,0));box-shadow:0 0 7px rgba(238,240,236,.11);transform:rotate(-39deg);transform-origin:50% 50%}
+.p-orbit:after{content:"";position:absolute;left:73.5%;top:34%;width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 10px rgba(255,59,48,.8),0 0 2px rgba(255,255,255,.55)}
+.p-side{position:absolute;top:43.3%;font:400 8px/1.45 Plex;letter-spacing:.08em;color:#aaa;text-transform:uppercase}.p-side.left{left:5.2%}.p-side.right{right:4.8%;width:13.8%}.smallrule{width:22px;height:1px;background:#c5c5bf;margin-top:14px}
+.p-matrix{position:absolute;right:5.5%;top:57.4%;display:grid;grid-template-columns:repeat(6,4px);gap:7px}
+.p-matrix i,.matrix i{width:4px;height:4px;border-radius:50%;background:#747570;transition:.24s ease}
+.p-matrix i.past,.matrix i.past{background:#bfc0ba;opacity:.38}
+.p-matrix i.hot,.matrix i.hot{background:var(--red);box-shadow:0 0 8px rgba(255,59,48,.68);animation:matrixPulse 1.9s ease-in-out infinite}
 .p-meta{position:absolute;left:6.3%;right:6%;top:67.2%;display:flex;align-items:end}.copy{min-width:0;flex:1}.title{font:560 clamp(24px,5.8vw,30px)/.98 Doto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{font-size:14px;margin-top:5px;color:#d2d2cc}.heart{width:28px;height:28px;margin-right:12px}.heart svg{width:25px;height:25px;fill:none;stroke:#eee;stroke-width:1.5}.more{font-size:25px;line-height:1}
 .p-progress{position:absolute;left:6.4%;right:8.2%;top:76.8%}.bar{position:relative;height:20px}.rail{position:absolute;left:0;right:0;top:9px;height:2px;background:#5b5c57}.fill{position:absolute;left:0;top:9px;height:2px;background:#f2f2ed;width:0}.knob{position:absolute;left:0;top:5px;width:10px;height:10px;border-radius:50%;background:#f3f3ee;transform:translateX(-5px)}.times{display:flex;justify-content:space-between;font-size:10px;color:#d6d6d0}
 .p-controls{position:absolute;left:13%;right:13%;top:82.7%;height:11.3%;display:flex;align-items:center;justify-content:space-between}.ctrl{border:1px solid #767772;border-radius:50%;display:grid;place-items:center;transition:.12s}.ctrl:active{transform:scale(.9);background:rgba(255,255,255,.055);box-shadow:0 0 0 4px rgba(255,255,255,.025)}.ctrl.sm{width:70px;height:70px}.ctrl.big{width:98px;height:98px;border-color:#ededE8}.ctrl svg{fill:#f1f1ec;width:27px;height:27px}.big svg{width:33px;height:33px}.pause{display:none}.is-playing .play{display:none}.is-playing .pause{display:block}
@@ -138,11 +147,26 @@
   position:absolute;left:512px;top:289px;
   display:grid;grid-template-columns:repeat(6,4px);gap:7px
 }
-.matrix i{width:4px;height:4px;border-radius:50%;background:#747570;transition:.24s ease}
-.matrix i.hot{background:var(--red);box-shadow:0 0 8px rgba(255,59,48,.68);animation:matrixPulse 1.9s ease-in-out infinite}
+
 .pressflash{position:absolute;border:1px solid rgba(255,255,255,0);border-radius:50%;pointer-events:none;opacity:0;transform:scale(.9)}.pressflash.on{animation:tapflash .22s}
 .swap{animation:swap .28s cubic-bezier(.2,.8,.2,1)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.25)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}@keyframes matrixPulse{0%,100%{transform:scale(.92);opacity:.72}50%{transform:scale(1.22);opacity:1}}@keyframes orbitSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes stationGlow{0%{opacity:.55;transform:scale(.975)}55%{opacity:1;transform:scale(1.015)}100%{transform:scale(1)}}@keyframes float{0%,100%{transform:scale(1)}50%{transform:scale(1.008)}}@keyframes colonBreath{0%,100%{opacity:.82;transform:scale(1);box-shadow:0 0 0 rgba(255,255,255,0)}50%{opacity:.42;transform:scale(.9);box-shadow:0 0 8px rgba(255,255,255,.12)}}@keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}@keyframes swap{0%{opacity:.2;transform:translateY(5px)}100%{opacity:1;transform:none}}@keyframes tapflash{0%{opacity:.6;transform:scale(.88);border-color:rgba(255,255,255,.45)}100%{opacity:0;transform:scale(1.07);border-color:rgba(255,255,255,0)}}
+@media(orientation:portrait) and (max-width:480px){
+  .p-logo{left:5.5%;top:5.2%;font-size:clamp(33px,10vw,42px)}
+  .p-menu{right:5%;top:6.1%;font-size:7.5px}
+  .stations{left:4.5%;right:4.5%;top:16.2%;height:13.8%;gap:1.8%}
+  .station{border-radius:11px;gap:6px}.sicon{transform:scale(.82)}.slabel{font-size:9px}.sdot{bottom:6px;width:5px;height:5px}
+  .p-artwrap{left:20%;top:33.2%;width:60%}
+  .p-side{top:39%;font-size:6.5px}.p-side.left{left:4.7%}.p-side.right{right:3.8%;width:13%}
+  .p-matrix{right:4.8%;top:56%;grid-template-columns:repeat(4,4px);gap:6px}
+  .p-meta{left:5.5%;right:5.5%;top:65.3%}.title{font-size:clamp(22px,7vw,28px)}.artist{font-size:12px}
+  .p-progress{left:5.7%;right:6.2%;top:75.1%}
+  .p-controls{left:12%;right:12%;top:81.1%;height:11.5%}.ctrl.sm{width:58px;height:58px}.ctrl.big{width:82px;height:82px}
+  .p-footer{left:5.5%;right:5.5%;bottom:2.5%;font-size:7px}
+}
+@media(orientation:portrait) and (max-height:700px){
+  .stations{top:15%;height:13%}.p-artwrap{top:31.8%;width:53%;left:23.5%}.p-meta{top:62.5%}.p-progress{top:72%}.p-controls{top:77.5%}.p-footer{bottom:1.8%}
+}
 @media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
 
 .auth-overlay{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.86);backdrop-filter:blur(8px)}
@@ -168,8 +192,9 @@
 <button class="station" data-station="Trance" onclick="stationTap(this,'trance',false)"><span class="sicon tri"></span><span class="slabel">Trance</span><i class="sdot"></i></button>
 </div>
 <div class="p-side left">BASS<br>ATMOSPHERE<br>RHYTHM<br><br>ALWAYS<br>ON<div class="smallrule"></div></div>
-<div class="p-artwrap"><div class="art"></div></div>
-<div class="p-side right">A<br>HIGHER<br>STATE<br>THROUGH<br>SOUND<div class="smallrule"></div><div class="dots3"><i></i><i></i><i></i></div></div>
+<div class="p-artwrap"><div class="art"></div><div class="p-orbit" id="portraitOrbit"></div></div>
+<div class="p-side right">A<br>HIGHER<br>STATE<br>THROUGH<br>SOUND<div class="smallrule"></div></div>
+<div class="p-matrix track-matrix"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 <div class="p-meta"><div class="copy"><div class="title" id="title">Lo-Fi</div><div class="artist" id="artist">BURZH beats</div></div><button class="heart" onclick="feedback('soft')"><svg viewBox="0 0 24 24"><path d="M12 20.5S3.5 15.3 3.5 8.7A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 8.5 1.3c0 6.6-8.5 11.8-8.5 11.8Z"/></svg></button><button class="more" onclick="feedback('soft')">⋮</button></div>
 <div class="p-progress"><div class="bar"><div class="rail"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div><div class="times"><span id="elapsed">1:42</span><span id="remaining">-3:28</span></div></div>
 <div class="p-controls">
@@ -199,7 +224,7 @@
 <button class="ctrl big" id="landPlayBtn" onclick="tap('play',this)"><svg class="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
 <button class="ctrl sm" onclick="tap('next',this)"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
 </div>
-<div class="matrix"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+<div class="matrix track-matrix"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 </div>
 </section>
 <div class="auth-overlay" id="authOverlay">
@@ -278,13 +303,16 @@ $('elapsed').textContent=$('landElapsed').textContent=fmt(p);
 $('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,d-p));
 $('playBtn').classList.toggle('is-playing',!!s.playing);
 $('landPlayBtn').classList.toggle('is-playing',!!s.playing);
-const orbit=$('landOrbit'); if(orbit) orbit.classList.toggle('playing-orbit',!!s.playing);
-const dots=document.querySelectorAll('.matrix i');
-if(dots.length){
-  dots.forEach(x=>x.classList.remove('hot'));
+[$('landOrbit'),$('portraitOrbit')].forEach(orbit=>{if(orbit) orbit.classList.toggle('playing-orbit',!!s.playing)});
+document.querySelectorAll('.track-matrix').forEach(matrix=>{
+  const dots=matrix.querySelectorAll('i');
+  if(!dots.length)return;
   const idx=Math.max(0,Number(s.index)||0)%dots.length;
-  dots[idx].classList.add('hot');
-}
+  dots.forEach((x,i)=>{
+    x.classList.toggle('hot',i===idx);
+    x.classList.toggle('past',i<idx);
+  });
+});
 }};
 </script>
 </body></html>
