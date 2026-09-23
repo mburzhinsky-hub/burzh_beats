@@ -42,7 +42,7 @@ import java.util.concurrent.Executors;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 public class MainActivity extends Activity {
-    private static final String PLAYLIST_UUID = "a0a4175e-9293-1c07-b536-aa9a4522bee8";
+    private static final String ALBUM_ID = "41987524";
     private static final String API = "https://api.music.yandex.net";
     private static final String CLIENT_HEADER = "YandexMusicAndroid/24023621";
     private static final String SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA";
@@ -58,6 +58,7 @@ public class MainActivity extends Activity {
     private Vibrator vibrator;
     private AudioTrack clickSoft;
     private AudioTrack clickNav;
+    private String accessToken = "";
 
     private final Runnable progressTicker = new Runnable() {
         @Override public void run() {
@@ -91,6 +92,10 @@ public class MainActivity extends Activity {
         try { clickSoft = createClickTrack(2150.0, 18); } catch (Throwable ignored) { clickSoft = null; }
         try { clickNav = createClickTrack(2850.0, 22); } catch (Throwable ignored) { clickNav = null; }
 
+        accessToken = getSharedPreferences("burzh_auth", MODE_PRIVATE)
+                .getString("yandex_oauth_token", "")
+                .trim();
+
         Window w = getWindow();
         w.setStatusBarColor(Color.BLACK);
         w.setNavigationBarColor(Color.BLACK);
@@ -112,7 +117,13 @@ public class MainActivity extends Activity {
         setContentView(webView);
 
         webView.loadUrl("file:///android_asset/index.html");
-        main.postDelayed(this::loadPlaylist, 500);
+        main.postDelayed(() -> {
+            if (accessToken.isEmpty()) {
+                emitAuthRequired("CONNECT YANDEX");
+            } else {
+                loadAlbum();
+            }
+        }, 500);
         main.post(progressTicker);
     }
 
@@ -177,50 +188,67 @@ public class MainActivity extends Activity {
         } catch (Throwable ignored) {}
     }
 
-    private void loadPlaylist() {
-        emitSimple("status", "LOADING PLAYLIST");
+    private void loadAlbum() {
+        if (accessToken.isEmpty()) {
+            emitAuthRequired("CONNECT YANDEX");
+            return;
+        }
+
+        emitSimple("status", "LOADING LO-FI");
         executor.execute(() -> {
             try {
-                JSONObject json = getJson(API + "/playlist/" + PLAYLIST_UUID);
+                JSONObject json = getJson(API + "/albums/" + ALBUM_ID + "/with-tracks");
                 JSONObject result = json.optJSONObject("result");
                 if (result == null) result = json;
-                JSONArray arr = result.optJSONArray("tracks");
-                if (arr == null) throw new Exception("Playlist is unavailable");
+
+                JSONArray volumes = result.optJSONArray("volumes");
+                if (volumes == null) throw new Exception("Album tracks unavailable");
 
                 synchronized (tracks) {
                     tracks.clear();
-                    for (int i = 0; i < arr.length(); i++) {
-                        JSONObject entry = arr.optJSONObject(i);
-                        if (entry == null) continue;
-                        JSONObject t = entry.optJSONObject("track");
-                        if (t == null) t = entry;
 
-                        String id = t.optString("id", "");
-                        if (id.isEmpty()) id = t.optString("trackId", "");
-                        if (id.isEmpty()) continue;
+                    for (int disc = 0; disc < volumes.length(); disc++) {
+                        JSONArray volume = volumes.optJSONArray(disc);
+                        if (volume == null) continue;
 
-                        String title = t.optString("title", "Unknown track");
-                        String artist = "Unknown artist";
-                        JSONArray artists = t.optJSONArray("artists");
-                        if (artists != null && artists.length() > 0) {
-                            JSONObject a = artists.optJSONObject(0);
-                            if (a != null) artist = a.optString("name", artist);
+                        for (int i = 0; i < volume.length(); i++) {
+                            JSONObject t = volume.optJSONObject(i);
+                            if (t == null) continue;
+
+                            String id = t.optString("id", "");
+                            if (id.isEmpty()) id = t.optString("trackId", "");
+                            if (id.isEmpty()) continue;
+
+                            String title = t.optString("title", "Unknown track");
+                            String artist = "Unknown artist";
+                            JSONArray artists = t.optJSONArray("artists");
+                            if (artists != null && artists.length() > 0) {
+                                JSONObject a = artists.optJSONObject(0);
+                                if (a != null) artist = a.optString("name", artist);
+                            }
+
+                            tracks.add(new Track(id, title, artist));
                         }
-                        tracks.add(new Track(id, title, artist));
                     }
+
                     if (currentIndex >= tracks.size()) currentIndex = 0;
                 }
 
+                if (tracks.isEmpty()) throw new Exception("Album is empty");
+
                 JSONObject s = baseState();
-                s.put("status", tracks.isEmpty() ? "PLAYLIST EMPTY" : "READY");
+                s.put("status", "READY");
                 s.put("count", tracks.size());
+                s.put("connected", true);
                 addCurrentTrack(s);
                 emitState(s);
             } catch (Exception e) {
                 JSONObject s = baseState();
                 try {
-                    s.put("status", "PLAYLIST ERROR");
+                    s.put("status", "YANDEX AUTH REQUIRED");
                     s.put("error", e.getMessage());
+                    s.put("authRequired", true);
+                    s.put("connected", false);
                 } catch (Exception ignored) {}
                 emitState(s);
             }
@@ -231,7 +259,8 @@ public class MainActivity extends Activity {
         Track track;
         synchronized (tracks) {
             if (tracks.isEmpty()) {
-                loadPlaylist();
+                if (accessToken.isEmpty()) emitAuthRequired("CONNECT YANDEX");
+                else loadAlbum();
                 return;
             }
             track = tracks.get(currentIndex);
@@ -288,24 +317,42 @@ public class MainActivity extends Activity {
     }
 
     private String resolveStreamUrl(String trackId) throws Exception {
+        if (accessToken.isEmpty()) throw new Exception("Yandex authorization required");
+
         JSONObject infoJson = getJson(API + "/tracks/" + trackId + "/download-info");
         JSONArray infos = infoJson.optJSONArray("result");
         if (infos == null || infos.length() == 0) throw new Exception("No audio variants");
 
         JSONObject best = null;
+        int bestScore = Integer.MIN_VALUE;
+
         for (int i = 0; i < infos.length(); i++) {
             JSONObject x = infos.optJSONObject(i);
             if (x == null) continue;
-            if (!"mp3".equalsIgnoreCase(x.optString("codec", ""))) continue;
-            if (best == null || x.optInt("bitrateInKbps", 0) > best.optInt("bitrateInKbps", 0)) best = x;
+
+            // Never use preview/shortened streams.
+            if (x.optBoolean("preview", true)) continue;
+
+            String codec = x.optString("codec", "");
+            int bitrate = x.optInt("bitrateInKbps", 0);
+            int score = bitrate;
+            if ("mp3".equalsIgnoreCase(codec)) score += 10000;
+
+            if (best == null || score > bestScore) {
+                best = x;
+                bestScore = score;
+            }
         }
-        if (best == null) best = infos.optJSONObject(0);
-        if (best == null) throw new Exception("No playable variant");
+
+        if (best == null) throw new Exception("Full track is unavailable for this account");
 
         String xmlUrl = best.optString("downloadInfoUrl", "");
-        if (xmlUrl.isEmpty()) throw new Exception("Missing download URL");
+        if (xmlUrl.isEmpty()) xmlUrl = best.optString("download_info_url", "");
+        if (xmlUrl.isEmpty()) throw new Exception("Missing full-track URL");
 
         HttpURLConnection c = open(xmlUrl);
+        if (!accessToken.isEmpty()) c.setRequestProperty("Authorization", "OAuth " + accessToken);
+
         try (InputStream in = c.getInputStream()) {
             Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(in);
             String host = doc.getElementsByTagName("host").item(0).getTextContent();
@@ -323,6 +370,9 @@ public class MainActivity extends Activity {
         HttpURLConnection c = open(address);
         c.setRequestProperty("X-Yandex-Music-Client", CLIENT_HEADER);
         c.setRequestProperty("Accept-Language", "ru");
+        if (!accessToken.isEmpty()) {
+            c.setRequestProperty("Authorization", "OAuth " + accessToken);
+        }
         int status = c.getResponseCode();
         String text = readAll(status >= 400 ? c.getErrorStream() : c.getInputStream());
         c.disconnect();
@@ -358,7 +408,8 @@ public class MainActivity extends Activity {
         JSONObject s = new JSONObject();
         try {
             s.put("station", "Lo-Fi");
-            s.put("playlistUuid", PLAYLIST_UUID);
+            s.put("albumId", ALBUM_ID);
+            s.put("connected", !accessToken.isEmpty());
             s.put("playing", player != null && prepared && player.isPlaying());
         } catch (Exception ignored) {}
         return s;
@@ -375,6 +426,16 @@ public class MainActivity extends Activity {
                 } catch (Exception ignored) {}
             }
         }
+    }
+
+    private void emitAuthRequired(String message) {
+        JSONObject s = baseState();
+        try {
+            s.put("status", message);
+            s.put("authRequired", true);
+            s.put("connected", false);
+        } catch (Exception ignored) {}
+        emitState(s);
     }
 
     private void emitSimple(String key, String value) {
@@ -442,7 +503,36 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void next() { nextTrack(); }
         @JavascriptInterface public void previous() { previousTrack(); }
-        @JavascriptInterface public void reload() { loadPlaylist(); }
+        @JavascriptInterface public void reload() { loadAlbum(); }
+
+        @JavascriptInterface public void saveYandexToken(String token) {
+            if (token == null) return;
+            String clean = token.trim();
+            if (clean.startsWith("OAuth ")) clean = clean.substring(6).trim();
+            if (clean.length() < 10) {
+                emitAuthRequired("TOKEN REQUIRED");
+                return;
+            }
+
+            accessToken = clean;
+            getSharedPreferences("burzh_auth", MODE_PRIVATE)
+                    .edit()
+                    .putString("yandex_oauth_token", accessToken)
+                    .apply();
+            loadAlbum();
+        }
+
+        @JavascriptInterface public void clearYandexToken() {
+            accessToken = "";
+            synchronized (tracks) { tracks.clear(); }
+            releasePlayer();
+            getSharedPreferences("burzh_auth", MODE_PRIVATE)
+                    .edit()
+                    .remove("yandex_oauth_token")
+                    .apply();
+            emitAuthRequired("CONNECT YANDEX");
+        }
+
         @JavascriptInterface public void feedback(String kind) {
             main.post(() -> {
                 vibrateClick(kind);
