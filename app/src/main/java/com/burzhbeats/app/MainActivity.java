@@ -5,9 +5,13 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -47,6 +51,8 @@ public class MainActivity extends Activity {
     private MediaPlayer player;
     private int currentIndex = 0;
     private boolean prepared = false;
+    private ToneGenerator toneGenerator;
+    private Vibrator vibrator;
 
     private final Runnable progressTicker = new Runnable() {
         @Override public void run() {
@@ -66,6 +72,9 @@ public class MainActivity extends Activity {
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        toneGenerator = new ToneGenerator(AudioManager.STREAM_SYSTEM, 38);
+        vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
         Window w = getWindow();
         w.setStatusBarColor(Color.BLACK);
@@ -332,6 +341,7 @@ public class MainActivity extends Activity {
         main.removeCallbacks(progressTicker);
         releasePlayer();
         executor.shutdownNow();
+        if (toneGenerator != null) { try { toneGenerator.release(); } catch (Exception ignored) {} toneGenerator = null; }
         if (webView != null) webView.destroy();
         super.onDestroy();
     }
@@ -350,6 +360,26 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void next() { nextTrack(); }
         @JavascriptInterface public void previous() { previousTrack(); }
         @JavascriptInterface public void reload() { loadPlaylist(); }
+        @JavascriptInterface public void feedback(String kind) {
+            main.post(() -> {
+                try {
+                    int duration = ("station".equals(kind) || "next".equals(kind) || "previous".equals(kind)) ? 20 : 12;
+                    int amplitude = ("play".equals(kind)) ? 145 : 105;
+                    if (vibrator != null && vibrator.hasVibrator()) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude));
+                    }
+                } catch (Exception ignored) {}
+
+                try {
+                    if (toneGenerator != null) {
+                        int tone = ("next".equals(kind) || "previous".equals(kind) || "station".equals(kind))
+                                ? ToneGenerator.TONE_PROP_BEEP2
+                                : ToneGenerator.TONE_PROP_BEEP;
+                        toneGenerator.startTone(tone, 24);
+                    }
+                } catch (Exception ignored) {}
+            });
+        }
     }
 
     private static class Track {
