@@ -42,7 +42,8 @@ import java.util.concurrent.Executors;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 public class MainActivity extends Activity {
-    private static final String ALBUM_ID = "41987524";
+    private static final String LOFI_ALBUM_ID = "41987524";
+    private static final String FUTURE_GARAGE_ALBUM_ID = "23384649";
     private static final String API = "https://api.music.yandex.net";
     private static final String CLIENT_HEADER = "YandexMusicAndroid/24023621";
     private static final String SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA";
@@ -59,6 +60,9 @@ public class MainActivity extends Activity {
     private AudioTrack clickSoft;
     private AudioTrack clickNav;
     private String accessToken = "";
+    private String currentStation = "Lo-Fi";
+    private String currentAlbumId = LOFI_ALBUM_ID;
+    private int sourceGeneration = 0;
 
     private final Runnable progressTicker = new Runnable() {
         @Override public void run() {
@@ -189,66 +193,85 @@ public class MainActivity extends Activity {
     }
 
     private void loadAlbum() {
+        loadAlbum(false);
+    }
+
+    private void loadAlbum(boolean autoPlay) {
         if (accessToken.isEmpty()) {
             emitAuthRequired("CONNECT YANDEX");
             return;
         }
 
-        emitSimple("status", "LOADING LO-FI");
+        final int generation = ++sourceGeneration;
+        final String albumId = currentAlbumId;
+        final String station = currentStation;
+
+        emitSimple("status", "LOADING " + station.toUpperCase(Locale.US));
+
         executor.execute(() -> {
             try {
-                JSONObject json = getJson(API + "/albums/" + ALBUM_ID + "/with-tracks");
+                JSONObject json = getJson(API + "/albums/" + albumId + "/with-tracks");
                 JSONObject result = json.optJSONObject("result");
                 if (result == null) result = json;
 
                 JSONArray volumes = result.optJSONArray("volumes");
                 if (volumes == null) throw new Exception("Album tracks unavailable");
 
-                synchronized (tracks) {
-                    tracks.clear();
+                List<Track> loaded = new ArrayList<>();
+                for (int disc = 0; disc < volumes.length(); disc++) {
+                    JSONArray volume = volumes.optJSONArray(disc);
+                    if (volume == null) continue;
 
-                    for (int disc = 0; disc < volumes.length(); disc++) {
-                        JSONArray volume = volumes.optJSONArray(disc);
-                        if (volume == null) continue;
+                    for (int i = 0; i < volume.length(); i++) {
+                        JSONObject t = volume.optJSONObject(i);
+                        if (t == null) continue;
 
-                        for (int i = 0; i < volume.length(); i++) {
-                            JSONObject t = volume.optJSONObject(i);
-                            if (t == null) continue;
+                        String id = t.optString("id", "");
+                        if (id.isEmpty()) id = t.optString("trackId", "");
+                        if (id.isEmpty()) continue;
 
-                            String id = t.optString("id", "");
-                            if (id.isEmpty()) id = t.optString("trackId", "");
-                            if (id.isEmpty()) continue;
-
-                            String title = t.optString("title", "Unknown track");
-                            String artist = "Unknown artist";
-                            JSONArray artists = t.optJSONArray("artists");
-                            if (artists != null && artists.length() > 0) {
-                                JSONObject a = artists.optJSONObject(0);
-                                if (a != null) artist = a.optString("name", artist);
-                            }
-
-                            tracks.add(new Track(id, title, artist));
+                        String title = t.optString("title", "Unknown track");
+                        String artist = "Unknown artist";
+                        JSONArray artists = t.optJSONArray("artists");
+                        if (artists != null && artists.length() > 0) {
+                            JSONObject a = artists.optJSONObject(0);
+                            if (a != null) artist = a.optString("name", artist);
                         }
-                    }
 
-                    if (currentIndex >= tracks.size()) currentIndex = 0;
+                        loaded.add(new Track(id, title, artist));
+                    }
                 }
 
-                if (tracks.isEmpty()) throw new Exception("Album is empty");
+                if (loaded.isEmpty()) throw new Exception("Album is empty");
+                if (generation != sourceGeneration) return;
+
+                synchronized (tracks) {
+                    tracks.clear();
+                    tracks.addAll(loaded);
+                    currentIndex = 0;
+                }
 
                 JSONObject s = baseState();
                 s.put("status", "READY");
                 s.put("count", tracks.size());
                 s.put("connected", true);
+                s.put("switching", false);
                 addCurrentTrack(s);
                 emitState(s);
+
+                if (autoPlay) {
+                    main.postDelayed(() -> {
+                        if (generation == sourceGeneration) playCurrent();
+                    }, 110);
+                }
             } catch (Exception e) {
+                if (generation != sourceGeneration) return;
                 JSONObject s = baseState();
                 try {
-                    s.put("status", "YANDEX AUTH REQUIRED");
+                    s.put("status", "SOURCE ERROR");
                     s.put("error", e.getMessage());
-                    s.put("authRequired", true);
-                    s.put("connected", false);
+                    s.put("connected", !accessToken.isEmpty());
+                    s.put("switching", false);
                 } catch (Exception ignored) {}
                 emitState(s);
             }
@@ -260,7 +283,7 @@ public class MainActivity extends Activity {
         synchronized (tracks) {
             if (tracks.isEmpty()) {
                 if (accessToken.isEmpty()) emitAuthRequired("CONNECT YANDEX");
-                else loadAlbum();
+                else loadAlbum(true);
                 return;
             }
             track = tracks.get(currentIndex);
@@ -294,7 +317,9 @@ public class MainActivity extends Activity {
             player.setDataSource(streamUrl);
             player.setOnPreparedListener(mp -> {
                 prepared = true;
+                try { mp.setVolume(0f, 0f); } catch (Exception ignored) {}
                 mp.start();
+                fadeVolume(mp, 0f, 1f, 360);
                 JSONObject s = baseState();
                 try {
                     s.put("status", "PLAYING");
@@ -314,6 +339,97 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             emitSimple("status", "PLAYBACK ERROR");
         }
+    }
+
+    private void fadeVolume(MediaPlayer mp, float from, float to, int durationMs) {
+        final int steps = 12;
+        final int stepMs = Math.max(12, durationMs / steps);
+
+        for (int i = 0; i <= steps; i++) {
+            final int step = i;
+            main.postDelayed(() -> {
+                try {
+                    if (mp != player) return;
+                    float t = step / (float) steps;
+                    float value = from + (to - from) * t;
+                    mp.setVolume(value, value);
+                } catch (Exception ignored) {}
+            }, (long) step * stepMs);
+        }
+    }
+
+    private void fadeOutThen(Runnable done) {
+        final MediaPlayer mp = player;
+        if (mp == null || !prepared) {
+            done.run();
+            return;
+        }
+
+        final int steps = 8;
+        final int stepMs = 24;
+
+        for (int i = 0; i <= steps; i++) {
+            final int step = i;
+            main.postDelayed(() -> {
+                try {
+                    if (mp != player) return;
+                    float value = 1f - (step / (float) steps);
+                    mp.setVolume(value, value);
+                } catch (Exception ignored) {}
+
+                if (step == steps) done.run();
+            }, (long) step * stepMs);
+        }
+    }
+
+    private void switchStation(String key) {
+        String station;
+        String albumId;
+
+        if ("lofi".equals(key)) {
+            station = "Lo-Fi";
+            albumId = LOFI_ALBUM_ID;
+        } else if ("futureGarage".equals(key)) {
+            station = "Future Garage";
+            albumId = FUTURE_GARAGE_ALBUM_ID;
+        } else {
+            JSONObject s = baseState();
+            try {
+                s.put("status", "COMING SOON");
+                s.put("unavailableStation", key);
+            } catch (Exception ignored) {}
+            emitState(s);
+            return;
+        }
+
+        if (station.equals(currentStation) && albumId.equals(currentAlbumId)) {
+            emitSimple("status", "READY");
+            return;
+        }
+
+        final boolean resumePlayback = player != null && prepared && player.isPlaying();
+
+        currentStation = station;
+        currentAlbumId = albumId;
+        currentIndex = 0;
+        sourceGeneration++;
+
+        JSONObject switchingState = baseState();
+        try {
+            switchingState.put("status", "SWITCHING");
+            switchingState.put("switching", true);
+            switchingState.put("title", station);
+            switchingState.put("artist", "BURZH beats");
+        } catch (Exception ignored) {}
+        emitState(switchingState);
+
+        fadeOutThen(() -> {
+            releasePlayer();
+            synchronized (tracks) {
+                tracks.clear();
+            }
+            loadAlbum(resumePlayback);
+        });
     }
 
     private String resolveStreamUrl(String trackId) throws Exception {
@@ -407,8 +523,8 @@ public class MainActivity extends Activity {
     private JSONObject baseState() {
         JSONObject s = new JSONObject();
         try {
-            s.put("station", "Lo-Fi");
-            s.put("albumId", ALBUM_ID);
+            s.put("station", currentStation);
+            s.put("albumId", currentAlbumId);
             s.put("connected", !accessToken.isEmpty());
             s.put("playing", player != null && prepared && player.isPlaying());
         } catch (Exception ignored) {}
@@ -503,7 +619,11 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void next() { nextTrack(); }
         @JavascriptInterface public void previous() { previousTrack(); }
-        @JavascriptInterface public void reload() { loadAlbum(); }
+        @JavascriptInterface public void reload() { loadAlbum(false); }
+
+        @JavascriptInterface public void selectStation(String stationKey) {
+            main.post(() -> switchStation(stationKey));
+        }
 
         @JavascriptInterface public void saveYandexToken(String token) {
             if (token == null) return;
