@@ -8,17 +8,12 @@ import android.media.MediaPlayer;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.Bundle;
-import android.os.Build;
-import android.content.res.Configuration;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.View;
-import android.view.WindowInsets;
-import android.view.WindowInsetsController;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -78,20 +73,27 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        toneGenerator = new ToneGenerator(AudioManager.STREAM_SYSTEM, 38);
-        vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+        try {
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_SYSTEM, 38);
+        } catch (Throwable ignored) {
+            toneGenerator = null;
+        }
+        try {
+            vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+        } catch (Throwable ignored) {
+            vibrator = null;
+        }
 
         Window w = getWindow();
         w.setStatusBarColor(Color.BLACK);
         w.setNavigationBarColor(Color.BLACK);
         w.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        updateSystemBars();
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.BLACK);
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
-        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        webView.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
@@ -102,41 +104,6 @@ public class MainActivity extends Activity {
         webView.loadUrl("file:///android_asset/index.html");
         main.postDelayed(this::loadPlaylist, 500);
         main.post(progressTicker);
-    }
-
-    private void updateSystemBars() {
-        boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
-        Window w = getWindow();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsetsController controller = w.getInsetsController();
-            if (controller != null) {
-                if (landscape) {
-                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                    controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                } else {
-                    controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                }
-            }
-        } else {
-            View decor = w.getDecorView();
-            if (landscape) {
-                decor.setSystemUiVisibility(
-                        View.SYSTEM_UI_FLAG_FULLSCREEN
-                                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-            } else {
-                decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-            }
-        }
-    }
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        updateSystemBars();
     }
 
     private void loadPlaylist() {
