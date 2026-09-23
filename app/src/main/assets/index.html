@@ -68,16 +68,36 @@
 .l-artist{font:400 13px/1.1 Plex;margin-top:5px;color:#d0d1cb}
 
 .l-art{
-  position:absolute;left:359px;top:76px;width:132px;height:132px;
-  border-radius:12px;background-image:var(--art);background-size:cover;background-position:center;
-  animation:float 10s ease-in-out infinite
+  position:absolute;left:346px;top:67px;width:150px;height:150px;
+  border-radius:14px;background-image:var(--art);background-size:cover;background-position:center;
+  transform-origin:50% 50%;
+  animation:artSpin 38s linear infinite;
+  animation-play-state:paused;
+  box-shadow:0 0 0 1px rgba(255,255,255,.035)
 }
-.l-side{
-  position:absolute;left:516px;top:105px;width:43px;
-  font:400 6.4px/1.42 Plex;letter-spacing:.095em;color:#aaa;text-transform:uppercase;
-  white-space:normal;overflow:visible
+.l-art.playing-art{animation-play-state:running}
+.l-genre-menu{
+  position:absolute;left:510px;top:69px;width:69px;height:151px;
+  border:1px solid #333532;border-radius:15px;
+  background:linear-gradient(180deg,#050606 0%,#090a0a 52%,#050606 100%);
+  box-shadow:0 0 24px rgba(0,0,0,.34);
+  padding:10px 7px;
+  display:flex;flex-direction:column;gap:5px;justify-content:center
 }
-.l-side .smallrule{width:24px;margin-top:14px}
+.l-genre-btn{
+  position:relative;width:100%;min-height:26px;
+  border:1px solid transparent;border-radius:8px;
+  color:#81827d;
+  font:400 5.7px/1.05 Plex;letter-spacing:.06em;text-transform:uppercase;
+  text-align:left;padding:5px 5px 5px 13px;
+  transition:.22s cubic-bezier(.2,.8,.2,1)
+}
+.l-genre-btn:before{
+  content:"";position:absolute;left:5px;top:50%;width:4px;height:4px;margin-top:-2px;border-radius:50%;background:#555650
+}
+.l-genre-btn.active{color:#efefe9;border-color:#555650;background:#0d0e0e}
+.l-genre-btn.active:before{background:var(--red);box-shadow:0 0 7px rgba(255,59,48,.7)}
+.l-genre-btn.off{opacity:.42}
 
 .l-progress{position:absolute;left:73px;top:247px;width:462px}
 .l-progress .times{font-size:9px}
@@ -98,14 +118,14 @@
 .l-controls .big svg{width:31px;height:31px}
 
 .matrix{
-  position:absolute;left:519px;top:294px;
-  display:grid;grid-template-columns:repeat(6,3px);gap:7px
+  position:absolute;left:512px;top:289px;
+  display:grid;grid-template-columns:repeat(6,4px);gap:7px
 }
-.matrix i{width:3px;height:3px;border-radius:50%;background:#777}
-.matrix i.hot{background:var(--red);animation:pulse 2.2s infinite}
+.matrix i{width:4px;height:4px;border-radius:50%;background:#747570;transition:.24s ease}
+.matrix i.hot{background:var(--red);box-shadow:0 0 8px rgba(255,59,48,.68);animation:matrixPulse 1.9s ease-in-out infinite}
 .pressflash{position:absolute;border:1px solid rgba(255,255,255,0);border-radius:50%;pointer-events:none;opacity:0;transform:scale(.9)}.pressflash.on{animation:tapflash .22s}
 .swap{animation:swap .28s cubic-bezier(.2,.8,.2,1)}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.25)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}@keyframes stationGlow{0%{opacity:.55;transform:scale(.975)}55%{opacity:1;transform:scale(1.015)}100%{transform:scale(1)}}@keyframes float{0%,100%{transform:scale(1)}50%{transform:scale(1.008)}}@keyframes colonBreath{0%,100%{opacity:.82;transform:scale(1);box-shadow:0 0 0 rgba(255,255,255,0)}50%{opacity:.42;transform:scale(.9);box-shadow:0 0 8px rgba(255,255,255,.12)}}@keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}@keyframes swap{0%{opacity:.2;transform:translateY(5px)}100%{opacity:1;transform:none}}@keyframes tapflash{0%{opacity:.6;transform:scale(.88);border-color:rgba(255,255,255,.45)}100%{opacity:0;transform:scale(1.07);border-color:rgba(255,255,255,0)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.25)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}@keyframes matrixPulse{0%,100%{transform:scale(.92);opacity:.72}50%{transform:scale(1.22);opacity:1}}@keyframes artSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@keyframes stationGlow{0%{opacity:.55;transform:scale(.975)}55%{opacity:1;transform:scale(1.015)}100%{transform:scale(1)}}@keyframes float{0%,100%{transform:scale(1)}50%{transform:scale(1.008)}}@keyframes colonBreath{0%,100%{opacity:.82;transform:scale(1);box-shadow:0 0 0 rgba(255,255,255,0)}50%{opacity:.42;transform:scale(.9);box-shadow:0 0 8px rgba(255,255,255,.12)}}@keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}@keyframes swap{0%{opacity:.2;transform:translateY(5px)}100%{opacity:1;transform:none}}@keyframes tapflash{0%{opacity:.6;transform:scale(.88);border-color:rgba(255,255,255,.45)}100%{opacity:0;transform:scale(1.07);border-color:rgba(255,255,255,0)}}
 @media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
 
 .auth-overlay{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.86);backdrop-filter:blur(8px)}
@@ -147,7 +167,13 @@
 <div class="l-brand">BURZH beats</div><div class="l-topline"></div><div class="l-motto">GOOD MUSIC<br>BETTER DAYS&nbsp;&nbsp;■</div>
 <div class="clock" id="clock"><span id="hh">22</span><span class="soft-colon"><i></i><i></i></span><span id="mm">10</span></div>
 <div class="l-now"><span class="reddot"></span><div><div class="stationname" id="landStation">Lo-Fi</div><div class="l-title" id="landTitle">Lo-Fi</div><div class="l-artist" id="landArtist">BURZH beats</div></div></div>
-<div class="l-art"></div><div class="l-side">SOUND<br>CONNECTS<br>US<div class="smallrule"></div></div>
+<div class="l-art" id="landArt"></div>
+<div class="l-genre-menu">
+  <button class="l-genre-btn" data-station="Future Garage" onclick="landStationTap(this,'futureGarage',true)">FUTURE<br>GARAGE</button>
+  <button class="l-genre-btn active" data-station="Lo-Fi" onclick="landStationTap(this,'lofi',true)">LO-FI</button>
+  <button class="l-genre-btn off" data-station="Deep House" onclick="landStationTap(this,'deepHouse',false)">DEEP<br>HOUSE</button>
+  <button class="l-genre-btn off" data-station="Trance" onclick="landStationTap(this,'trance',false)">TRANCE</button>
+</div>
 <div class="l-progress"><div class="bar"><div class="rail"></div><div class="fill" id="landFill"></div><div class="knob" id="landKnob"></div></div><div class="times"><span id="landElapsed">1:42</span><span id="landRemaining">-3:28</span></div></div>
 <div class="l-caption">A HIGHER<br>STATE THROUGH<br>SOUND<div class="smallrule"></div></div>
 <div class="l-controls">
@@ -155,7 +181,7 @@
 <button class="ctrl big" id="landPlayBtn" onclick="tap('play',this)"><svg class="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
 <button class="ctrl sm" onclick="tap('next',this)"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
 </div>
-<div class="matrix"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="hot"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+<div class="matrix"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 </div>
 </section>
 <div class="auth-overlay" id="authOverlay">
@@ -194,6 +220,16 @@ function stationTap(el,key,available){
   setTimeout(()=>el.classList.remove('switching'),520);
   try{AndroidBridge.selectStation(key)}catch(e){}
 }
+function landStationTap(el,key,available){
+  feedback('station');
+  if(!available){
+    el.animate([{opacity:.42},{opacity:.85},{opacity:.42}],{duration:260,easing:'ease-out'});
+    return;
+  }
+  document.querySelectorAll('.l-genre-btn').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  try{AndroidBridge.selectStation(key)}catch(e){}
+}
 function scaleLandscape(){
   const canvas=$('lCanvas'); if(!canvas)return;
   const sx=window.innerWidth/594, sy=window.innerHeight/376;
@@ -209,6 +245,7 @@ if(s.authRequired){openAuth()}else if(s.connected){closeAuth();$('tokenInput').v
 if(s.station){
   const ls=$('landStation'); if(ls) ls.textContent=s.station;
   document.querySelectorAll('.station').forEach(btn=>btn.classList.toggle('active',btn.dataset.station===s.station));
+  document.querySelectorAll('.l-genre-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.station===s.station));
 }
 if(s.switching){
   ['title','artist','landTitle','landArtist'].forEach(id=>{const e=$(id);if(e){e.style.opacity='.5'}});
@@ -216,6 +253,20 @@ if(s.switching){
   ['title','artist','landTitle','landArtist'].forEach(id=>{const e=$(id);if(e){e.style.opacity=''}});
 }
 if(s.title){if(s.title!==last){last=s.title;['title','artist','landTitle','landArtist'].forEach(id=>{let e=$(id);e.classList.remove('swap');void e.offsetWidth;e.classList.add('swap')})}$('title').textContent=s.title;$('landTitle').textContent=s.title}if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
-let d=s.durationMs||0,p=s.positionMs||0,r=d?Math.max(0,Math.min(1,p/d)):0;['fill','landFill'].forEach(id=>$(id).style.width=(r*100)+'%');['knob','landKnob'].forEach(id=>$(id).style.left=(r*100)+'%');$('elapsed').textContent=$('landElapsed').textContent=fmt(p);$('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,d-p));$('playBtn').classList.toggle('is-playing',!!s.playing);$('landPlayBtn').classList.toggle('is-playing',!!s.playing)}};
+let d=s.durationMs||0,p=s.positionMs||0,r=d?Math.max(0,Math.min(1,p/d)):0;
+['fill','landFill'].forEach(id=>$(id).style.width=(r*100)+'%');
+['knob','landKnob'].forEach(id=>$(id).style.left=(r*100)+'%');
+$('elapsed').textContent=$('landElapsed').textContent=fmt(p);
+$('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,d-p));
+$('playBtn').classList.toggle('is-playing',!!s.playing);
+$('landPlayBtn').classList.toggle('is-playing',!!s.playing);
+const art=$('landArt'); if(art) art.classList.toggle('playing-art',!!s.playing);
+const dots=document.querySelectorAll('.matrix i');
+if(dots.length){
+  dots.forEach(x=>x.classList.remove('hot'));
+  const idx=Math.max(0,Number(s.index)||0)%dots.length;
+  dots[idx].classList.add('hot');
+}
+}};
 </script>
 </body></html>
