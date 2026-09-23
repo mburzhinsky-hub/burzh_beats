@@ -15,4 +15,5 @@ The Android app is a small native shell:
 - local HTML/CSS/JS UI in `android_asset`
 - native Yandex Music HTTP integration
 - Android `MediaPlayer` playback
-- OAuth Device Flow for user authorization
+
+Build trigger: 2026-09-23
