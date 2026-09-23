@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BURZH beats</title>
+<style>
+:root{--bg:#050606;--fg:#efefeb;--muted:#90908b;--line:#5b5b57;--red:#ff3b30}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--fg);font-family:"Courier New",ui-monospace,monospace;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0}
+.app{height:100%;padding:max(22px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:18px}
+.top{display:flex;justify-content:space-between;align-items:flex-start}
+.logo{font-size:28px;line-height:.9;letter-spacing:2px;font-weight:400}
+.logo span{display:block}
+.micro{font-size:10px;letter-spacing:1.4px;line-height:1.3;color:#aaa}
+.dot{display:inline-block;width:7px;height:7px;background:var(--red);border-radius:50%}
+.stations{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.station{min-height:108px;border:1px solid #42423f;border-radius:13px;padding:14px 8px 11px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:9px;position:relative}
+.station.active{border-color:#efefeb}
+.station .label{font-size:13px;text-align:center;line-height:1.05}
+.station .mini-dot{width:6px;height:6px;border-radius:50%;background:#62625f;position:absolute;bottom:8px}
+.station.active .mini-dot{background:var(--red)}
+.icon{height:29px;width:38px;position:relative}
+.icon.dots{background:radial-gradient(circle,#ddd 1.35px,transparent 1.6px);background-size:6px 6px;border-radius:50%}
+.icon.wave:before{content:"";position:absolute;left:2px;right:2px;top:13px;height:1px;background:#ddd;box-shadow:5px -7px 0 #ddd,10px -12px 0 #ddd,15px -5px 0 #ddd,20px 7px 0 #ddd,25px -10px 0 #ddd,30px -3px 0 #ddd}
+.icon.rings:before,.icon.rings:after{content:"";position:absolute;width:23px;height:23px;border:1px solid #ddd;border-radius:50%;top:2px}
+.icon.rings:before{left:3px}.icon.rings:after{right:3px}
+.icon.tri{width:0;height:0;border-left:17px solid transparent;border-right:17px solid transparent;border-bottom:30px solid #ddd}
+.icon.tri:after{content:"";position:absolute;left:-14px;top:4px;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:24px solid var(--bg)}
+.core{display:grid;grid-template-columns:54px 1fr 54px;gap:14px;align-items:center;min-height:0;flex:1}
+.side{font-size:8px;line-height:1.35;color:#a9a9a4;letter-spacing:1px}
+.art{width:min(56vw,340px);aspect-ratio:1;margin:auto;border:1px solid #555;border-radius:16px;position:relative;overflow:hidden;background:radial-gradient(circle at 57% 48%,#333 0,#1e1f1f 36%,#0b0c0c 37%,#060707 59%)}
+.art:before{content:"";position:absolute;left:-10%;top:49%;width:120%;height:1px;background:#c9c9c4;transform:rotate(-42deg)}
+.art:after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;background:var(--red);left:73%;top:34%;box-shadow:0 0 14px rgba(255,59,48,.5)}
+.track{display:flex;align-items:end;justify-content:space-between;gap:10px}
+.title{font-size:22px;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artist{font-size:15px;color:#c3c3be;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status{font-size:9px;letter-spacing:1px;color:#969691;text-align:right;max-width:110px}
+.progress{height:22px;position:relative;margin-top:2px}
+.rail{position:absolute;left:0;right:0;top:10px;height:2px;background:#555}
+.fill{position:absolute;left:0;top:10px;height:2px;width:0;background:#eee}
+.knob{position:absolute;left:0;top:6px;width:10px;height:10px;border-radius:50%;background:#eee;transform:translateX(-5px)}
+.times{display:flex;justify-content:space-between;font-size:10px;color:#c0c0bb;margin-top:-2px}
+.controls{display:flex;justify-content:center;align-items:center;gap:28px;margin-top:2px}
+.ctrl{width:70px;height:70px;border:1px solid #777;border-radius:50%;display:grid;place-items:center;font-size:28px}
+.ctrl.main{width:92px;height:92px;border-color:#ddd;font-size:31px}
+.foot{display:flex;justify-content:space-between;font-size:8px;letter-spacing:1px;color:#9d9d98}
+.land{display:none}
+@media(orientation:landscape){
+ .portrait{display:none!important}.land{display:flex}
+ .app{padding:20px 34px;gap:10px}
+ .land{height:100%;flex-direction:column}
+ .land-top{display:flex;justify-content:space-between;font-size:10px;letter-spacing:1.2px;color:#aaa}
+ .land-body{flex:1;display:grid;grid-template-columns:1.35fr .65fr;gap:28px;align-items:center}
+ .clock{font-size:clamp(70px,15vw,170px);line-height:.8;letter-spacing:8px}
+ .land-station{font-size:clamp(20px,3vw,38px);margin-top:25px}
+ .land-track{font-size:18px;margin-top:8px}.land-artist{font-size:15px;color:#aaa;margin-top:4px}
+ .land-art{width:min(30vw,270px);aspect-ratio:1;margin-left:auto}
+ .land-bottom{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+ .land .controls{grid-column:2}
+ .land .progress-wrap{margin-top:10px}
+}
+</style>
+</head>
+<body>
+<div class="portrait app">
+  <div class="top">
+    <div class="logo"><span>BURZH</span><span>beats</span></div>
+    <div class="micro">■ SOUND<br>PEOPLE<br>PLACES<br>MOOD</div>
+  </div>
+
+  <div class="stations">
+    <div class="station"><div class="icon dots"></div><div class="label">Future<br>Garage</div><i class="mini-dot"></i></div>
+    <div class="station active"><div class="icon wave"></div><div class="label">Lo-Fi</div><i class="mini-dot"></i></div>
+    <div class="station"><div class="icon rings"></div><div class="label">Deep<br>House</div><i class="mini-dot"></i></div>
+    <div class="station"><div class="icon tri"></div><div class="label">Trance</div><i class="mini-dot"></i></div>
+  </div>
+
+  <div class="core">
+    <div class="side">BASS<br>ATMOSPHERE<br>RHYTHM<br><br>ALWAYS<br>ON<br>—</div>
+    <div class="art"></div>
+    <div class="side">A<br>HIGHER<br>STATE<br>THROUGH<br>SOUND<br><br>•<br><span style="color:#ff3b30">•</span><br>•</div>
+  </div>
+
+  <div class="track">
+    <div style="min-width:0"><div class="title" id="title">BURZH beats</div><div class="artist" id="artist">Lo-Fi</div></div>
+    <div class="status" id="status">LOADING PLAYLIST</div>
+  </div>
+
+  <div>
+    <div class="progress"><div class="rail"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+    <div class="times"><span id="elapsed">0:00</span><span id="remaining">-0:00</span></div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl" onclick="AndroidBridge.previous()">◀|</button>
+    <button class="ctrl main" id="play" onclick="AndroidBridge.playPause()">▶</button>
+    <button class="ctrl" onclick="AndroidBridge.next()">|▶</button>
+  </div>
+
+  <div class="foot"><span>REPEAT<br>OFF</span><button onclick="AndroidBridge.reload()" style="color:#9d9d98">YANDEX<br>RELOAD</button><span>SHUFFLE<br>OFF</span></div>
+</div>
+
+<div class="land app">
+ <div class="land-top"><span>BURZH beats ─────────────────────</span><span>GOOD MUSIC<br>BETTER DAYS ■</span></div>
+ <div class="land-body">
+   <div>
+     <div class="clock" id="clock">22:10</div>
+     <div class="land-station"><span class="dot"></span>&nbsp; Lo-Fi</div>
+     <div class="land-track" id="landTitle">BURZH beats</div>
+     <div class="land-artist" id="landArtist">Lo-Fi</div>
+   </div>
+   <div class="art land-art"></div>
+ </div>
+ <div class="progress-wrap">
+   <div class="progress"><div class="rail"></div><div class="fill" id="landFill"></div><div class="knob" id="landKnob"></div></div>
+   <div class="times"><span id="landElapsed">0:00</span><span id="landRemaining">-0:00</span></div>
+ </div>
+ <div class="land-bottom">
+   <div class="side">A HIGHER<br>STATE THROUGH<br>SOUND<br>—</div>
+   <div class="controls">
+     <button class="ctrl" onclick="AndroidBridge.previous()">◀|</button>
+     <button class="ctrl main" id="landPlay" onclick="AndroidBridge.playPause()">▶</button>
+     <button class="ctrl" onclick="AndroidBridge.next()">|▶</button>
+   </div>
+   <div class="status" id="landStatus">LOADING PLAYLIST</div>
+ </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=ms=>{ms=Math.max(0,ms||0);const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+function updateClock(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+setInterval(updateClock,1000);updateClock();
+window.BURZH={onState(s){
+ if(s.title){$('title').textContent=s.title;$('landTitle').textContent=s.title}
+ if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
+ if(s.status){$('status').textContent=s.status;$('landStatus').textContent=s.status}
+ const dur=s.durationMs||0,pos=s.positionMs||0,p=dur?Math.max(0,Math.min(1,pos/dur)):0;
+ ['fill','landFill'].forEach(id=>$(id).style.width=(p*100)+'%');
+ ['knob','landKnob'].forEach(id=>$(id).style.left=(p*100)+'%');
+ $('elapsed').textContent=$('landElapsed').textContent=fmt(pos);
+ $('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,dur-pos));
+ $('play').textContent=$('landPlay').textContent=s.playing?'Ⅱ':'▶';
+}};
+</script>
+</body>
+</html>
