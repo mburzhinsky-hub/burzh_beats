@@ -5,7 +5,13 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.media.AudioTrack;
+import android.media.AudioFormat;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.os.VibratorManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Window;
@@ -49,6 +55,9 @@ public class MainActivity extends Activity {
     private MediaPlayer player;
     private int currentIndex = 0;
     private boolean prepared = false;
+    private Vibrator vibrator;
+    private AudioTrack clickSoft;
+    private AudioTrack clickNav;
 
     private final Runnable progressTicker = new Runnable() {
         @Override public void run() {
@@ -68,6 +77,19 @@ public class MainActivity extends Activity {
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        try {
+            if (Build.VERSION.SDK_INT >= 31) {
+                VibratorManager vm = (VibratorManager) getSystemService(VIBRATOR_MANAGER_SERVICE);
+                vibrator = vm != null ? vm.getDefaultVibrator() : null;
+            } else {
+                vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            }
+        } catch (Throwable ignored) {
+            vibrator = null;
+        }
+        try { clickSoft = createClickTrack(2150.0, 18); } catch (Throwable ignored) { clickSoft = null; }
+        try { clickNav = createClickTrack(2850.0, 22); } catch (Throwable ignored) { clickNav = null; }
 
         Window w = getWindow();
         w.setStatusBarColor(Color.BLACK);
@@ -89,6 +111,67 @@ public class MainActivity extends Activity {
         webView.loadUrl("file:///android_asset/index.html");
         main.postDelayed(this::loadPlaylist, 500);
         main.post(progressTicker);
+    }
+
+    private AudioTrack createClickTrack(double frequency, int milliseconds) {
+        final int sampleRate = 22050;
+        int samples = Math.max(128, sampleRate * milliseconds / 1000);
+        byte[] pcm = new byte[samples * 2];
+        for (int i = 0; i < samples; i++) {
+            double envelope = Math.exp(-6.0 * i / Math.max(1.0, samples - 1.0));
+            double transientPart = (i < 10 ? (1.0 - i / 10.0) * 0.55 : 0.0);
+            double tone = Math.sin(2.0 * Math.PI * frequency * i / sampleRate) * 0.36;
+            short value = (short) (32767.0 * envelope * (tone + transientPart));
+            pcm[i * 2] = (byte) (value & 0xff);
+            pcm[i * 2 + 1] = (byte) ((value >> 8) & 0xff);
+        }
+
+        AudioAttributes attrs = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        AudioFormat format = new AudioFormat.Builder()
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setSampleRate(sampleRate)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .build();
+
+        AudioTrack track = new AudioTrack.Builder()
+                .setAudioAttributes(attrs)
+                .setAudioFormat(format)
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .setBufferSizeInBytes(pcm.length)
+                .build();
+        track.write(pcm, 0, pcm.length);
+        return track;
+    }
+
+    private void playClick(AudioTrack track) {
+        if (track == null) return;
+        try {
+            track.pause();
+            track.setPlaybackHeadPosition(0);
+            track.play();
+        } catch (Throwable ignored) {}
+    }
+
+    private void vibrateClick(String kind) {
+        if (vibrator == null || !vibrator.hasVibrator()) return;
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                int effect = VibrationEffect.EFFECT_CLICK;
+                if ("next".equals(kind) || "previous".equals(kind) || "station".equals(kind)) {
+                    effect = VibrationEffect.EFFECT_TICK;
+                } else if ("play".equals(kind)) {
+                    effect = VibrationEffect.EFFECT_HEAVY_CLICK;
+                }
+                vibrator.vibrate(VibrationEffect.createPredefined(effect));
+            } else {
+                int ms = "play".equals(kind) ? 18 : 11;
+                int amp = "play".equals(kind) ? 180 : 125;
+                vibrator.vibrate(VibrationEffect.createOneShot(ms, amp));
+            }
+        } catch (Throwable ignored) {}
     }
 
     private void loadPlaylist() {
@@ -337,6 +420,8 @@ public class MainActivity extends Activity {
         main.removeCallbacks(progressTicker);
         releasePlayer();
         executor.shutdownNow();
+        try { if (clickSoft != null) clickSoft.release(); } catch (Throwable ignored) {}
+        try { if (clickNav != null) clickNav.release(); } catch (Throwable ignored) {}
         if (webView != null) webView.destroy();
         super.onDestroy();
     }
@@ -357,29 +442,20 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void reload() { loadPlaylist(); }
         @JavascriptInterface public void feedback(String kind) {
             main.post(() -> {
-                if (webView == null) return;
-                try {
-                    int haptic = HapticFeedbackConstants.KEYBOARD_TAP;
-                    if ("next".equals(kind) || "previous".equals(kind) || "station".equals(kind)) {
-                        haptic = HapticFeedbackConstants.CLOCK_TICK;
-                    } else if ("play".equals(kind)) {
-                        haptic = HapticFeedbackConstants.VIRTUAL_KEY;
-                    }
-                    webView.performHapticFeedback(
-                            haptic,
-                            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-                    );
-                } catch (Throwable ignored) {}
-
-                try {
-                    int sound = SoundEffectConstants.CLICK;
-                    if ("next".equals(kind) || "station".equals(kind)) {
-                        sound = SoundEffectConstants.NAVIGATION_RIGHT;
-                    } else if ("previous".equals(kind)) {
-                        sound = SoundEffectConstants.NAVIGATION_LEFT;
-                    }
-                    webView.playSoundEffect(sound);
-                } catch (Throwable ignored) {}
+                vibrateClick(kind);
+                if ("next".equals(kind) || "previous".equals(kind) || "station".equals(kind)) {
+                    playClick(clickNav);
+                } else {
+                    playClick(clickSoft);
+                }
+                if (webView != null) {
+                    try {
+                        webView.performHapticFeedback(
+                                "play".equals(kind) ? HapticFeedbackConstants.VIRTUAL_KEY : HapticFeedbackConstants.KEYBOARD_TAP,
+                                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                        );
+                    } catch (Throwable ignored) {}
+                }
             });
         }
     }
