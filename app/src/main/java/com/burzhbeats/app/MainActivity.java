@@ -525,6 +525,10 @@ public class MainActivity extends Activity {
         try {
             s.put("station", currentStation);
             s.put("albumId", currentAlbumId);
+            s.put("index", currentIndex);
+            synchronized (tracks) {
+                s.put("count", tracks.size());
+            }
             s.put("connected", !accessToken.isEmpty());
             s.put("playing", player != null && prepared && player.isPlaying());
         } catch (Exception ignored) {}
