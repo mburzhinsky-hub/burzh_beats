@@ -5,144 +5,434 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>BURZH beats</title>
 <style>
-:root{--bg:#050606;--fg:#efefeb;--muted:#90908b;--line:#5b5b57;--red:#ff3b30}
-*{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;background:var(--bg);color:var(--fg);font-family:"Courier New",ui-monospace,monospace;overflow:hidden}
-button{font:inherit;color:inherit;background:none;border:0}
-.app{height:100%;padding:max(22px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:18px}
-.top{display:flex;justify-content:space-between;align-items:flex-start}
-.logo{font-size:28px;line-height:.9;letter-spacing:2px;font-weight:400}
+@import url('https://fonts.googleapis.com/css2?family=Doto:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+
+:root{
+  --bg:#050606;
+  --panel:#0b0c0c;
+  --fg:#f0f0eb;
+  --fg2:#c9c9c3;
+  --muted:#8c8d87;
+  --line:#555650;
+  --line2:#2f302d;
+  --red:#ff3b30;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg)}
+body{
+  font-family:"IBM Plex Mono","Roboto Mono",monospace;
+  background:
+    radial-gradient(1200px 700px at 50% -15%,rgba(255,255,255,.035),transparent 58%),
+    linear-gradient(180deg,#060707 0%,#040505 100%);
+}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:1px solid var(--fg);outline-offset:4px}
+
+.screen{position:absolute;inset:0}
+.portrait{display:flex}
+.landscape{display:none}
+
+.portrait{
+  padding:max(22px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));
+  justify-content:center;
+}
+.p-shell{
+  width:min(100%,460px);
+  height:100%;
+  display:grid;
+  grid-template-rows:auto auto minmax(190px,1fr) auto auto auto;
+  gap:clamp(12px,2vh,18px);
+}
+
+.top{display:flex;justify-content:space-between;align-items:flex-start;animation:rise .55s var(--ease) both}
+.logo{
+  font-family:"Doto","IBM Plex Mono",monospace;
+  font-weight:600;
+  font-size:clamp(32px,8.5vw,46px);
+  line-height:.78;
+  letter-spacing:.02em;
+}
 .logo span{display:block}
-.micro{font-size:10px;letter-spacing:1.4px;line-height:1.3;color:#aaa}
-.dot{display:inline-block;width:7px;height:7px;background:var(--red);border-radius:50%}
+.micro{
+  font-size:9px;
+  letter-spacing:.13em;
+  line-height:1.42;
+  color:#b7b8b2;
+  text-transform:uppercase;
+}
+.micro .square{display:inline-block;width:6px;height:6px;background:var(--fg);margin-right:8px;transform:translateY(-1px)}
+.red-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 0 0 rgba(255,59,48,.35);animation:redPulse 2.4s ease-in-out infinite}
+
 .stations{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-.station{min-height:108px;border:1px solid #42423f;border-radius:13px;padding:14px 8px 11px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:9px;position:relative}
-.station.active{border-color:#efefeb}
-.station .label{font-size:13px;text-align:center;line-height:1.05}
-.station .mini-dot{width:6px;height:6px;border-radius:50%;background:#62625f;position:absolute;bottom:8px}
-.station.active .mini-dot{background:var(--red)}
-.icon{height:29px;width:38px;position:relative}
-.icon.dots{background:radial-gradient(circle,#ddd 1.35px,transparent 1.6px);background-size:6px 6px;border-radius:50%}
-.icon.wave:before{content:"";position:absolute;left:2px;right:2px;top:13px;height:1px;background:#ddd;box-shadow:5px -7px 0 #ddd,10px -12px 0 #ddd,15px -5px 0 #ddd,20px 7px 0 #ddd,25px -10px 0 #ddd,30px -3px 0 #ddd}
-.icon.rings:before,.icon.rings:after{content:"";position:absolute;width:23px;height:23px;border:1px solid #ddd;border-radius:50%;top:2px}
-.icon.rings:before{left:3px}.icon.rings:after{right:3px}
-.icon.tri{width:0;height:0;border-left:17px solid transparent;border-right:17px solid transparent;border-bottom:30px solid #ddd}
-.icon.tri:after{content:"";position:absolute;left:-14px;top:4px;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:24px solid var(--bg)}
-.core{display:grid;grid-template-columns:54px 1fr 54px;gap:14px;align-items:center;min-height:0;flex:1}
-.side{font-size:8px;line-height:1.35;color:#a9a9a4;letter-spacing:1px}
-.art{width:min(56vw,340px);aspect-ratio:1;margin:auto;border:1px solid #555;border-radius:16px;position:relative;overflow:hidden;background:radial-gradient(circle at 57% 48%,#333 0,#1e1f1f 36%,#0b0c0c 37%,#060707 59%)}
-.art:before{content:"";position:absolute;left:-10%;top:49%;width:120%;height:1px;background:#c9c9c4;transform:rotate(-42deg)}
-.art:after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;background:var(--red);left:73%;top:34%;box-shadow:0 0 14px rgba(255,59,48,.5)}
-.track{display:flex;align-items:end;justify-content:space-between;gap:10px}
-.title{font-size:22px;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.artist{font-size:15px;color:#c3c3be;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.status{font-size:9px;letter-spacing:1px;color:#969691;text-align:right;max-width:110px}
-.progress{height:22px;position:relative;margin-top:2px}
-.rail{position:absolute;left:0;right:0;top:10px;height:2px;background:#555}
-.fill{position:absolute;left:0;top:10px;height:2px;width:0;background:#eee}
-.knob{position:absolute;left:0;top:6px;width:10px;height:10px;border-radius:50%;background:#eee;transform:translateX(-5px)}
-.times{display:flex;justify-content:space-between;font-size:10px;color:#c0c0bb;margin-top:-2px}
-.controls{display:flex;justify-content:center;align-items:center;gap:28px;margin-top:2px}
-.ctrl{width:70px;height:70px;border:1px solid #777;border-radius:50%;display:grid;place-items:center;font-size:28px}
-.ctrl.main{width:92px;height:92px;border-color:#ddd;font-size:31px}
-.foot{display:flex;justify-content:space-between;font-size:8px;letter-spacing:1px;color:#9d9d98}
-.land{display:none}
-@media(orientation:landscape){
- .portrait{display:none!important}.land{display:flex}
- .app{padding:20px 34px;gap:10px}
- .land{height:100%;flex-direction:column}
- .land-top{display:flex;justify-content:space-between;font-size:10px;letter-spacing:1.2px;color:#aaa}
- .land-body{flex:1;display:grid;grid-template-columns:1.35fr .65fr;gap:28px;align-items:center}
- .clock{font-size:clamp(70px,15vw,170px);line-height:.8;letter-spacing:8px}
- .land-station{font-size:clamp(20px,3vw,38px);margin-top:25px}
- .land-track{font-size:18px;margin-top:8px}.land-artist{font-size:15px;color:#aaa;margin-top:4px}
- .land-art{width:min(30vw,270px);aspect-ratio:1;margin-left:auto}
- .land-bottom{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
- .land .controls{grid-column:2}
- .land .progress-wrap{margin-top:10px}
+.station{
+  position:relative;
+  min-width:0;
+  height:clamp(102px,14vh,124px);
+  border:1px solid #3c3d39;
+  border-radius:13px;
+  padding:13px 7px 15px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  color:#d7d7d1;
+  transition:transform .18s var(--ease),border-color .22s ease,background .22s ease,box-shadow .22s ease;
+  animation:rise .55s var(--ease) both;
+}
+.station:nth-child(1){animation-delay:.04s}.station:nth-child(2){animation-delay:.08s}.station:nth-child(3){animation-delay:.12s}.station:nth-child(4){animation-delay:.16s}
+.station:active{transform:scale(.945)}
+.station.active{
+  border-color:#f1f1eb;
+  background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.006));
+  box-shadow:0 0 0 1px rgba(255,255,255,.05) inset,0 8px 30px rgba(0,0,0,.22);
+  color:#fff;
+}
+.station.blocked{animation:nudge .28s ease}
+.station-label{font-size:clamp(10px,2.6vw,13px);line-height:1.02;text-align:center}
+.station-dot{position:absolute;bottom:8px;width:6px;height:6px;border-radius:50%;background:#666761;transition:.2s}
+.station.active .station-dot{background:var(--red);box-shadow:0 0 12px rgba(255,59,48,.6)}
+
+.glyph{width:38px;height:31px;position:relative;opacity:.95}
+.glyph-grid{
+  border-radius:50%;
+  background:radial-gradient(circle,#efefe9 1.25px,transparent 1.55px);
+  background-size:5.7px 5.7px;
+}
+.glyph-wave:before{
+  content:"";position:absolute;left:2px;right:2px;top:15px;height:1px;background:#e9e9e4;
+  box-shadow:4px -5px 0 #e9e9e4,8px -11px 0 #e9e9e4,12px -4px 0 #e9e9e4,16px 5px 0 #e9e9e4,20px -8px 0 #e9e9e4,24px -13px 0 #e9e9e4,28px -3px 0 #e9e9e4,32px 6px 0 #e9e9e4;
+}
+.glyph-rings:before,.glyph-rings:after{content:"";position:absolute;width:22px;height:22px;border:1px solid #ecece6;border-radius:50%;top:4px}
+.glyph-rings:before{left:2px}.glyph-rings:after{right:2px}
+.glyph-tri{width:0;height:0;border-left:17px solid transparent;border-right:17px solid transparent;border-bottom:29px solid #eaeae5}
+.glyph-tri:after{content:"";position:absolute;left:-14px;top:5px;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:23px solid var(--bg)}
+
+.visual-row{display:grid;grid-template-columns:58px minmax(0,1fr) 58px;gap:12px;align-items:center;min-height:0;animation:rise .6s .16s var(--ease) both}
+.side-note{font-size:8px;line-height:1.42;letter-spacing:.09em;color:#aaa;text-transform:uppercase}
+.side-note.right{text-align:left}
+.side-rule{width:22px;height:1px;background:#b6b6b0;margin-top:12px}
+.side-dots{display:grid;gap:8px;margin-top:14px;justify-content:center}.side-dots i{width:5px;height:5px;border-radius:50%;background:#777}.side-dots i:nth-child(2){background:var(--red)}
+
+.art{
+  --art-size:min(58vw,250px);
+  width:var(--art-size);
+  max-height:100%;
+  aspect-ratio:1;
+  margin:auto;
+  border:1px solid #5d5e59;
+  border-radius:15px;
+  overflow:hidden;
+  position:relative;
+  background:
+    radial-gradient(circle at 70% 30%,rgba(255,255,255,.12) 0 1px,transparent 1.4px),
+    radial-gradient(circle at 34% 64%,rgba(255,255,255,.08) 0 1px,transparent 1.3px),
+    linear-gradient(180deg,#090a0a,#050606);
+  box-shadow:0 18px 45px rgba(0,0,0,.25),inset 0 0 40px rgba(255,255,255,.015);
+}
+.art:before{
+  content:"";position:absolute;inset:12%;
+  border-radius:50%;
+  background:
+    radial-gradient(circle at 64% 30%,rgba(255,255,255,.18),transparent 12%),
+    radial-gradient(circle at 62% 42%,#333 0%,#222 29%,#111 55%,#090909 72%);
+  box-shadow:
+    inset -20px -18px 35px rgba(0,0,0,.72),
+    inset 10px 8px 28px rgba(255,255,255,.035),
+    0 0 0 1px rgba(255,255,255,.06);
+  animation:planetFloat 14s ease-in-out infinite;
+}
+.art .grain{
+  position:absolute;inset:0;opacity:.16;mix-blend-mode:screen;
+  background:
+    radial-gradient(circle,#fff .6px,transparent .8px) 0 0/7px 7px,
+    radial-gradient(circle,#fff .5px,transparent .7px) 2px 1px/11px 11px;
+  animation:grainShift 3s steps(2,end) infinite;
+}
+.orbit{position:absolute;left:-9%;top:50%;width:118%;height:1px;background:linear-gradient(90deg,transparent,#c9c9c4 15%,#efefeb 50%,#777 86%,transparent);transform:rotate(-42deg);transform-origin:center}
+.orbit-dot{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--red);left:73%;top:33%;box-shadow:0 0 14px rgba(255,59,48,.7);animation:redPulse 2.4s ease-in-out infinite}
+.art .tick{position:absolute;background:#d5d5cf}.tick.t{width:1px;height:10px;top:4px;left:50%}.tick.b{width:1px;height:10px;bottom:4px;left:50%}.tick.l{height:1px;width:10px;left:4px;top:50%}.tick.r{height:1px;width:10px;right:4px;top:50%}
+
+.meta{animation:rise .6s .2s var(--ease) both}
+.track-row{display:flex;align-items:flex-end;gap:12px}
+.track-copy{min-width:0;flex:1}
+.track-title{font-family:"Doto","IBM Plex Mono",monospace;font-size:clamp(22px,5vw,30px);font-weight:500;line-height:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artist{font-size:14px;color:#d0d0ca;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track-actions{display:flex;gap:13px;align-items:center}
+.icon-button{width:30px;height:30px;display:grid;place-items:center;color:#e7e7e1;transition:transform .16s var(--ease),color .2s}
+.icon-button:active{transform:scale(.82)}.icon-button.liked{color:var(--red)}
+.icon-button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.6}
+.ellipsis{font-size:24px;line-height:1;transform:translateY(-2px)}
+
+.progress-wrap{animation:rise .6s .24s var(--ease) both}
+.progress{height:22px;position:relative}
+.rail{position:absolute;left:0;right:0;top:10px;height:2px;background:#565752;border-radius:2px}
+.fill{position:absolute;left:0;top:10px;height:2px;width:0;background:#ededE8;border-radius:2px;transition:width .22s linear}
+.knob{position:absolute;left:0;top:6px;width:10px;height:10px;border-radius:50%;background:#f4f4ef;transform:translateX(-5px);box-shadow:0 0 0 2px rgba(255,255,255,.02);transition:left .22s linear}
+.times{display:flex;justify-content:space-between;font-size:10px;color:#d0d0ca;margin-top:-1px}
+
+.controls{display:flex;justify-content:center;align-items:center;gap:clamp(22px,8vw,34px);animation:rise .6s .28s var(--ease) both}
+.ctrl{
+  width:68px;height:68px;border:1px solid #787974;border-radius:50%;display:grid;place-items:center;
+  transition:transform .16s var(--ease),border-color .2s,background .2s,box-shadow .2s;
+  background:radial-gradient(circle at 50% 42%,rgba(255,255,255,.018),transparent 70%);
+}
+.ctrl.main{width:94px;height:94px;border-color:#e7e7e1}
+.ctrl:active{transform:scale(.91);background:rgba(255,255,255,.045);box-shadow:0 0 0 5px rgba(255,255,255,.025)}
+.ctrl svg{width:27px;height:27px;fill:#f2f2ed}.ctrl.main svg{width:32px;height:32px}
+.ctrl .pause{display:none}.ctrl.is-playing .play{display:none}.ctrl.is-playing .pause{display:block}
+
+.footer{display:flex;justify-content:space-between;align-items:end;font-size:8px;letter-spacing:.09em;color:#aaa;text-transform:uppercase;animation:rise .6s .32s var(--ease) both}
+.footer .state{display:flex;gap:8px;align-items:flex-start}
+.footer .state:before{content:"";width:5px;height:5px;border-radius:50%;background:#777;margin-top:3px}
+
+.landscape{padding:max(20px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left));align-items:center;justify-content:center}
+.l-shell{width:min(100%,1180px);height:100%;max-height:760px;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:clamp(12px,2.2vh,22px)}
+.l-top{display:flex;align-items:center;gap:14px;font-size:10px;color:#bbb;letter-spacing:.12em;text-transform:uppercase}
+.l-brand{font-family:"Doto","IBM Plex Mono",monospace;font-size:clamp(16px,1.8vw,24px);font-weight:500;color:#ededE8;text-transform:none;white-space:nowrap}
+.l-line{height:1px;background:#777;flex:1;opacity:.8}
+.l-motto{text-align:right;line-height:1.25;white-space:nowrap}
+
+.l-main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(180px,.48fr) minmax(90px,.22fr);gap:clamp(24px,4vw,56px);align-items:center;min-height:0}
+.l-left{min-width:0}
+.clock{
+  font-family:"Doto","IBM Plex Mono",monospace;
+  font-weight:600;
+  font-size:clamp(76px,9.6vw,132px);
+  line-height:.74;
+  letter-spacing:.035em;
+  margin-bottom:clamp(20px,3.4vh,36px);
+  text-shadow:0 0 18px rgba(255,255,255,.03);
+}
+.now{display:grid;grid-template-columns:12px minmax(0,1fr);gap:14px;align-items:start}
+.now .red-dot{margin-top:8px}
+.l-track-title{font-family:"Doto","IBM Plex Mono",monospace;font-size:clamp(25px,3vw,38px);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:.95}
+.l-artist{font-size:clamp(15px,1.5vw,20px);margin-top:8px;color:#d4d4ce}
+.l-station{font-size:clamp(12px,1.2vw,16px);margin-top:5px;color:#aaa}
+
+.l-art{--art-size:min(24vw,260px);width:var(--art-size)}
+.l-side{align-self:center;font-size:11px;line-height:1.45;color:#aaa;text-transform:uppercase;letter-spacing:.11em}
+.l-side .side-rule{width:30px;margin-top:18px}
+
+.l-progress{width:calc(100% - 140px);margin-left:40px}
+.l-progress .times{font-size:12px}
+.l-bottom{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:20px}
+.l-bottom .side-note{font-size:9px}
+.l-controls{display:flex;align-items:center;gap:clamp(26px,4vw,42px)}
+.l-controls .ctrl{width:82px;height:82px}.l-controls .ctrl.main{width:112px;height:112px}
+.dot-matrix{justify-self:end;display:grid;grid-template-columns:repeat(6,5px);gap:8px}
+.dot-matrix i{width:4px;height:4px;border-radius:50%;background:#777}.dot-matrix i.hot{background:var(--red);box-shadow:0 0 8px rgba(255,59,48,.55)}
+
+.swap{animation:textSwap .3s var(--ease)}
+.flash{animation:artFlash .38s var(--ease)}
+
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes nudge{0%,100%{transform:translateX(0)}35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}
+@keyframes redPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.25)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}
+@keyframes planetFloat{0%,100%{transform:rotate(-1deg) scale(1)}50%{transform:rotate(1deg) scale(1.015)}}
+@keyframes grainShift{0%{transform:translate(0,0)}50%{transform:translate(1px,-1px)}100%{transform:translate(-1px,1px)}}
+@keyframes textSwap{0%{opacity:.2;transform:translateY(5px);filter:blur(1.5px)}100%{opacity:1;transform:none;filter:none}}
+@keyframes artFlash{0%{filter:brightness(1)}45%{filter:brightness(1.12)}100%{filter:brightness(1)}}
+
+@media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}
+@media(orientation:portrait){.portrait{display:flex}.landscape{display:none}}
+@media(max-height:620px) and (orientation:landscape){
+  .l-shell{gap:8px}.clock{font-size:72px;margin-bottom:14px}.l-art{--art-size:190px}.l-controls .ctrl{width:66px;height:66px}.l-controls .ctrl.main{width:86px;height:86px}
 }
 </style>
 </head>
 <body>
-<div class="portrait app">
-  <div class="top">
-    <div class="logo"><span>BURZH</span><span>beats</span></div>
-    <div class="micro">■ SOUND<br>PEOPLE<br>PLACES<br>MOOD</div>
+<section class="screen portrait">
+  <div class="p-shell">
+    <header class="top">
+      <div class="logo"><span>BURZH</span><span>beats</span></div>
+      <div class="micro"><span class="square"></span>SOUND<br>PEOPLE<br>PLACES<br>MOOD</div>
+    </header>
+
+    <div class="stations">
+      <button class="station" onclick="stationTap(this,'Future Garage',false)">
+        <span class="glyph glyph-grid"></span><span class="station-label">Future<br>Garage</span><i class="station-dot"></i>
+      </button>
+      <button class="station active" onclick="stationTap(this,'Lo-Fi',true)">
+        <span class="glyph glyph-wave"></span><span class="station-label">Lo-Fi</span><i class="station-dot"></i>
+      </button>
+      <button class="station" onclick="stationTap(this,'Deep House',false)">
+        <span class="glyph glyph-rings"></span><span class="station-label">Deep<br>House</span><i class="station-dot"></i>
+      </button>
+      <button class="station" onclick="stationTap(this,'Trance',false)">
+        <span class="glyph glyph-tri"></span><span class="station-label">Trance</span><i class="station-dot"></i>
+      </button>
+    </div>
+
+    <div class="visual-row">
+      <div class="side-note">BASS<br>ATMOSPHERE<br>RHYTHM<br><br>ALWAYS<br>ON<div class="side-rule"></div></div>
+      <div class="art" id="portraitArt">
+        <div class="grain"></div><div class="orbit"></div><div class="orbit-dot"></div>
+        <i class="tick t"></i><i class="tick b"></i><i class="tick l"></i><i class="tick r"></i>
+      </div>
+      <div class="side-note right">A<br>HIGHER<br>STATE<br>THROUGH<br>SOUND<div class="side-rule"></div><div class="side-dots"><i></i><i></i><i></i></div></div>
+    </div>
+
+    <div class="meta">
+      <div class="track-row">
+        <div class="track-copy">
+          <div class="track-title" id="title">BURZH beats</div>
+          <div class="artist" id="artist">Lo-Fi</div>
+        </div>
+        <div class="track-actions">
+          <button class="icon-button" id="likeBtn" onclick="toggleLike(this)" aria-label="Like">
+            <svg viewBox="0 0 24 24"><path d="M12 20.5S3.5 15.3 3.5 8.7A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 8.5 1.3c0 6.6-8.5 11.8-8.5 11.8Z"/></svg>
+          </button>
+          <button class="icon-button ellipsis" onclick="tap('soft')">⋮</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress"><div class="rail"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+      <div class="times"><span id="elapsed">0:00</span><span id="remaining">-0:00</span></div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl" onclick="tap('previous')">
+        <svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg>
+      </button>
+      <button class="ctrl main" id="playBtn" onclick="tap('play')">
+        <svg class="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <svg class="pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+      </button>
+      <button class="ctrl" onclick="tap('next')">
+        <svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg>
+      </button>
+    </div>
+
+    <footer class="footer">
+      <div class="state">REPEAT<br>OFF</div>
+      <button onclick="tap('reload')" style="color:#aaa;text-align:center">YANDEX<br>RELOAD</button>
+      <div>SHUFFLE<br>OFF</div>
+    </footer>
   </div>
+</section>
 
-  <div class="stations">
-    <div class="station"><div class="icon dots"></div><div class="label">Future<br>Garage</div><i class="mini-dot"></i></div>
-    <div class="station active"><div class="icon wave"></div><div class="label">Lo-Fi</div><i class="mini-dot"></i></div>
-    <div class="station"><div class="icon rings"></div><div class="label">Deep<br>House</div><i class="mini-dot"></i></div>
-    <div class="station"><div class="icon tri"></div><div class="label">Trance</div><i class="mini-dot"></i></div>
+<section class="screen landscape">
+  <div class="l-shell">
+    <header class="l-top">
+      <div class="l-brand">BURZH beats</div><div class="l-line"></div>
+      <div class="l-motto">GOOD MUSIC<br>BETTER DAYS&nbsp;&nbsp;■</div>
+    </header>
+
+    <div class="l-main">
+      <div class="l-left">
+        <div class="clock" id="clock">22:10</div>
+        <div class="now">
+          <span class="red-dot"></span>
+          <div>
+            <div class="l-track-title" id="landTitle">BURZH beats</div>
+            <div class="l-artist" id="landArtist">Lo-Fi</div>
+            <div class="l-station">Lo-Fi</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="art l-art" id="landArt">
+        <div class="grain"></div><div class="orbit"></div><div class="orbit-dot"></div>
+        <i class="tick t"></i><i class="tick b"></i><i class="tick l"></i><i class="tick r"></i>
+      </div>
+
+      <div class="l-side">SOUND<br>CONNECTS<br>US<div class="side-rule"></div></div>
+    </div>
+
+    <div class="progress-wrap l-progress">
+      <div class="progress"><div class="rail"></div><div class="fill" id="landFill"></div><div class="knob" id="landKnob"></div></div>
+      <div class="times"><span id="landElapsed">0:00</span><span id="landRemaining">-0:00</span></div>
+    </div>
+
+    <div class="l-bottom">
+      <div class="side-note">A HIGHER<br>STATE THROUGH<br>SOUND<div class="side-rule"></div></div>
+
+      <div class="l-controls">
+        <button class="ctrl" onclick="tap('previous')"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
+        <button class="ctrl main" id="landPlayBtn" onclick="tap('play')">
+          <svg class="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+        </button>
+        <button class="ctrl" onclick="tap('next')"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
+      </div>
+
+      <div class="dot-matrix">
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+        <i></i><i></i><i></i><i></i><i></i><i class="hot"></i>
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+        <i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+    </div>
   </div>
-
-  <div class="core">
-    <div class="side">BASS<br>ATMOSPHERE<br>RHYTHM<br><br>ALWAYS<br>ON<br>—</div>
-    <div class="art"></div>
-    <div class="side">A<br>HIGHER<br>STATE<br>THROUGH<br>SOUND<br><br>•<br><span style="color:#ff3b30">•</span><br>•</div>
-  </div>
-
-  <div class="track">
-    <div style="min-width:0"><div class="title" id="title">BURZH beats</div><div class="artist" id="artist">Lo-Fi</div></div>
-    <div class="status" id="status">LOADING PLAYLIST</div>
-  </div>
-
-  <div>
-    <div class="progress"><div class="rail"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
-    <div class="times"><span id="elapsed">0:00</span><span id="remaining">-0:00</span></div>
-  </div>
-
-  <div class="controls">
-    <button class="ctrl" onclick="AndroidBridge.previous()">◀|</button>
-    <button class="ctrl main" id="play" onclick="AndroidBridge.playPause()">▶</button>
-    <button class="ctrl" onclick="AndroidBridge.next()">|▶</button>
-  </div>
-
-  <div class="foot"><span>REPEAT<br>OFF</span><button onclick="AndroidBridge.reload()" style="color:#9d9d98">YANDEX<br>RELOAD</button><span>SHUFFLE<br>OFF</span></div>
-</div>
-
-<div class="land app">
- <div class="land-top"><span>BURZH beats ─────────────────────</span><span>GOOD MUSIC<br>BETTER DAYS ■</span></div>
- <div class="land-body">
-   <div>
-     <div class="clock" id="clock">22:10</div>
-     <div class="land-station"><span class="dot"></span>&nbsp; Lo-Fi</div>
-     <div class="land-track" id="landTitle">BURZH beats</div>
-     <div class="land-artist" id="landArtist">Lo-Fi</div>
-   </div>
-   <div class="art land-art"></div>
- </div>
- <div class="progress-wrap">
-   <div class="progress"><div class="rail"></div><div class="fill" id="landFill"></div><div class="knob" id="landKnob"></div></div>
-   <div class="times"><span id="landElapsed">0:00</span><span id="landRemaining">-0:00</span></div>
- </div>
- <div class="land-bottom">
-   <div class="side">A HIGHER<br>STATE THROUGH<br>SOUND<br>—</div>
-   <div class="controls">
-     <button class="ctrl" onclick="AndroidBridge.previous()">◀|</button>
-     <button class="ctrl main" id="landPlay" onclick="AndroidBridge.playPause()">▶</button>
-     <button class="ctrl" onclick="AndroidBridge.next()">|▶</button>
-   </div>
-   <div class="status" id="landStatus">LOADING PLAYLIST</div>
- </div>
-</div>
+</section>
 
 <script>
 const $=id=>document.getElementById(id);
 const fmt=ms=>{ms=Math.max(0,ms||0);const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
-function updateClock(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+
+function feedback(kind='soft'){
+  try{AndroidBridge.feedback(kind)}catch(e){}
+}
+function tap(action){
+  feedback(action);
+  try{
+    if(action==='play') AndroidBridge.playPause();
+    else if(action==='next') AndroidBridge.next();
+    else if(action==='previous') AndroidBridge.previous();
+    else if(action==='reload') AndroidBridge.reload();
+  }catch(e){}
+}
+function stationTap(el,name,available){
+  feedback('station');
+  if(available){
+    document.querySelectorAll('.station').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+  }else{
+    el.classList.remove('blocked'); void el.offsetWidth; el.classList.add('blocked');
+    const old=$('status').textContent;
+    $('status').textContent='COMING SOON';
+    setTimeout(()=>$('status').textContent=old,800);
+  }
+}
+function toggleLike(btn){
+  feedback('soft');
+  btn.classList.toggle('liked');
+}
+function updateClock(){
+  const d=new Date();
+  $('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
 setInterval(updateClock,1000);updateClock();
+
+let lastTitle='';
+function animateSwap(title,artist){
+  if(title===lastTitle) return;
+  lastTitle=title;
+  ['title','landTitle','artist','landArtist'].forEach(id=>{
+    const el=$(id); if(!el)return; el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap');
+  });
+  ['portraitArt','landArt'].forEach(id=>{
+    const el=$(id); if(!el)return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  });
+}
+
 window.BURZH={onState(s){
- if(s.title){$('title').textContent=s.title;$('landTitle').textContent=s.title}
- if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
- if(s.status){$('status').textContent=s.status;$('landStatus').textContent=s.status}
- const dur=s.durationMs||0,pos=s.positionMs||0,p=dur?Math.max(0,Math.min(1,pos/dur)):0;
- ['fill','landFill'].forEach(id=>$(id).style.width=(p*100)+'%');
- ['knob','landKnob'].forEach(id=>$(id).style.left=(p*100)+'%');
- $('elapsed').textContent=$('landElapsed').textContent=fmt(pos);
- $('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,dur-pos));
- $('play').textContent=$('landPlay').textContent=s.playing?'Ⅱ':'▶';
+  if(s.title){
+    animateSwap(s.title,s.artist);
+    $('title').textContent=s.title;$('landTitle').textContent=s.title;
+  }
+  if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
+  const dur=s.durationMs||0,pos=s.positionMs||0,p=dur?Math.max(0,Math.min(1,pos/dur)):0;
+  ['fill','landFill'].forEach(id=>$(id).style.width=(p*100)+'%');
+  ['knob','landKnob'].forEach(id=>$(id).style.left=(p*100)+'%');
+  $('elapsed').textContent=$('landElapsed').textContent=fmt(pos);
+  $('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,dur-pos));
+  $('playBtn').classList.toggle('is-playing',!!s.playing);
+  $('landPlayBtn').classList.toggle('is-playing',!!s.playing);
 }};
 </script>
 </body>
