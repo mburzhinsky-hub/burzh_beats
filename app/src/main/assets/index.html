@@ -105,6 +105,19 @@
 .swap{animation:swap .28s cubic-bezier(.2,.8,.2,1)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.25)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}@keyframes float{0%,100%{transform:scale(1)}50%{transform:scale(1.008)}}@keyframes colonBreath{0%,100%{opacity:.82;transform:scale(1);box-shadow:0 0 0 rgba(255,255,255,0)}50%{opacity:.42;transform:scale(.9);box-shadow:0 0 8px rgba(255,255,255,.12)}}@keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}@keyframes swap{0%{opacity:.2;transform:translateY(5px)}100%{opacity:1;transform:none}}@keyframes tapflash{0%{opacity:.6;transform:scale(.88);border-color:rgba(255,255,255,.45)}100%{opacity:0;transform:scale(1.07);border-color:rgba(255,255,255,0)}}
 @media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
+
+.auth-overlay{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.86);backdrop-filter:blur(8px)}
+.auth-overlay.show{display:flex}
+.auth-card{width:min(420px,88vw);border:1px solid #5b5c57;border-radius:18px;background:#070808;padding:22px}
+.auth-kicker{font:400 9px/1.3 Plex;letter-spacing:.12em;color:#999;text-transform:uppercase}
+.auth-title{font:560 28px/.95 Doto;margin-top:8px}
+.auth-copy{font:400 11px/1.45 Plex;color:#bbb;margin-top:12px}
+.auth-input{width:100%;margin-top:16px;background:#0d0e0e;border:1px solid #494a46;color:#eee;border-radius:10px;padding:13px 14px;font:400 12px/1 Plex;outline:none}
+.auth-input:focus{border-color:#ddd}
+.auth-actions{display:flex;gap:10px;margin-top:14px}
+.auth-btn{flex:1;border:1px solid #777873;border-radius:999px;padding:11px 14px;font:400 10px/1 Plex;letter-spacing:.08em}
+.auth-btn.primary{border-color:#f0f0eb}
+.auth-error{min-height:15px;margin-top:10px;color:#ff655c;font:400 9px/1.3 Plex}
 </style></head>
 <body>
 <section class="screen portrait">
@@ -143,9 +156,30 @@
 <div class="matrix"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="hot"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
 </div>
 </section>
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-kicker">BURZH beats / Yandex Music</div>
+    <div class="auth-title">FULL TRACKS</div>
+    <div class="auth-copy">Вставь OAuth-токен Яндекс Музыки. Он сохраняется только на этом устройстве. Preview не используется.</div>
+    <input class="auth-input" id="tokenInput" type="password" autocomplete="off" placeholder="OAuth token">
+    <div class="auth-actions">
+      <button class="auth-btn" onclick="closeAuth()">CLOSE</button>
+      <button class="auth-btn primary" onclick="saveToken()">CONNECT</button>
+    </div>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
 <script>
 const $=id=>document.getElementById(id);const fmt=ms=>{ms=Math.max(0,ms||0);let s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 function feedback(k='soft'){try{AndroidBridge.feedback(k)}catch(e){}}
+function openAuth(){ $('authError').textContent=''; $('authOverlay').classList.add('show'); setTimeout(()=>$('tokenInput').focus(),80) }
+function closeAuth(){ $('authOverlay').classList.remove('show') }
+function saveToken(){
+  const t=$('tokenInput').value.trim();
+  if(t.length<10){$('authError').textContent='TOKEN REQUIRED';return}
+  feedback('soft');
+  try{AndroidBridge.saveYandexToken(t);$('authError').textContent='CONNECTING…'}catch(e){$('authError').textContent='CONNECT ERROR'}
+}
 function tap(a,el){feedback(a);el&&el.animate([{transform:'scale(.9)'},{transform:'scale(1)'}],{duration:160,easing:'cubic-bezier(.2,.8,.2,1)'});try{if(a==='play')AndroidBridge.playPause();else if(a==='next')AndroidBridge.next();else if(a==='previous')AndroidBridge.previous()}catch(e){}}
 function stationTap(el){feedback('station');document.querySelectorAll('.station').forEach(x=>x.classList.remove('active'));el.classList.add('active')}
 function scaleLandscape(){
@@ -158,7 +192,8 @@ window.addEventListener('resize',scaleLandscape);
 window.addEventListener('orientationchange',()=>setTimeout(scaleLandscape,80));
 scaleLandscape();
 function tick(){let d=new Date();$('hh').textContent=String(d.getHours()).padStart(2,'0');$('mm').textContent=String(d.getMinutes()).padStart(2,'0')}tick();setInterval(tick,1000);
-let last='';window.BURZH={onState(s){if(s.title){if(s.title!==last){last=s.title;['title','artist','landTitle','landArtist'].forEach(id=>{let e=$(id);e.classList.remove('swap');void e.offsetWidth;e.classList.add('swap')})}$('title').textContent=s.title;$('landTitle').textContent=s.title}if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
+let last='';window.BURZH={onState(s){
+if(s.authRequired){openAuth()}else if(s.connected){closeAuth();$('tokenInput').value=''}if(s.title){if(s.title!==last){last=s.title;['title','artist','landTitle','landArtist'].forEach(id=>{let e=$(id);e.classList.remove('swap');void e.offsetWidth;e.classList.add('swap')})}$('title').textContent=s.title;$('landTitle').textContent=s.title}if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
 let d=s.durationMs||0,p=s.positionMs||0,r=d?Math.max(0,Math.min(1,p/d)):0;['fill','landFill'].forEach(id=>$(id).style.width=(r*100)+'%');['knob','landKnob'].forEach(id=>$(id).style.left=(r*100)+'%');$('elapsed').textContent=$('landElapsed').textContent=fmt(p);$('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,d-p));$('playBtn').classList.toggle('is-playing',!!s.playing);$('landPlayBtn').classList.toggle('is-playing',!!s.playing)}};
 </script>
 </body></html>
