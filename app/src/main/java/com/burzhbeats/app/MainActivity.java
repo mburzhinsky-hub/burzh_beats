@@ -42,7 +42,7 @@ import java.util.concurrent.Executors;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 public class MainActivity extends Activity {
-    private static final String LOFI_ALBUM_ID = "41987524";
+    private static final String LOFI_PLAYLIST_UUID = "ar.d4ed84e2-b432-4bcc-b8dd-97824c25db67";
     private static final String FUTURE_GARAGE_ALBUM_ID = "23384649";
     private static final String API = "https://api.music.yandex.net";
     private static final String CLIENT_HEADER = "YandexMusicAndroid/24023621";
@@ -61,7 +61,8 @@ public class MainActivity extends Activity {
     private AudioTrack clickNav;
     private String accessToken = "";
     private String currentStation = "Lo-Fi";
-    private String currentAlbumId = LOFI_ALBUM_ID;
+    private String currentSourceType = "playlist";
+    private String currentSourceId = LOFI_PLAYLIST_UUID;
     private int sourceGeneration = 0;
 
     private final Runnable progressTicker = new Runnable() {
@@ -125,7 +126,7 @@ public class MainActivity extends Activity {
             if (accessToken.isEmpty()) {
                 emitAuthRequired("CONNECT YANDEX");
             } else {
-                loadAlbum();
+                loadSource();
             }
         }, 500);
         main.post(progressTicker);
@@ -192,57 +193,77 @@ public class MainActivity extends Activity {
         } catch (Throwable ignored) {}
     }
 
-    private void loadAlbum() {
-        loadAlbum(false);
+    private void loadSource() {
+        loadSource(false);
     }
 
-    private void loadAlbum(boolean autoPlay) {
+    private Track parseTrack(JSONObject raw) {
+        if (raw == null) return null;
+        JSONObject t = raw.optJSONObject("track");
+        if (t == null) t = raw;
+
+        String id = t.optString("id", "");
+        if (id.isEmpty()) id = t.optString("trackId", "");
+        if (id.isEmpty()) return null;
+
+        String title = t.optString("title", "Unknown track");
+        String artist = "Unknown artist";
+        JSONArray artists = t.optJSONArray("artists");
+        if (artists != null && artists.length() > 0) {
+            JSONObject a = artists.optJSONObject(0);
+            if (a != null) artist = a.optString("name", artist);
+        }
+        return new Track(id, title, artist);
+    }
+
+    private void loadSource(boolean autoPlay) {
         if (accessToken.isEmpty()) {
             emitAuthRequired("CONNECT YANDEX");
             return;
         }
 
         final int generation = ++sourceGeneration;
-        final String albumId = currentAlbumId;
+        final String sourceType = currentSourceType;
+        final String sourceId = currentSourceId;
         final String station = currentStation;
 
         emitSimple("status", "LOADING " + station.toUpperCase(Locale.US));
 
         executor.execute(() -> {
             try {
-                JSONObject json = getJson(API + "/albums/" + albumId + "/with-tracks");
+                JSONObject json;
+                if ("playlist".equals(sourceType)) {
+                    json = getJson(API + "/playlist/" + sourceId);
+                } else {
+                    json = getJson(API + "/albums/" + sourceId + "/with-tracks");
+                }
+
                 JSONObject result = json.optJSONObject("result");
                 if (result == null) result = json;
 
-                JSONArray volumes = result.optJSONArray("volumes");
-                if (volumes == null) throw new Exception("Album tracks unavailable");
-
                 List<Track> loaded = new ArrayList<>();
-                for (int disc = 0; disc < volumes.length(); disc++) {
-                    JSONArray volume = volumes.optJSONArray(disc);
-                    if (volume == null) continue;
 
-                    for (int i = 0; i < volume.length(); i++) {
-                        JSONObject t = volume.optJSONObject(i);
-                        if (t == null) continue;
-
-                        String id = t.optString("id", "");
-                        if (id.isEmpty()) id = t.optString("trackId", "");
-                        if (id.isEmpty()) continue;
-
-                        String title = t.optString("title", "Unknown track");
-                        String artist = "Unknown artist";
-                        JSONArray artists = t.optJSONArray("artists");
-                        if (artists != null && artists.length() > 0) {
-                            JSONObject a = artists.optJSONObject(0);
-                            if (a != null) artist = a.optString("name", artist);
+                if ("playlist".equals(sourceType)) {
+                    JSONArray arr = result.optJSONArray("tracks");
+                    if (arr == null) throw new Exception("Playlist tracks unavailable");
+                    for (int i = 0; i < arr.length(); i++) {
+                        Track track = parseTrack(arr.optJSONObject(i));
+                        if (track != null) loaded.add(track);
+                    }
+                } else {
+                    JSONArray volumes = result.optJSONArray("volumes");
+                    if (volumes == null) throw new Exception("Album tracks unavailable");
+                    for (int disc = 0; disc < volumes.length(); disc++) {
+                        JSONArray volume = volumes.optJSONArray(disc);
+                        if (volume == null) continue;
+                        for (int i = 0; i < volume.length(); i++) {
+                            Track track = parseTrack(volume.optJSONObject(i));
+                            if (track != null) loaded.add(track);
                         }
-
-                        loaded.add(new Track(id, title, artist));
                     }
                 }
 
-                if (loaded.isEmpty()) throw new Exception("Album is empty");
+                if (loaded.isEmpty()) throw new Exception("Source is empty");
                 if (generation != sourceGeneration) return;
 
                 synchronized (tracks) {
@@ -283,7 +304,7 @@ public class MainActivity extends Activity {
         synchronized (tracks) {
             if (tracks.isEmpty()) {
                 if (accessToken.isEmpty()) emitAuthRequired("CONNECT YANDEX");
-                else loadAlbum(true);
+                else loadSource(true);
                 return;
             }
             track = tracks.get(currentIndex);
@@ -384,14 +405,17 @@ public class MainActivity extends Activity {
 
     private void switchStation(String key) {
         String station;
-        String albumId;
+        String sourceType;
+        String sourceId;
 
         if ("lofi".equals(key)) {
             station = "Lo-Fi";
-            albumId = LOFI_ALBUM_ID;
+            sourceType = "playlist";
+            sourceId = LOFI_PLAYLIST_UUID;
         } else if ("futureGarage".equals(key)) {
             station = "Future Garage";
-            albumId = FUTURE_GARAGE_ALBUM_ID;
+            sourceType = "album";
+            sourceId = FUTURE_GARAGE_ALBUM_ID;
         } else {
             JSONObject s = baseState();
             try {
@@ -402,7 +426,9 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (station.equals(currentStation) && albumId.equals(currentAlbumId)) {
+        if (station.equals(currentStation)
+                && sourceType.equals(currentSourceType)
+                && sourceId.equals(currentSourceId)) {
             emitSimple("status", "READY");
             return;
         }
@@ -410,7 +436,8 @@ public class MainActivity extends Activity {
         final boolean resumePlayback = player != null && prepared && player.isPlaying();
 
         currentStation = station;
-        currentAlbumId = albumId;
+        currentSourceType = sourceType;
+        currentSourceId = sourceId;
         currentIndex = 0;
         sourceGeneration++;
 
@@ -428,7 +455,7 @@ public class MainActivity extends Activity {
             synchronized (tracks) {
                 tracks.clear();
             }
-            loadAlbum(resumePlayback);
+            loadSource(resumePlayback);
         });
     }
 
@@ -524,7 +551,8 @@ public class MainActivity extends Activity {
         JSONObject s = new JSONObject();
         try {
             s.put("station", currentStation);
-            s.put("albumId", currentAlbumId);
+            s.put("sourceType", currentSourceType);
+            s.put("sourceId", currentSourceId);
             s.put("index", currentIndex);
             synchronized (tracks) {
                 s.put("count", tracks.size());
@@ -623,7 +651,7 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void next() { nextTrack(); }
         @JavascriptInterface public void previous() { previousTrack(); }
-        @JavascriptInterface public void reload() { loadAlbum(false); }
+        @JavascriptInterface public void reload() { loadSource(false); }
 
         @JavascriptInterface public void selectStation(String stationKey) {
             main.post(() -> switchStation(stationKey));
@@ -643,7 +671,7 @@ public class MainActivity extends Activity {
                     .edit()
                     .putString("yandex_oauth_token", accessToken)
                     .apply();
-            loadAlbum();
+            loadSource();
         }
 
         @JavascriptInterface public void clearYandexToken() {
