@@ -24,19 +24,74 @@
 .p-progress{position:absolute;left:6.4%;right:8.2%;top:76.8%}.bar{position:relative;height:20px}.rail{position:absolute;left:0;right:0;top:9px;height:2px;background:#5b5c57}.fill{position:absolute;left:0;top:9px;height:2px;background:#f2f2ed;width:0}.knob{position:absolute;left:0;top:5px;width:10px;height:10px;border-radius:50%;background:#f3f3ee;transform:translateX(-5px)}.times{display:flex;justify-content:space-between;font-size:10px;color:#d6d6d0}
 .p-controls{position:absolute;left:13%;right:13%;top:82.7%;height:11.3%;display:flex;align-items:center;justify-content:space-between}.ctrl{border:1px solid #767772;border-radius:50%;display:grid;place-items:center;transition:.12s}.ctrl:active{transform:scale(.9);background:rgba(255,255,255,.055);box-shadow:0 0 0 4px rgba(255,255,255,.025)}.ctrl.sm{width:70px;height:70px}.ctrl.big{width:98px;height:98px;border-color:#ededE8}.ctrl svg{fill:#f1f1ec;width:27px;height:27px}.big svg{width:33px;height:33px}.pause{display:none}.is-playing .play{display:none}.is-playing .pause{display:block}
 .p-footer{position:absolute;left:6.2%;right:6.3%;bottom:3.4%;display:flex;justify-content:space-between;font:400 8px/1.25 Plex;letter-spacing:.08em;color:#aaa;text-transform:uppercase}.repeat:before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:#777;margin-right:9px}
-/* exact landscape proportions from the reference */
-.l-brand{position:absolute;left:7.2%;top:4.6%;font:520 min(2.1vw,2.5vh)/1 Doto;letter-spacing:.01em}.l-topline{position:absolute;left:20.8%;right:16.7%;top:6.2%;height:1px;background:#858680}.l-motto{position:absolute;right:5.3%;top:4.6%;font:400 min(.86vw,1.2vh)/1.25 Plex;letter-spacing:.1em;color:#b8b9b3;text-transform:uppercase}
-.clock{position:absolute;left:7.1%;top:14.6%;font:650 min(13vw,21.5vh)/.76 Doto;letter-spacing:.015em;white-space:nowrap;text-shadow:0 0 14px rgba(255,255,255,.025)}.clock .colon{animation:blink 1.1s steps(1) infinite}
-.l-now{position:absolute;left:7.6%;top:45.1%;right:50%;display:grid;grid-template-columns:12px 1fr;gap:14px;align-items:start}.l-now .reddot{width:8px;height:8px;border-radius:50%;background:var(--red);margin-top:9px;box-shadow:0 0 10px rgba(255,59,48,.55);animation:pulse 2.2s infinite}.stationname{font:520 min(3.5vw,4.9vh)/.95 Doto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.l-title{font:400 min(1.85vw,2.8vh)/1.1 Plex;margin-top:10px}.l-artist{font:400 min(1.75vw,2.55vh)/1.1 Plex;margin-top:6px;color:#d0d1cb}
-.l-art{position:absolute;left:61.6%;top:17.9%;width:23.7%;aspect-ratio:1;border-radius:15px;background-image:var(--art);background-size:cover;background-position:center;animation:float 10s ease-in-out infinite}.l-side{position:absolute;left:88.4%;top:27.7%;font:400 min(.9vw,1.3vh)/1.4 Plex;letter-spacing:.1em;color:#aaa;text-transform:uppercase}.l-side .smallrule{width:28px;margin-top:18px}
-.l-progress{position:absolute;left:12.7%;right:6.6%;top:68.2%}.l-progress .times{font-size:min(1.05vw,1.45vh)}
-.l-caption{position:absolute;left:7.1%;bottom:5.0%;font:400 min(.75vw,1.12vh)/1.42 Plex;letter-spacing:.08em;color:#aaa;text-transform:uppercase}.l-caption .smallrule{width:24px;margin-top:10px}
-.l-controls{position:absolute;left:25.9%;right:22.2%;bottom:2.8%;height:22.5%;display:flex;align-items:center;justify-content:space-between}.l-controls .sm{width:min(9.6vw,14vh);height:min(9.6vw,14vh)}.l-controls .big{width:min(13.0vw,18.5vh);height:min(13.0vw,18.5vh)}
-.matrix{position:absolute;right:5.2%;bottom:4.4%;display:grid;grid-template-columns:repeat(6,4px);gap:8px}.matrix i{width:4px;height:4px;border-radius:50%;background:#777}.matrix i.hot{background:var(--red);animation:pulse 2.2s infinite}
+/* exact landscape reference canvas: 594 x 376 */
+.landscape{display:none;align-items:center;justify-content:center;overflow:hidden}
+.l-canvas{
+  position:absolute;left:50%;top:50%;width:594px;height:376px;
+  transform:translate(-50%,-50%) scale(var(--land-scale,1));
+  transform-origin:center center;
+  background:radial-gradient(120% 120% at 55% -10%,#101111 0,#080909 33%,#050606 70%);
+  overflow:hidden;
+}
+.l-brand{position:absolute;left:40px;top:20px;font:520 16px/1 Doto;letter-spacing:.01em}
+.l-topline{position:absolute;left:146px;top:24px;width:343px;height:1px;background:#858680}
+.l-motto{position:absolute;left:505px;top:19px;font:400 7px/1.25 Plex;letter-spacing:.1em;color:#b8b9b3;text-transform:uppercase;white-space:nowrap}
+
+.clock{
+  position:absolute;left:39px;top:63px;
+  font:650 104px/.76 Doto;letter-spacing:.012em;white-space:nowrap;
+  text-shadow:0 0 14px rgba(255,255,255,.025)
+}
+.clock .colon{animation:blink 1.1s steps(1) infinite}
+
+.l-now{
+  position:absolute;left:42px;top:174px;width:282px;
+  display:grid;grid-template-columns:10px 1fr;gap:13px;align-items:start
+}
+.l-now .reddot{width:7px;height:7px;border-radius:50%;background:var(--red);margin-top:7px;box-shadow:0 0 10px rgba(255,59,48,.55);animation:pulse 2.2s infinite}
+.stationname{font:520 25px/.95 Doto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l-title{font:400 14px/1.1 Plex;margin-top:8px}
+.l-artist{font:400 13px/1.1 Plex;margin-top:5px;color:#d0d1cb}
+
+.l-art{
+  position:absolute;left:355px;top:76px;width:136px;height:136px;
+  border-radius:12px;background-image:var(--art);background-size:cover;background-position:center;
+  animation:float 10s ease-in-out infinite
+}
+.l-side{
+  position:absolute;left:509px;top:105px;width:68px;
+  font:400 7px/1.4 Plex;letter-spacing:.1em;color:#aaa;text-transform:uppercase
+}
+.l-side .smallrule{width:25px;margin-top:15px}
+
+.l-progress{position:absolute;left:73px;top:247px;width:462px}
+.l-progress .times{font-size:9px}
+
+.l-caption{
+  position:absolute;left:40px;top:305px;width:98px;
+  font:400 6.4px/1.42 Plex;letter-spacing:.08em;color:#aaa;text-transform:uppercase
+}
+.l-caption .smallrule{width:21px;margin-top:9px}
+
+.l-controls{
+  position:absolute;left:173px;top:272px;width:276px;height:94px;
+  display:flex;align-items:center;justify-content:space-between
+}
+.l-controls .sm{width:68px;height:68px}
+.l-controls .big{width:94px;height:94px}
+.l-controls .ctrl svg{width:25px;height:25px}
+.l-controls .big svg{width:31px;height:31px}
+
+.matrix{
+  position:absolute;left:519px;top:294px;
+  display:grid;grid-template-columns:repeat(6,3px);gap:7px
+}
+.matrix i{width:3px;height:3px;border-radius:50%;background:#777}
+.matrix i.hot{background:var(--red);animation:pulse 2.2s infinite}
 .pressflash{position:absolute;border:1px solid rgba(255,255,255,0);border-radius:50%;pointer-events:none;opacity:0;transform:scale(.9)}.pressflash.on{animation:tapflash .22s}
 .swap{animation:swap .28s cubic-bezier(.2,.8,.2,1)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.25)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}@keyframes float{0%,100%{transform:scale(1)}50%{transform:scale(1.008)}}@keyframes blink{50%{opacity:.4}}@keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}@keyframes swap{0%{opacity:.2;transform:translateY(5px)}100%{opacity:1;transform:none}}@keyframes tapflash{0%{opacity:.6;transform:scale(.88);border-color:rgba(255,255,255,.45)}100%{opacity:0;transform:scale(1.07);border-color:rgba(255,255,255,0)}}
-@media(orientation:landscape){.portrait{display:none}.landscape{display:block}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
+@media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
 </style></head>
 <body>
 <section class="screen portrait">
@@ -60,6 +115,7 @@
 <div class="p-footer"><div class="repeat">REPEAT<br>OFF</div><div>SHUFFLE<br>OFF</div></div>
 </section>
 <section class="screen landscape">
+<div class="l-canvas" id="lCanvas">
 <div class="l-brand">BURZH beats</div><div class="l-topline"></div><div class="l-motto">GOOD MUSIC<br>BETTER DAYS&nbsp;&nbsp;■</div>
 <div class="clock" id="clock"><span id="hh">22</span><span class="colon">:</span><span id="mm">10</span></div>
 <div class="l-now"><span class="reddot"></span><div><div class="stationname">Future Garage</div><div class="l-title" id="landTitle">Midnight Signals</div><div class="l-artist" id="landArtist">Solar Fields</div></div></div>
@@ -72,12 +128,22 @@
 <button class="ctrl sm" onclick="tap('next',this)"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
 </div>
 <div class="matrix"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="hot"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+</div>
 </section>
 <script>
 const $=id=>document.getElementById(id);const fmt=ms=>{ms=Math.max(0,ms||0);let s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
 function feedback(k='soft'){try{AndroidBridge.feedback(k)}catch(e){}}
 function tap(a,el){feedback(a);el&&el.animate([{transform:'scale(.9)'},{transform:'scale(1)'}],{duration:160,easing:'cubic-bezier(.2,.8,.2,1)'});try{if(a==='play')AndroidBridge.playPause();else if(a==='next')AndroidBridge.next();else if(a==='previous')AndroidBridge.previous()}catch(e){}}
 function stationTap(el){feedback('station');document.querySelectorAll('.station').forEach(x=>x.classList.remove('active'));el.classList.add('active')}
+function scaleLandscape(){
+  const canvas=$('lCanvas'); if(!canvas)return;
+  const sx=window.innerWidth/594, sy=window.innerHeight/376;
+  const s=Math.min(sx,sy);
+  document.documentElement.style.setProperty('--land-scale',String(s));
+}
+window.addEventListener('resize',scaleLandscape);
+window.addEventListener('orientationchange',()=>setTimeout(scaleLandscape,80));
+scaleLandscape();
 function tick(){let d=new Date();$('hh').textContent=String(d.getHours()).padStart(2,'0');$('mm').textContent=String(d.getMinutes()).padStart(2,'0')}tick();setInterval(tick,1000);
 let last='';window.BURZH={onState(s){if(s.title){if(s.title!==last){last=s.title;['title','artist','landTitle','landArtist'].forEach(id=>{let e=$(id);e.classList.remove('swap');void e.offsetWidth;e.classList.add('swap')})}$('title').textContent=s.title;$('landTitle').textContent=s.title}if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
 let d=s.durationMs||0,p=s.positionMs||0,r=d?Math.max(0,Math.min(1,p/d)):0;['fill','landFill'].forEach(id=>$(id).style.width=(r*100)+'%');['knob','landKnob'].forEach(id=>$(id).style.left=(r*100)+'%');$('elapsed').textContent=$('landElapsed').textContent=fmt(p);$('remaining').textContent=$('landRemaining').textContent='-'+fmt(Math.max(0,d-p));$('playBtn').classList.toggle('is-playing',!!s.playing);$('landPlayBtn').classList.toggle('is-playing',!!s.playing)}};
