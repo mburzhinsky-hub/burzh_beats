@@ -20,8 +20,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat ci/burzh016-src.part00 ci/burzh016-src.part01 ci/burzh016-src.part02 ci/burzh016-src.part03 ci/burzh016-src.part04a ci/burzh016-src.part04b ci/burzh016-src.part05 ci/burzh016-src.part06 ci/burzh016-src.part07 | base64 -d > /tmp/burzh016-src.tar.gz
-          echo "a79403d128eaaffbe8da90a04caf62276237ad1b1f675a53a8213fe45f410a45  /tmp/burzh016-src.tar.gz" | sha256sum -c -
+          cat ci/burzh016-src.part00 ci/burzh016-src.part01 ci/burzh016-src.part02 ci/burzh016-src.part03 ci/burzh016-src.part04a1_1 ci/burzh016-src.part04a1_2 ci/burzh016-src.part04a1_3 ci/burzh016-src.part04a2_1 ci/burzh016-src.part04a2_2 ci/burzh016-src.part04a2_3 ci/burzh016-src.part04b ci/burzh016-src.part05 ci/burzh016-src.part06 ci/burzh016-src.part07 | base64 -d > /tmp/burzh016-src.tar.gz
+          echo "e31090f0acd864e016cd06b87340c3733ef03dda756c04bcfd1458e427fcd4a6  /tmp/burzh016-src.tar.gz" | sha256sum -c -
           tar -xzf /tmp/burzh016-src.tar.gz -C .
 
       - uses: actions/setup-java@v4
