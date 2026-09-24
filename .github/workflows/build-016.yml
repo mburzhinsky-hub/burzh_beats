@@ -1,0 +1,62 @@
+name: Build BURZH beats 0.16.0
+
+on:
+  push:
+    branches: [ burzh-0.16.0 ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore 0.16.0 source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat ci/burzh016-src.part* | base64 -d > /tmp/burzh016-src.tar.gz
+          echo "a79403d128eaaffbe8da90a04caf62276237ad1b1f675a53a8213fe45f410a45  /tmp/burzh016-src.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/burzh016-src.tar.gz -C .
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build release APK
+        run: gradle :app:assembleRelease --stacktrace
+
+      - name: Verify and test-sign release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          UNSIGNED="$(find app/build/outputs/apk/release -name '*unsigned.apk' -print -quit)"
+          test -n "$UNSIGNED"
+          BT="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          mkdir -p dist
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" dist/BURZH-beats-0.16.0-unsigned.apk
+          keytool -genkeypair -noprompt             -keystore /tmp/burzh-test.jks             -storepass burzh016 -keypass burzh016             -alias burzh-test -keyalg RSA -keysize 3072 -validity 3650             -dname "CN=BURZH beats test build, OU=CI, O=BURZH"
+          "$BT/apksigner" sign             --ks /tmp/burzh-test.jks             --ks-pass pass:burzh016             --key-pass pass:burzh016             --out dist/BURZH-beats-0.16.0-test-signed.apk             dist/BURZH-beats-0.16.0-unsigned.apk
+          "$BT/apksigner" verify --verbose --print-certs dist/BURZH-beats-0.16.0-test-signed.apk | tee dist/signature-report.txt
+          "$BT/zipalign" -c -v 4 dist/BURZH-beats-0.16.0-test-signed.apk | tee dist/zipalign-report.txt
+          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print dist/BURZH-beats-0.16.0-test-signed.apk > dist/manifest.xml
+          sha256sum dist/BURZH-beats-0.16.0-test-signed.apk dist/BURZH-beats-0.16.0-unsigned.apk | tee dist/SHA256SUMS.txt
+
+      - name: Run lint
+        run: gradle :app:lintRelease --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BURZH-beats-0.16.0
+          path: dist/
+          if-no-files-found: error
