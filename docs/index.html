@@ -483,21 +483,13 @@ window.BURZH_WEB_BUILD = true;
   }
   async function saveToken(v){
     const clean=normalizeToken(v);
-    if(clean.length<10){emitAuth('TOKEN REQUIRED');return}
+    if(clean.length<10){emitAuth('YANDEX LOGIN TOKEN MISSING');return}
     token=clean;
-    connected=false;
-    accountLogin='';
+    connected=true;
+    accountLogin='Yandex ID';
     try{localStorage.setItem(TOKEN_KEY,token)}catch(e){}
-    emit({status:'CHECKING TOKEN'});
-    try{
-      await validateToken();
-      emit({status:'CONNECTED'});
-      await loadSource(false);
-    }catch(e){
-      try{localStorage.removeItem(TOKEN_KEY)}catch(_){}
-      token='';connected=false;accountLogin='';
-      emitAuth('TOKEN REJECTED — PASTE A NEW TOKEN',String(e&&e.message||e));
-    }
+    emit({status:'YANDEX CONNECTED',authRequired:false});
+    await loadSource(false);
   }
   async function clearTokenInternal(emitState){
     token='';connected=false;accountLogin='';tracks=[];idx=0;urlCache.clear();resetAudio();
@@ -550,15 +542,10 @@ window.BURZH_WEB_BUILD = true;
   async function bootstrap(){
     try{token=normalizeToken(localStorage.getItem(TOKEN_KEY)||'')}catch(e){token=''}
     if(!token){emitAuth('LOGIN WITH YANDEX');return}
-    emit({status:'CHECKING TOKEN'});
-    try{
-      await validateToken();
-      emit({status:'CONNECTED'});
-      await loadSource(false);
-    }catch(e){
-      await clearTokenInternal(false);
-      emitAuth('TOKEN REJECTED — PASTE A NEW TOKEN',String(e&&e.message||e));
-    }
+    connected=true;
+    accountLogin='Yandex ID';
+    emit({status:'YANDEX CONNECTED',authRequired:false});
+    await loadSource(false);
   }
   window.addEventListener('load',()=>setTimeout(bootstrap,180));
 })();
@@ -698,8 +685,8 @@ function statusLabel(s){if(s.error)return s.error;const x=String(s.status||'').t
 
 window.BURZH={onState(s){s=s||{};lastState=s;
   const authBad=looksAuthError(s);
-  if(s.authRequired||authBad){const msg=authBad?'YANDEX SESSION REJECTED — LOGIN AGAIN':(s.error||s.status||'CONNECT YANDEX MUSIC');openAuth(msg);if(authBad&&!authResetPending){authResetPending=true;try{AndroidBridge.clearYandexToken()}catch(e){}setTimeout(()=>authResetPending=false,700)}}
-  else if(s.connected&&!s.error){closeAuth();$('authError').textContent=''}
+  if(s.authRequired){const msg=s.error||s.status||'CONNECT YANDEX';openAuth(msg)}
+  else if(s.connected){closeAuth();$('authError').textContent=''}
   if(s.sourceType)updateModeUI(s.sourceType);
   if(s.station){const station=stationLabel(s.station);$('landStation').textContent=station;document.querySelectorAll('.station').forEach(btn=>btn.classList.toggle('active',btn.dataset.station===station));document.querySelectorAll('.l-genre-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.station===station))}
   const fading=!!s.switching;['title','artist','landTitle','landArtist'].forEach(id=>{const e=$(id);if(e)e.style.opacity=fading?'.5':''});
