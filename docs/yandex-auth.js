@@ -1,25 +1,17 @@
 (()=>{
   'use strict';
 
-  /*
-   * BURZH beats / Yandex Music device authorization.
-   * Uses the public OAuth credentials of the official Yandex Music Android client,
-   * matching the auth flow used by current open-source Yandex Music clients.
-   */
-  const MUSIC_CLIENT_ID='23cabbbdc6cd418abb4b39c32c41195d';
-  const MUSIC_CLIENT_SECRET='53bc75238f0c4d08a118e51fe9203300';
-  const TOKEN_KEY='burzh.web.yandex.token.v1';
-  const DEVICE_ID_KEY='burzh.web.yandex.device.v1';
+  const CLIENT_ID='23cabbbdc6cd418abb4b39c32c41195d';
   const OAUTH='https://oauth.yandex.ru';
+  const DEVICE_ID_KEY='burzh.web.yandex.device.v2';
 
-  let mounted=false;
   let pending=null;
   let pollTimer=0;
   let polling=false;
 
   const $=id=>document.getElementById(id);
 
-  function status(message,isError){
+  function setStatus(message,isError){
     const e=$('authError');
     if(e)e.textContent=String(message||'');
     if(isError&&window.showStatus)window.showStatus(String(message||'YANDEX MUSIC LOGIN ERROR'),'error',4500);
@@ -34,16 +26,22 @@
   function deviceId(){
     try{
       let v=localStorage.getItem(DEVICE_ID_KEY)||'';
-      if(v.length<6){v='burzh-'+randomId();localStorage.setItem(DEVICE_ID_KEY,v)}
+      if(v.length<6){
+        v='burzh-'+randomId();
+        localStorage.setItem(DEVICE_ID_KEY,v);
+      }
       return v.slice(0,50);
     }catch(e){
       return ('burzh-'+randomId()).slice(0,50);
     }
   }
 
-  async function formPost(url,data){
+  async function postForm(url,data){
     const body=new URLSearchParams();
-    Object.entries(data).forEach(([k,v])=>body.set(k,String(v)));
+    Object.entries(data).forEach(([k,v])=>{
+      if(v!==undefined&&v!==null&&v!=='')body.set(k,String(v));
+    });
+
     let r;
     try{
       r=await fetch(url,{
@@ -60,12 +58,13 @@
       er.cause=cause;
       throw er;
     }
+
     let j={};
     try{j=await r.json()}catch(e){}
     if(!r.ok){
       const er=new Error(String(j.error_description||j.error||('HTTP '+r.status)));
       er.status=r.status;
-      er.oauth=j.error||'';
+      er.oauth=String(j.error||'');
       throw er;
     }
     return j;
@@ -79,7 +78,7 @@
     b.textContent='CONNECT YANDEX MUSIC';
     b.onclick=start;
     root.appendChild(b);
-    status('MUSIC ACCOUNT AUTHORIZATION');
+    setStatus('YANDEX MUSIC AUTHORIZATION');
   }
 
   function renderCode(root,code){
@@ -91,29 +90,51 @@
     label.textContent='YANDEX MUSIC CODE';
 
     const value=document.createElement('div');
-    value.style.cssText="font:560 34px/.95 'Doto',monospace;letter-spacing:.12em;color:#f1f1ec;margin:8px 0 16px";
-    value.textContent=String(code.user_code||'').toUpperCase();
+    value.style.cssText=[
+      'font:600 30px/1.1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace',
+      'letter-spacing:.10em',
+      'color:#f1f1ec',
+      'margin:10px 0 16px',
+      'text-transform:none',
+      'font-variant-ligatures:none',
+      'user-select:all',
+      '-webkit-user-select:all'
+    ].join(';');
+    value.textContent=String(code.user_code||'');
+
+    const copy=document.createElement('button');
+    copy.className='auth-btn';
+    copy.style.width='100%';
+    copy.textContent='COPY CODE';
+    copy.onclick=async()=>{
+      try{
+        await navigator.clipboard.writeText(String(code.user_code||''));
+        setStatus('CODE COPIED · PASTE IT IN YANDEX');
+      }catch(e){
+        setStatus('LONG PRESS THE CODE TO COPY IT');
+      }
+    };
 
     const open=document.createElement('button');
     open.className='auth-btn primary';
     open.style.width='100%';
+    open.style.marginTop='10px';
     open.textContent='OPEN YANDEX · CONFIRM';
     open.onclick=()=>{
-      const url=String(code.verification_url||'https://oauth.yandex.ru/device');
-      window.open(url,'_blank');
-      status('ENTER THE CODE IN YANDEX · THEN RETURN HERE');
-      setTimeout(()=>pollNow(),1200);
+      window.open(String(code.verification_url||'https://oauth.yandex.ru/device'),'_blank');
+      setStatus('ENTER THIS CODE IN YANDEX · THEN RETURN HERE');
+      setTimeout(pollNow,1200);
     };
 
-    const retry=document.createElement('button');
-    retry.className='auth-btn';
-    retry.style.width='100%';
-    retry.style.marginTop='10px';
-    retry.textContent='NEW CODE';
-    retry.onclick=start;
+    const fresh=document.createElement('button');
+    fresh.className='auth-btn';
+    fresh.style.width='100%';
+    fresh.style.marginTop='10px';
+    fresh.textContent='NEW CODE';
+    fresh.onclick=start;
 
-    root.append(label,value,open,retry);
-    status('WAITING FOR YANDEX MUSIC CONFIRMATION');
+    root.append(label,value,copy,open,fresh);
+    setStatus('WAITING FOR YANDEX MUSIC CONFIRMATION');
   }
 
   async function start(){
@@ -124,20 +145,24 @@
 
     const root=$('yandexLoginMount');
     if(!root)return;
+
     root.innerHTML='';
     const wait=document.createElement('div');
     wait.className='settings-value';
     wait.textContent='REQUESTING YANDEX MUSIC CODE…';
     root.appendChild(wait);
-    status('');
+    setStatus('');
 
     try{
-      const code=await formPost(OAUTH+'/device/code',{
-        client_id:MUSIC_CLIENT_ID,
+      const code=await postForm(OAUTH+'/device/code',{
+        client_id:CLIENT_ID,
         device_id:deviceId(),
-        device_name:'BURZH beats iPhone'
+        device_name:'BURZH beats iPhone',
+        scope:'music:content music:read music:write'
       });
+
       if(!code.device_code||!code.user_code)throw new Error('YANDEX DID NOT RETURN DEVICE CODE');
+
       pending={
         device_code:String(code.device_code),
         user_code:String(code.user_code),
@@ -145,74 +170,77 @@
         interval:Math.max(5,Number(code.interval)||5),
         expiresAt:Date.now()+Math.max(60,Number(code.expires_in)||300)*1000
       };
+
       renderCode(root,pending);
       schedulePoll();
     }catch(e){
-      console.warn('BURZH Music device auth start:',e);
+      console.warn('BURZH Yandex Music auth start:',e);
       renderStart(root);
-      status(String(e&&e.message||e),true);
+      setStatus(String(e&&e.message||e),true);
     }
   }
 
-  function schedulePoll(delay){
+  function schedulePoll(ms){
     clearTimeout(pollTimer);
     if(!pending)return;
-    const ms=Number.isFinite(delay)?delay:pending.interval*1000;
-    pollTimer=setTimeout(pollNow,ms);
+    pollTimer=setTimeout(pollNow,Number.isFinite(ms)?ms:pending.interval*1000);
   }
 
   async function pollNow(){
     if(!pending||polling)return;
+
     if(Date.now()>pending.expiresAt){
       const root=$('yandexLoginMount');
       pending=null;
       if(root)renderStart(root);
-      status('CODE EXPIRED · TAP CONNECT AGAIN',true);
+      setStatus('CODE EXPIRED · TAP CONNECT AGAIN',true);
       return;
     }
 
     polling=true;
     try{
-      const j=await formPost(OAUTH+'/token',{
+      const j=await postForm(OAUTH+'/token',{
         grant_type:'device_code',
         code:pending.device_code,
-        client_id:MUSIC_CLIENT_ID,
-        client_secret:MUSIC_CLIENT_SECRET
+        client_id:CLIENT_ID
       });
+
       const token=String(j.access_token||'').trim();
       if(token.length<20)throw new Error('YANDEX MUSIC TOKEN MISSING');
 
-      try{localStorage.setItem(TOKEN_KEY,token)}catch(e){}
       pending=null;
       clearTimeout(pollTimer);
       pollTimer=0;
-      status('YANDEX MUSIC CONNECTED');
+      setStatus('YANDEX MUSIC CONNECTED');
 
       if(window.AndroidBridge&&typeof window.AndroidBridge.saveYandexToken==='function'){
         window.AndroidBridge.saveYandexToken(token);
       }else{
+        try{localStorage.setItem('burzh.web.yandex.token.v1',token)}catch(e){}
         location.reload();
       }
     }catch(e){
       const code=String(e&&e.oauth||'');
       const msg=String(e&&e.message||e);
+
       if(code==='authorization_pending'||/authorization_pending/i.test(msg)){
+        setStatus('WAITING FOR CONFIRMATION…');
         schedulePoll();
       }else if(code==='slow_down'){
         schedulePoll((pending.interval+5)*1000);
-      }else if(code==='expired_token'){
+      }else if(code==='expired_token'||code==='invalid_grant'){
         const root=$('yandexLoginMount');
         pending=null;
         if(root)renderStart(root);
-        status('CODE EXPIRED · TAP CONNECT AGAIN',true);
+        setStatus('CODE EXPIRED OR INVALID · TAP CONNECT AGAIN',true);
       }else if(code==='access_denied'){
         const root=$('yandexLoginMount');
         pending=null;
         if(root)renderStart(root);
-        status('YANDEX MUSIC ACCESS WAS NOT APPROVED',true);
+        setStatus('YANDEX MUSIC ACCESS WAS NOT APPROVED',true);
       }else{
-        console.warn('BURZH Music device auth poll:',e);
-        status(msg,true);
+        console.warn('BURZH Yandex Music token poll:',e);
+        setStatus(msg,true);
         schedulePoll(8000);
       }
     }finally{
@@ -223,7 +251,6 @@
   function mount(parentId){
     const root=document.getElementById(parentId);
     if(!root)return;
-    mounted=true;
     if(pending)renderCode(root,pending);
     else renderStart(root);
   }
