@@ -240,7 +240,7 @@ window.BURZH_WEB_BUILD = true;
   }
   function normalizeToken(v){v=String(v||'').trim();return v.toLowerCase().startsWith('oauth ')?v.slice(6).trim():v}
   function authHeaders(){
-    const h={'Authorization':'OAuth '+token,'X-Yandex-Music-Client':CLIENT_HEADER};
+    const h={'Authorization':'OAuth '+token};
     return h;
   }
   async function api(path,options){
