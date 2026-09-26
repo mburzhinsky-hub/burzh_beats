@@ -280,6 +280,10 @@ window.BURZH_WEB_BUILD = true;
     const r=await fetch(API+path,opt);
     let body=null,txt='';
     try{txt=await r.text();body=txt?JSON.parse(txt):{}}catch(e){body={}}
+    if(body&&typeof body==='object'){
+      try{Object.defineProperty(body,'__burzhHttp',{value:r.status,enumerable:false})}catch(e){}
+      try{Object.defineProperty(body,'__burzhPath',{value:path,enumerable:false})}catch(e){}
+    }
     if(!r.ok){
       const er=new Error('HTTP '+r.status);
       er.status=r.status;
@@ -305,6 +309,38 @@ window.BURZH_WEB_BUILD = true;
     connected=true;
     return true;
   }
+  function sourceShape(j,result,cfg){
+    const top=j&&typeof j==='object'?Object.keys(j).slice(0,8):[];
+    const res=result&&typeof result==='object'?Object.keys(result).slice(0,10):[];
+    const rt=result&&result.tracks;
+    const rv=result&&result.volumes;
+    const trackShape=Array.isArray(rt)?('tracks='+rt.length):(rt&&typeof rt==='object'?('tracks:{'+Object.keys(rt).slice(0,5).join(',')+'}'):'tracks=none');
+    const volumeShape=Array.isArray(rv)?('volumes='+rv.length):'volumes=none';
+    return 'HTTP '+String((j&&j.__burzhHttp)||'?')+' · '+cfg.type+' · top['+top.join(',')+'] · result['+res.join(',')+'] · '+trackShape+' · '+volumeShape;
+  }
+  function playlistEntries(j,result){
+    const c=[
+      result&&result.tracks,
+      result&&result.tracks&&result.tracks.items,
+      result&&result.playlist&&result.playlist.tracks,
+      result&&result.playlist&&result.playlist.tracks&&result.playlist.tracks.items,
+      Array.isArray(result&&result.playlists)&&result.playlists[0]&&result.playlists[0].tracks,
+      j&&j.tracks
+    ];
+    for(const x of c)if(Array.isArray(x))return x;
+    return [];
+  }
+  function albumEntries(j,result){
+    const out=[];
+    const volumes=result&&result.volumes;
+    if(Array.isArray(volumes)){
+      volumes.forEach(v=>{if(Array.isArray(v))out.push(...v)});
+      if(out.length)return out;
+    }
+    const c=[result&&result.tracks,result&&result.tracks&&result.tracks.items,j&&j.tracks];
+    for(const x of c)if(Array.isArray(x))return x;
+    return out;
+  }
   async function loadSource(autoPlay){
     if(!connected){emitAuth('CONNECT YANDEX MUSIC');return}
     const gen=++sourceGeneration;
@@ -316,14 +352,13 @@ window.BURZH_WEB_BUILD = true;
       if(gen!==sourceGeneration)return;
       const result=j.result||j;
       const loaded=[];
-      if(cfg.type==='playlist'){
-        const arr=Array.isArray(result.tracks)?result.tracks:[];
-        arr.forEach(x=>{const t=parseTrack(x);if(t)loaded.push(t)});
-      }else{
-        const volumes=Array.isArray(result.volumes)?result.volumes:[];
-        volumes.forEach(vol=>{if(Array.isArray(vol))vol.forEach(x=>{const t=parseTrack(x);if(t)loaded.push(t)})});
+      const raw=cfg.type==='playlist'?playlistEntries(j,result):albumEntries(j,result);
+      raw.forEach(x=>{const t=parseTrack(x);if(t)loaded.push(t)});
+      if(!loaded.length){
+        const er=new Error('SOURCE EMPTY · '+sourceShape(j,result,cfg));
+        er.sourceEmpty=true;
+        throw er;
       }
-      if(!loaded.length)throw new Error('SOURCE IS EMPTY');
       tracks=loaded;
       idx=0;
       resetAudio();
@@ -333,9 +368,10 @@ window.BURZH_WEB_BUILD = true;
       if(autoPlay)await startPlayback();
     }catch(e){
       if(gen!==sourceGeneration)return;
-      if(Number(e&&e.status)===401||Number(e&&e.status)===403){
-        await clearTokenInternal(false);
-        emitAuth('TOKEN REJECTED — PASTE A NEW TOKEN','HTTP '+Number(e.status));
+      if(e&&e.sourceEmpty){
+        emit({status:'SOURCE EMPTY',error:String(e.message||e),switching:false});
+      }else if(Number(e&&e.status)===401||Number(e&&e.status)===403){
+        emit({status:'MUSIC API DENIED',error:'HTTP '+Number(e.status)+' · YANDEX LOGIN OK',switching:false});
       }else{
         emit({status:'SOURCE ERROR',error:String(e&&e.message||e),switching:false});
       }
@@ -724,7 +760,7 @@ window.BURZH={onState(s){s=s||{};lastState=s;
   $('playBtn').classList.toggle('is-playing',!!s.playing);$('landPlayBtn').classList.toggle('is-playing',!!s.playing);[$('landArt'),$('portraitArt')].forEach(art=>art&&art.classList.toggle('is-playing',!!s.playing));
   const hearts=[$('heartBtn'),$('landHeartBtn')].filter(Boolean);hearts.forEach(heart=>{heart.classList.toggle('active',!!s.favorite);heart.setAttribute('aria-label',s.favorite?'Remove from Favorites':'Add to Favorites')});if(Number.isFinite(Number(s.favoritesCount)))$('favoritesSummary').textContent=Number(s.favoritesCount)+' saved '+(Number(s.favoritesCount)===1?'track':'tracks');
   document.querySelectorAll('.track-matrix').forEach(matrix=>{const dots=matrix.querySelectorAll('i');if(!dots.length)return;const idx=Math.max(0,Number(s.index)||0)%dots.length;dots.forEach((x,i)=>{x.classList.toggle('hot',i===idx);x.classList.toggle('past',i<idx)})});
-  const label=statusLabel(s);if(s.error){showStatus(label||'PLAYER ERROR','error',4200);setBusy(false)}else if(/RESOLVING|LOADING|SWITCHING|BUFFERING/.test(String(s.status||'').toUpperCase())||s.switching){if(label)showStatus(label,'info',0);setBusy(true)}else{if(label&&label!=='PLAYING'&&label!=='PAUSED'&&label!=='READY')showStatus(label);else showStatus('');setBusy(false)}
+  const label=statusLabel(s);if(s.error){showStatus(label||'PLAYER ERROR','error',12000);setBusy(false)}else if(/RESOLVING|LOADING|SWITCHING|BUFFERING/.test(String(s.status||'').toUpperCase())||s.switching){if(label)showStatus(label,'info',0);setBusy(true)}else{if(label&&label!=='PLAYING'&&label!=='PAUSED'&&label!=='READY')showStatus(label);else showStatus('');setBusy(false)}
 },onFavorites(items){renderFavorites(items)},onSound(sound){applySoundState(sound)}};
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();closeAuth();closeFavorites();closeSound()}if((e.key==='Enter'||e.key===' ')&&document.activeElement===$('locatorWidget')){e.preventDefault();recenterLocator()}});
