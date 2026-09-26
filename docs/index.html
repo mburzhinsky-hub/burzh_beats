@@ -65,6 +65,7 @@
 @media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 
@@ -123,8 +124,8 @@
 
 <div class="overlay" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
   <div class="card auth-card">
-    <div class="auth-kicker">BURZH beats / web build</div><div class="auth-title" id="authTitle">WEB TEST</div>
-    <div class="auth-copy">На iPhone эта версия предназначена для проверки интерфейса, погоды и локатора. OAuth-токен Яндекс Музыки здесь не запрашивается.</div>
+    <div class="auth-kicker">BURZH beats / Yandex Music</div><div class="auth-title" id="authTitle">CONNECT</div>
+    <div class="auth-copy">Вставь OAuth-токен Яндекс Музыки, как в Android APK. Токен сохраняется только локально на этом устройстве и отправляется только в API Яндекс Музыки.</div>
     <input class="auth-input" id="tokenInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="OAuth token">
     <div class="auth-actions"><button class="auth-btn" onclick="closeAuth()">CLOSE</button><button class="auth-btn primary" id="connectBtn" onclick="saveToken()">CONNECT</button></div>
     <div class="auth-error" id="authError" aria-live="polite"></div>
@@ -138,7 +139,7 @@
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Favorites</div><div class="settings-value" id="favoritesSummary">0 saved tracks</div></div><button class="settings-open" onclick="openFavorites()">OPEN</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web build · Android DSP unavailable</div></div><button class="settings-open" onclick="openSound()">INFO</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape</div><div class="settings-value">Weather · WeatherAPI · auto IP</div></div><button class="settings-open" id="weatherToggleBtn" onclick="toggleWeather()">OFF</button></div><div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape widget</div><div class="settings-value">Locator · live GPS · foreground only</div></div><button class="settings-open" id="locatorToggleBtn" onclick="toggleLocator()">OFF</button></div>
-      <div class="settings-row"><div class="settings-label">Web build</div><div class="settings-value" id="accountState">iPhone / PWA test mode. Android APK remains separate.</div></div>
+      <div class="settings-row"><div class="settings-label">Yandex Music</div><div class="settings-value" id="accountState">Checking connection…</div></div>
       <div class="settings-row"><div class="settings-label">BURZH beats</div><div class="settings-value">v0.16.0-web · iPhone PWA test</div></div>
     </div>
     <div class="auth-actions"><button class="auth-btn primary" onclick="closeSettings()">DONE</button></div>
@@ -166,40 +167,398 @@
 
 
 <script>
-/* BURZH beats browser bridge. The Android project is unchanged; this only powers the GitHub Pages/PWA build. */
+/* BURZH beats browser bridge: real Yandex Music playback for the iPhone/PWA build.
+   Android sources under /app are intentionally untouched. */
 window.BURZH_WEB_BUILD = true;
 (function(){
-  const FAV='burzh.web.favorites.v1';
-  let station='Lo-Fi', idx=0, playing=false, favorite=false;
-  const demos={
-    'Lo-Fi':['WEB TEST 01','WEB TEST 02','WEB TEST 03'],
-    'Future Garage':['WEB TEST 01','WEB TEST 02','WEB TEST 03'],
-    'Deep House':['WEB TEST 01','WEB TEST 02','WEB TEST 03'],
-    'Trance':['WEB TEST 01','WEB TEST 02','WEB TEST 03']
+  'use strict';
+
+  const API='https://api.music.yandex.net';
+  const TOKEN_KEY='burzh.web.yandex.token.v1';
+  const FAV_KEY='burzh.web.favorites.v2';
+  const CLIENT_HEADER='YandexMusicAndroid/24023621';
+  const SIGN_SALT='XGRlBW9FXlekgbPrRHuSiA';
+  const URL_TTL=5*60*1000;
+
+  const SOURCES={
+    'Lo-Fi':{type:'playlist',id:'ar.d4ed84e2-b432-4bcc-b8dd-97824c25db67'},
+    'Future Garage':{type:'album',id:'23384649'},
+    'Deep House':{type:'playlist',id:'ar.3e2a1422-9810-4e40-8bd8-cef37692078a'},
+    'Trance':{type:'album',id:'7580686'}
   };
   const stationKey={lofi:'Lo-Fi',futureGarage:'Future Garage',deepHouse:'Deep House',d:'Deep House',trance:'Trance',t:'Trance'};
-  function favs(){try{return JSON.parse(localStorage.getItem(FAV)||'[]')}catch(e){return[]}}
-  function saveFavs(v){try{localStorage.setItem(FAV,JSON.stringify(v))}catch(e){}}
-  function current(){const a=demos[station]||demos['Lo-Fi'];return {title:a[idx%a.length],artist:'BURZH beats · WEB UI TEST'};}
-  function emit(extra){const c=current(), fs=favs(); const s=Object.assign({station:station,sourceType:'web',sourceId:'pwa',index:idx,count:(demos[station]||[]).length,connected:true,playing:playing,title:c.title,artist:c.artist,durationMs:0,positionMs:0,favorite:favorite,favoritesCount:fs.length,status:playing?'PLAYING':'READY',webBuild:true},extra||{}); setTimeout(()=>window.BURZH&&window.BURZH.onState(s),0);}
-  function syncFavorite(){const c=current();favorite=favs().some(x=>x.trackId===station+'|'+idx);}
+
+  let token='';
+  let connected=false;
+  let accountLogin='';
+  let station='Lo-Fi';
+  let tracks=[];
+  let idx=0;
+  let sourceGeneration=0;
+  let playGeneration=0;
+  let repeat=false;
+  let shuffle=false;
+  let prefetchPromise=null;
+  const urlCache=new Map();
+
+  const audio=new Audio();
+  audio.preload='auto';
+  audio.playsInline=true;
+
+  function current(){return tracks.length?tracks[Math.max(0,Math.min(idx,tracks.length-1))]:null}
+  function favs(){try{const x=JSON.parse(localStorage.getItem(FAV_KEY)||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
+  function saveFavs(v){try{localStorage.setItem(FAV_KEY,JSON.stringify(v))}catch(e){}}
+  function modeCode(){return repeat?(shuffle?'transientPart':'preview'):(shuffle?'playing':'web')}
+  function isFavorite(){const c=current();return !!c&&favs().some(x=>String(x.trackId)===String(c.id))}
+  function mediaState(extra){
+    const c=current(),fs=favs();
+    return Object.assign({
+      station:station,
+      sourceType:modeCode(),
+      sourceId:(SOURCES[station]||{}).id||'',
+      index:idx,
+      count:tracks.length,
+      connected:connected,
+      playing:!audio.paused&&!audio.ended,
+      title:c?c.title:(connected?station:'BURZH beats'),
+      artist:c?c.artist:(connected?'Yandex Music':'Connect Yandex Music'),
+      durationMs:Number.isFinite(audio.duration)?Math.round(audio.duration*1000):(c&&c.durationMs||0),
+      positionMs:Number.isFinite(audio.currentTime)?Math.round(audio.currentTime*1000):0,
+      favorite:isFavorite(),
+      favoritesCount:fs.length,
+      repeat:repeat,
+      shuffle:shuffle,
+      account:accountLogin,
+      webBuild:true
+    },extra||{});
+  }
+  function emit(extra){setTimeout(()=>window.BURZH&&window.BURZH.onState(mediaState(extra)),0)}
+  function emitAuth(message,error){
+    setTimeout(()=>window.BURZH&&window.BURZH.onState(mediaState({
+      connected:false,authRequired:true,status:message||'CONNECT YANDEX',error:error||undefined
+    })),0);
+  }
+  function normalizeToken(v){v=String(v||'').trim();return v.toLowerCase().startsWith('oauth ')?v.slice(6).trim():v}
+  function authHeaders(){
+    const h={'Authorization':'OAuth '+token,'X-Yandex-Music-Client':CLIENT_HEADER};
+    return h;
+  }
+  async function api(path,options){
+    if(!token) throw new Error('TOKEN REQUIRED');
+    const opt=Object.assign({method:'GET',mode:'cors',cache:'no-store'},options||{});
+    opt.headers=Object.assign({},authHeaders(),opt.headers||{});
+    const r=await fetch(API+path,opt);
+    let body=null,txt='';
+    try{txt=await r.text();body=txt?JSON.parse(txt):{}}catch(e){body={}}
+    if(!r.ok){
+      const er=new Error('HTTP '+r.status);
+      er.status=r.status;
+      er.payload=body;
+      throw er;
+    }
+    return body||{};
+  }
+  function parseTrack(raw){
+    if(!raw)return null;
+    const t=raw.track||raw;
+    const id=String(t.id||t.trackId||'');
+    if(!id)return null;
+    const artists=Array.isArray(t.artists)?t.artists:[];
+    const artist=artists.length&&artists[0]&&artists[0].name?String(artists[0].name):'Unknown artist';
+    return {id:id,title:String(t.title||'Unknown track'),artist:artist,durationMs:Number(t.durationMs)||0};
+  }
+  async function validateToken(){
+    const j=await api('/account/status');
+    const a=(j.result&&j.result.account)||null;
+    if(!a) throw new Error('TOKEN REJECTED');
+    accountLogin=String(a.login||a.displayName||a.uid||'Yandex Music');
+    connected=true;
+    return true;
+  }
+  async function loadSource(autoPlay){
+    if(!connected){emitAuth('CONNECT YANDEX MUSIC');return}
+    const gen=++sourceGeneration;
+    const cfg=SOURCES[station];
+    if(!cfg)return;
+    emit({status:'LOADING '+station.toUpperCase(),switching:true});
+    try{
+      const j=cfg.type==='playlist'?await api('/playlist/'+encodeURIComponent(cfg.id)):await api('/albums/'+encodeURIComponent(cfg.id)+'/with-tracks');
+      if(gen!==sourceGeneration)return;
+      const result=j.result||j;
+      const loaded=[];
+      if(cfg.type==='playlist'){
+        const arr=Array.isArray(result.tracks)?result.tracks:[];
+        arr.forEach(x=>{const t=parseTrack(x);if(t)loaded.push(t)});
+      }else{
+        const volumes=Array.isArray(result.volumes)?result.volumes:[];
+        volumes.forEach(vol=>{if(Array.isArray(vol))vol.forEach(x=>{const t=parseTrack(x);if(t)loaded.push(t)})});
+      }
+      if(!loaded.length)throw new Error('SOURCE IS EMPTY');
+      tracks=loaded;
+      idx=0;
+      resetAudio();
+      emit({status:'READY',switching:false});
+      updateMediaSession();
+      prefetchCurrent();
+      if(autoPlay)await startPlayback();
+    }catch(e){
+      if(gen!==sourceGeneration)return;
+      if(Number(e&&e.status)===401||Number(e&&e.status)===403){
+        await clearTokenInternal(false);
+        emitAuth('TOKEN REJECTED — PASTE A NEW TOKEN','HTTP '+Number(e.status));
+      }else{
+        emit({status:'SOURCE ERROR',error:String(e&&e.message||e),switching:false});
+      }
+    }
+  }
+  function resetAudio(){
+    playGeneration++;
+    try{audio.pause()}catch(e){}
+    try{audio.removeAttribute('src');audio.load()}catch(e){}
+  }
+  async function getDownloadInfo(trackId){
+    const j=await api('/tracks/'+encodeURIComponent(trackId)+'/download-info');
+    const arr=Array.isArray(j.result)?j.result:[];
+    const full=arr.filter(x=>x&&!x.preview&&x.downloadInfoUrl);
+    if(!full.length)throw new Error('FULL TRACK UNAVAILABLE');
+    full.sort((a,b)=>{
+      const ad=a.direct?1:0,bd=b.direct?1:0;
+      if(ad!==bd)return bd-ad;
+      const am=String(a.codec||'').toLowerCase()==='mp3'?1:0;
+      const bm=String(b.codec||'').toLowerCase()==='mp3'?1:0;
+      if(am!==bm)return bm-am;
+      return (Number(b.bitrateInKbps)||0)-(Number(a.bitrateInKbps)||0);
+    });
+    return full[0];
+  }
+  async function fetchXml(url){
+    let r;
+    try{r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store'})}catch(e){r=null}
+    if(!r||!r.ok){
+      r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store',headers:{'Authorization':'OAuth '+token}});
+    }
+    if(!r.ok)throw new Error('STREAM INFO HTTP '+r.status);
+    return await r.text();
+  }
+  async function resolveTrackUrl(track){
+    const cached=urlCache.get(track.id);
+    if(cached&&Date.now()-cached.ts<URL_TTL)return cached.url;
+    const info=await getDownloadInfo(track.id);
+    let url=String(info.downloadInfoUrl||'');
+    if(!url)throw new Error('MISSING STREAM URL');
+    if(info.direct){
+      urlCache.set(track.id,{url:url,ts:Date.now()});
+      return url;
+    }
+    if(typeof CryptoJS==='undefined')throw new Error('STREAM SIGNER NOT LOADED');
+    const xml=await fetchXml(url);
+    const doc=new DOMParser().parseFromString(xml,'application/xml');
+    if(doc.querySelector('parsererror'))throw new Error('STREAM INFO XML ERROR');
+    const val=n=>{const e=doc.getElementsByTagName(n)[0];return e?String(e.textContent||''):''};
+    const host=val('host'),path=val('path'),ts=val('ts'),secret=val('s');
+    if(!host||!path||!ts||!secret)throw new Error('STREAM INFO INCOMPLETE');
+    const sign=CryptoJS.MD5(SIGN_SALT+path.slice(1)+secret).toString();
+    url='https://'+host+'/get-mp3/'+sign+'/'+ts+path;
+    urlCache.set(track.id,{url:url,ts:Date.now()});
+    return url;
+  }
+  function prefetchCurrent(){
+    const c=current();
+    if(!c)return Promise.resolve('');
+    prefetchPromise=resolveTrackUrl(c).catch(()=> '');
+    return prefetchPromise;
+  }
+  async function startPlayback(){
+    const c=current();
+    if(!c){emit({status:'NO TRACK'});return}
+    const pg=++playGeneration;
+    emit({status:'RESOLVING AUDIO'});
+    try{
+      let url='';
+      const cached=urlCache.get(c.id);
+      if(cached&&Date.now()-cached.ts<URL_TTL)url=cached.url;
+      if(!url)url=await resolveTrackUrl(c);
+      if(pg!==playGeneration)return;
+      if(audio.src!==url){
+        audio.src=url;
+        audio.load();
+      }
+      updateMediaSession();
+      await audio.play();
+      emit({status:'PLAYING'});
+    }catch(e){
+      if(pg!==playGeneration)return;
+      const name=String(e&&e.name||'');
+      const msg=String(e&&e.message||e||'PLAYBACK ERROR');
+      if(name==='NotAllowedError'){
+        emit({status:'TAP PLAY AGAIN',error:'iOS blocked autoplay after loading. Tap Play once more.'});
+      }else{
+        urlCache.delete(c.id);
+        emit({status:'AUDIO UNAVAILABLE',error:msg});
+      }
+    }
+  }
+  function pause(){try{audio.pause()}catch(e){}emit({status:'PAUSED'})}
+  async function playPause(){
+    if(!connected){emitAuth('CONNECT YANDEX MUSIC');return}
+    if(!tracks.length){await loadSource(false);return}
+    if(!audio.paused&&!audio.ended){pause();return}
+    await startPlayback();
+  }
+  async function move(step,fromEnded){
+    if(!tracks.length)return;
+    const wasPlaying=fromEnded||(!audio.paused&&!audio.ended);
+    if(shuffle&&tracks.length>1){
+      let n=idx;
+      while(n===idx)n=Math.floor(Math.random()*tracks.length);
+      idx=n;
+    }else{
+      idx=(idx+step+tracks.length)%tracks.length;
+    }
+    resetAudio();
+    emit({status:'READY'});
+    updateMediaSession();
+    prefetchCurrent();
+    if(wasPlaying)await startPlayback();
+  }
+  async function switchStation(key){
+    if(key==='reload'){
+      repeat=!repeat;
+      emit({status:'READY'});
+      return;
+    }
+    if(key==='resumePlayback'){
+      shuffle=!shuffle;
+      emit({status:'READY'});
+      return;
+    }
+    const next=stationKey[key]||key;
+    if(!SOURCES[next])return;
+    const wasPlaying=!audio.paused&&!audio.ended;
+    if(next===station){emit({status:'READY'});return}
+    station=next;
+    tracks=[];
+    idx=0;
+    resetAudio();
+    await loadSource(wasPlaying);
+  }
+  function updateMediaSession(){
+    const c=current();
+    if(!c||!('mediaSession' in navigator))return;
+    try{
+      navigator.mediaSession.metadata=new MediaMetadata({
+        title:c.title,
+        artist:c.artist,
+        album:'BURZH beats · '+station
+      });
+      navigator.mediaSession.playbackState=(!audio.paused&&!audio.ended)?'playing':'paused';
+    }catch(e){}
+  }
+  function currentFavoriteObject(){
+    const c=current();
+    return c?{trackId:String(c.id),title:c.title,artist:c.artist,station:station,index:idx}:null;
+  }
+  function toggleFavorite(){
+    const c=currentFavoriteObject();if(!c)return;
+    let a=favs();const p=a.findIndex(x=>String(x.trackId)===String(c.trackId));
+    if(p>=0)a.splice(p,1);else a.unshift(c);
+    saveFavs(a);emit({status:'READY'});
+  }
+  function requestFavorites(){setTimeout(()=>window.BURZH&&window.BURZH.onFavorites(favs()),0)}
+  function removeFavorite(id){
+    const a=favs().filter(x=>String(x.trackId)!==String(id));
+    saveFavs(a);emit({status:'READY'});setTimeout(()=>window.BURZH&&window.BURZH.onFavorites(a),0);
+  }
+  async function playFavorite(id){
+    const f=favs().find(x=>String(x.trackId)===String(id));if(!f)return;
+    const targetStation=SOURCES[f.station]?f.station:station;
+    const wasDifferent=targetStation!==station;
+    station=targetStation;
+    if(wasDifferent||!tracks.length)await loadSource(false);
+    const n=tracks.findIndex(x=>String(x.id)===String(id));
+    if(n>=0)idx=n;
+    resetAudio();emit({status:'READY'});prefetchCurrent();await startPlayback();
+  }
+  async function saveToken(v){
+    const clean=normalizeToken(v);
+    if(clean.length<10){emitAuth('TOKEN REQUIRED');return}
+    token=clean;
+    connected=false;
+    accountLogin='';
+    try{localStorage.setItem(TOKEN_KEY,token)}catch(e){}
+    emit({status:'CHECKING TOKEN'});
+    try{
+      await validateToken();
+      emit({status:'CONNECTED'});
+      await loadSource(false);
+    }catch(e){
+      try{localStorage.removeItem(TOKEN_KEY)}catch(_){}
+      token='';connected=false;accountLogin='';
+      emitAuth('TOKEN REJECTED — PASTE A NEW TOKEN',String(e&&e.message||e));
+    }
+  }
+  async function clearTokenInternal(emitState){
+    token='';connected=false;accountLogin='';tracks=[];idx=0;urlCache.clear();resetAudio();
+    try{localStorage.removeItem(TOKEN_KEY)}catch(e){}
+    if(emitState!==false)emitAuth('CONNECT YANDEX MUSIC');
+  }
+  function requestSound(){
+    setTimeout(()=>window.BURZH&&window.BURZH.onSound({
+      enabled:false,preset:'WEB',eqSupported:false,bassSupported:false,gainSupported:false,sessionAttached:!audio.paused,bands:[]
+    }),0);
+  }
+
+  audio.addEventListener('play',()=>{updateMediaSession();emit({status:'PLAYING'})});
+  audio.addEventListener('pause',()=>{updateMediaSession();if(!audio.ended)emit({status:'PAUSED'})});
+  audio.addEventListener('loadedmetadata',()=>emit({status:audio.paused?'READY':'PLAYING'}));
+  audio.addEventListener('durationchange',()=>emit({status:audio.paused?'READY':'PLAYING'}));
+  audio.addEventListener('ended',async()=>{
+    if(repeat){
+      try{audio.currentTime=0;await audio.play()}catch(e){emit({status:'TAP PLAY AGAIN'})}
+    }else await move(1,true);
+  });
+  audio.addEventListener('error',()=>{const c=current();if(c)urlCache.delete(c.id);emit({status:'PLAYBACK ERROR',error:'STREAM PLAYBACK ERROR'})});
+  setInterval(()=>{if(connected&&tracks.length)emit({status:(!audio.paused&&!audio.ended)?'PLAYING':'READY'})},700);
+
   window.AndroidBridge={
     feedback(){},
-    playPause(){playing=!playing;emit({status:playing?'WEB UI PLAY':'PAUSED'}); if(window.showStatus)showStatus('WEB TEST · FULL YANDEX AUDIO STAYS IN ANDROID APK');},
-    next(){idx=(idx+1)%3;syncFavorite();emit({status:'READY'});},
-    previous(){idx=(idx+2)%3;syncFavorite();emit({status:'READY'});},
-    reload(){emit({status:'READY'});},
-    selectStation(k){if(k==='reload'||k==='resumePlayback'){emit();return} station=stationKey[k]||station;idx=0;syncFavorite();emit({status:'READY'});},
-    saveYandexToken(){if(window.showStatus)showStatus('WEB BUILD DOES NOT ACCEPT OAUTH TOKENS','error',4200);},
-    clearYandexToken(){emit();},
-    toggleFavorite(){let a=favs(),id=station+'|'+idx,c=current(),pos=a.findIndex(x=>x.trackId===id);if(pos>=0){a.splice(pos,1);favorite=false}else{a.unshift({trackId:id,title:c.title,artist:c.artist,station:station});favorite=true}saveFavs(a);emit();},
-    requestFavorites(){setTimeout(()=>window.BURZH&&window.BURZH.onFavorites(favs()),0);},
-    removeFavorite(id){let a=favs().filter(x=>x.trackId!==String(id));saveFavs(a);syncFavorite();emit();setTimeout(()=>window.BURZH&&window.BURZH.onFavorites(a),0);},
-    playFavorite(id){const p=String(id).split('|');if(p.length===2){station=p[0];idx=Number(p[1])||0;syncFavorite();emit();}},
-    requestSound(){setTimeout(()=>window.BURZH&&window.BURZH.onSound({enabled:false,preset:'WEB',eqSupported:false,bassSupported:false,gainSupported:false,sessionAttached:false,bands:[]}),0);},
-    setSoundEnabled(){if(window.showStatus)showStatus('ANDROID DSP IS NOT AVAILABLE IN THE WEB BUILD');},setEqPreset(){},setBass(){},setGainTenthDb(){},setEqBand(){}
+    playPause(){playPause()},
+    next(){move(1,false)},
+    previous(){move(-1,false)},
+    reload(){loadSource(false)},
+    selectStation(k){switchStation(String(k||''))},
+    saveYandexToken(v){saveToken(v)},
+    clearYandexToken(){clearTokenInternal(true)},
+    toggleFavorite(){toggleFavorite()},
+    requestFavorites(){requestFavorites()},
+    removeFavorite(id){removeFavorite(id)},
+    playFavorite(id){playFavorite(id)},
+    requestSound(){requestSound()},
+    setSoundEnabled(){if(window.showStatus)showStatus('WEB AUDIO USES IOS / SAFARI OUTPUT');},
+    setEqPreset(){},setBass(){},setGainTenthDb(){},setEqBand(){}
   };
-  window.addEventListener('load',()=>{syncFavorite();setTimeout(()=>emit({status:'READY'}),250);});
+
+  if('mediaSession' in navigator){
+    try{navigator.mediaSession.setActionHandler('play',()=>{if(audio.paused)startPlayback()})}catch(e){}
+    try{navigator.mediaSession.setActionHandler('pause',()=>pause())}catch(e){}
+    try{navigator.mediaSession.setActionHandler('nexttrack',()=>move(1,false))}catch(e){}
+    try{navigator.mediaSession.setActionHandler('previoustrack',()=>move(-1,false))}catch(e){}
+  }
+
+  async function bootstrap(){
+    try{token=normalizeToken(localStorage.getItem(TOKEN_KEY)||'')}catch(e){token=''}
+    if(!token){emitAuth('PASTE YANDEX MUSIC OAUTH TOKEN');return}
+    emit({status:'CHECKING TOKEN'});
+    try{
+      await validateToken();
+      emit({status:'CONNECTED'});
+      await loadSource(false);
+    }catch(e){
+      await clearTokenInternal(false);
+      emitAuth('TOKEN REJECTED — PASTE A NEW TOKEN',String(e&&e.message||e));
+    }
+  }
+  window.addEventListener('load',()=>setTimeout(bootstrap,180));
 })();
 </script>
 
