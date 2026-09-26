@@ -1,0 +1,6 @@
+{
+  "name":"burzh-beats-yandex-proxy",
+  "private":true,
+  "type":"module",
+  "engines":{"node":">=20"}
+}
