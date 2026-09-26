@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: burzh-beats-yandex-proxy
+    runtime: node
+    rootDir: pwa-proxy
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    healthCheckPath: /health
