@@ -64,6 +64,20 @@
 @media(orientation:landscape) and (max-height:300px){.l-header-right{gap:6px}.l-actions{gap:3px}.l-action-btn{width:30px;height:30px}.l-action-btn.heart svg{width:15px;height:15px}.l-action-btn.more{font-size:19px;padding-bottom:4px}.l-motto{display:none}.l-shell{grid-template-rows:22px minmax(0,1fr) 25px 62px;padding-top:6px;padding-bottom:6px;row-gap:2px}.l-brand{font-size:14px}.l-motto{font-size:6px}.l-main{grid-template-columns:minmax(170px,1.3fr) minmax(120px,.8fr) minmax(106px,.62fr);column-gap:14px}.clock{font-size:clamp(46px,10vw,72px)}.l-now{margin-top:4px}.stationname{font-size:18px}.l-title{font-size:9px;margin-top:4px}.l-artist{font-size:8px;margin-top:2px}.l-artframe,.locator-widget{width:min(100%,48vh,150px);border-radius:14px}.locator-top{left:8px;right:8px;top:7px;font-size:5px}.locator-readout{left:8px;right:8px;bottom:7px}.locator-kicker{font-size:4.7px}.locator-coords{font-size:8px;margin-top:3px}.locator-accuracy{font-size:4px;margin-top:3px}.locator-dot{width:7px;height:7px}.locator-pulse{width:20px;height:20px}.l-genre-menu{min-height:116px;padding:5px;gap:3px;border-radius:13px}.l-genre-btn{font-size:6.5px;padding-left:15px;border-radius:7px}.l-progress{margin:0 34px}.l-bottom{padding:0 24px}.l-caption{font-size:5.8px}.l-controls{gap:20px}.l-controls .sm{width:46px;height:46px}.l-controls .big{width:58px;height:58px}.matrix{gap:5px;grid-template-columns:repeat(6,3px)}.matrix i{width:3px;height:3px}.card{padding:16px}.auth-title{font-size:23px}.auth-copy{font-size:9px;margin-top:8px}.auth-input{margin-top:10px;padding:10px 12px}.auth-actions{margin-top:9px}.auth-btn{padding:9px 12px;min-height:36px}.auth-error{margin-top:6px}}
 @media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+
+/* Clear Yandex device-code glyphs on iPhone: avoid the dotted display font. */
+#yandexLoginMount .settings-label + div{
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
+  font-size: 30px !important;
+  font-weight: 600 !important;
+  line-height: 1.15 !important;
+  letter-spacing: .10em !important;
+  font-variant-ligatures: none !important;
+  text-transform: none !important;
+  user-select: all !important;
+  -webkit-user-select: all !important;
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://yastatic.net/s3/passport-sdk/autofill/v1/sdk-suggest-with-polyfills-latest.js"></script>
