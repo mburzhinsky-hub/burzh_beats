@@ -80,22 +80,9 @@
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://yastatic.net/s3/passport-sdk/autofill/v1/sdk-suggest-with-polyfills-latest.js"></script>
-<script>
-(()=>{
-  const original=String.prototype.toUpperCase;
-  String.prototype.toUpperCase=function(){
-    const raw=String(this);
-    let stack='';
-    try{stack=String((new Error()).stack||'')}catch(e){}
-    if(stack.includes('yandex-auth.js') && /^[A-Za-z0-9]{6,12}$/.test(raw)){
-      return raw;
-    }
-    return original.call(this);
-  };
-})();
-</script>
-<script defer src="./yandex-auth.js?v=casefix2"></script>
+
+
+
 </head>
 <body>
 
@@ -770,7 +757,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();clo
 <script id="BURZH_LOCAL_TRANCE_V1">
 (()=>{
   'use strict';
-  const AUDIO_URL='https://drive.usercontent.google.com/download?id=1wJ2tqF3hg7JlzdRJMPzWMChB6MFO6pWT&export=download&confirm=t';
+  const AUDIO_URL='./media/trance.m4a';
   const TITLE='Dark Techno · Dark Clubbing · Hard Techno · Industrial Tech';
   const ARTIST='BURZH beats';
   const STATION='Trance';
