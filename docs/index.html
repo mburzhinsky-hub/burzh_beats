@@ -78,6 +78,14 @@
   -webkit-user-select: all !important;
 }
 
+
+/* BURZH local-library UI fixes */
+.p-progress .bar,.l-progress .bar{cursor:pointer;touch-action:none}
+#playBtn.is-playing .play,#landPlayBtn.is-playing .play{display:none}
+#playBtn.is-playing .pause,#landPlayBtn.is-playing .pause{display:block}
+html.theme-graphite,html.theme-graphite body{--bg:#17191a;background:#17191a}
+html.theme-graphite .screen{background:radial-gradient(120% 120% at 55% -10%,#292c2d 0,#202223 35%,#17191a 72%)}
+html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-graphite .locator-map{background-color:#17191a}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
@@ -156,8 +164,8 @@
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Favorites</div><div class="settings-value" id="favoritesSummary">0 saved tracks</div></div><button class="settings-open" onclick="openFavorites()">OPEN</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web build · Android DSP unavailable</div></div><button class="settings-open" onclick="openSound()">INFO</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape</div><div class="settings-value">Weather · WeatherAPI · auto IP</div></div><button class="settings-open" id="weatherToggleBtn" onclick="toggleWeather()">OFF</button></div><div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape widget</div><div class="settings-value">Locator · live GPS · foreground only</div></div><button class="settings-open" id="locatorToggleBtn" onclick="toggleLocator()">OFF</button></div>
-      <div class="settings-row"><div class="settings-label">Yandex Music</div><div class="settings-value" id="accountState">Checking connection…</div></div>
-      <div class="settings-row"><div class="settings-label">BURZH beats</div><div class="settings-value">v0.16.0-web · iPhone PWA test</div></div>
+      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Style</div><div class="settings-value">Player background</div></div><button class="settings-open" id="themeToggleBtn" onclick="toggleTheme()">BLACK</button></div>\n      <div class="settings-row"><div class="settings-label">Music library</div><div class="settings-value" id="accountState">LOCAL · TRANCE · 2 MIXES</div></div>
+      <div class="settings-row"><div class="settings-label">BURZH beats</div><div class="settings-value">v0.17.0-web · local library</div></div>
     </div>
     <div class="auth-actions"><button class="auth-btn primary" onclick="closeSettings()">DONE</button></div>
   </div>
@@ -754,95 +762,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();clo
 </script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script>
 
-<script id="BURZH_LOCAL_TRANCE_V1">
-(()=>{
-  'use strict';
-  const AUDIO_URL='./media/trance.m4a';
-  const TITLE='Dark Techno · Dark Clubbing · Hard Techno · Industrial Tech';
-  const ARTIST='BURZH beats';
-  const STATION='Trance';
-  const a=new Audio(AUDIO_URL);
-  a.preload='metadata';
-  a.playsInline=true;
-  let repeat=false, favorite=false, durationMs=3567119;
-  const base=window.BURZH&&window.BURZH.onState?window.BURZH.onState.bind(window.BURZH):null;
 
-  function snapshot(extra){
-    return Object.assign({
-      station:STATION,sourceType:repeat?'preview':'local',sourceId:'trance-local-001',
-      index:0,count:1,connected:true,playing:!a.paused&&!a.ended,
-      title:TITLE,artist:ARTIST,
-      durationMs:Number.isFinite(a.duration)?Math.round(a.duration*1000):durationMs,
-      positionMs:Number.isFinite(a.currentTime)?Math.round(a.currentTime*1000):0,
-      favorite,favoritesCount:favorite?1:0,repeat,shuffle:false,
-      account:'LOCAL LIBRARY',webBuild:true,authRequired:false
-    },extra||{});
-  }
-  function emit(extra){if(base)base(snapshot(extra))}
-  function activate(){
-    document.querySelectorAll('.station').forEach(x=>x.classList.toggle('active',x.dataset.station===STATION));
-    document.querySelectorAll('.l-genre-btn').forEach(x=>x.classList.toggle('active',x.dataset.station===STATION));
-  }
-  function noTrack(name){
-    activate();
-    if(window.showStatus)showStatus(String(name||'STATION').toUpperCase()+' · NO LOCAL TRACKS YET','info',2600);
-  }
-  async function pp(){
-    try{a.paused?await a.play():a.pause()}catch(e){if(window.showStatus)showStatus('LOCAL AUDIO ERROR','error',3500)}
-    emit();
-  }
-
-  window.openAuth=()=>{};
-  window.closeAuth=()=>{const o=document.getElementById('authOverlay');if(o)o.classList.remove('show')};
-  window.retryYandexLogin=()=>{};
-  window.saveToken=()=>{};
-  window.changeToken=()=>{if(window.showStatus)showStatus('YANDEX DISABLED · LOCAL LIBRARY','info',2600)};
-  window.disconnectYandex=()=>{};
-
-  window.tap=(action,el)=>{
-    try{window.feedback&&feedback(action)}catch(e){}
-    if(el)el.animate([{transform:'scale(.92)'},{transform:'scale(1)'}],{duration:150,easing:'cubic-bezier(.2,.8,.2,1)'});
-    if(action==='play')return void pp();
-    if(action==='next'||action==='previous'){a.currentTime=0;emit({status:'READY'})}
-  };
-  window.stationTap=(el)=>{const n=el&&el.dataset?el.dataset.station:'';if(n!==STATION)return noTrack(n);activate();emit({status:'READY'})};
-  window.landStationTap=(el)=>{const n=el&&el.dataset?el.dataset.station:'';if(n!==STATION)return noTrack(n);activate();emit({status:'READY'})};
-  window.toggleMode=(kind)=>{
-    if(kind==='repeat'){repeat=!repeat;a.loop=repeat;emit({status:a.paused?'READY':'PLAYING'})}
-    else if(window.showStatus)showStatus('SHUFFLE · ONE LOCAL TRACK','info',2200);
-  };
-  window.toggleFavorite=()=>{favorite=!favorite;emit({status:a.paused?'READY':'PLAYING'})};
-  window.openSettings=()=>{
-    const e=document.getElementById('accountState');if(e)e.textContent='Yandex disabled · Local BURZH library.';
-    const o=document.getElementById('settingsOverlay');if(o)o.classList.add('show');
-  };
-
-  if(window.BURZH){
-    window.BURZH.onState=(s)=>{if(s&&s.authRequired)return;if(base)base(s)};
-  }
-
-  a.addEventListener('play',()=>emit({status:'PLAYING'}));
-  a.addEventListener('pause',()=>emit({status:'PAUSED'}));
-  a.addEventListener('loadedmetadata',()=>{if(Number.isFinite(a.duration))durationMs=Math.round(a.duration*1000);emit({status:'READY'})});
-  a.addEventListener('timeupdate',()=>emit({status:a.paused?'READY':'PLAYING'}));
-  a.addEventListener('ended',()=>{if(!repeat){a.currentTime=0;emit({status:'READY'})}});
-  a.addEventListener('error',()=>emit({status:'LOCAL AUDIO MISSING',error:'TRANCE FILE NOT FOUND'}));
-
-  if('mediaSession' in navigator){
-    try{navigator.mediaSession.metadata=new MediaMetadata({title:TITLE,artist:ARTIST,album:'BURZH beats · Trance'})}catch(e){}
-    try{navigator.mediaSession.setActionHandler('play',pp)}catch(e){}
-    try{navigator.mediaSession.setActionHandler('pause',()=>a.pause())}catch(e){}
-    try{navigator.mediaSession.setActionHandler('nexttrack',()=>{a.currentTime=0;emit()})}catch(e){}
-    try{navigator.mediaSession.setActionHandler('previoustrack',()=>{a.currentTime=0;emit()})}catch(e){}
-  }
-
-  window.addEventListener('load',()=>{
-    try{localStorage.removeItem('burzh.web.yandex.token.v1')}catch(e){}
-    const auth=document.getElementById('authOverlay');if(auth)auth.remove();
-    activate();
-    setTimeout(()=>emit({status:'READY'}),280);
-  });
-})();
-</script>
-</body>
+<script defer src="./local-player.js?v=2"></script>\n</body>
 </html>
