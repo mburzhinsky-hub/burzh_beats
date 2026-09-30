@@ -3,7 +3,7 @@
 
   const TRACKS=[
     {title:'Mix1',url:'./media/trance.m4a',fallbackDurationMs:3567119},
-    {title:'Mix2',url:'https://drive.usercontent.google.com/download?id=1VvwsbjkqLQVHmDz0PFcZyz4DSKWbM-It&export=download&confirm=t',fallbackDurationMs:3901928}
+    {title:'Mix2',url:'./media/trance-mix2.m4a',fallbackDurationMs:3901928}
   ];
   const STATION='Trance';
   const THEME_KEY='burzh.web.theme.v1';
@@ -20,6 +20,124 @@
   const a=new Audio();
   a.preload='metadata';
   a.playsInline=true;
+
+  // Real Web Audio controls for the iPhone/PWA build.
+  let audioCtx=null,sourceNode=null,bassNode=null,masterGain=null;
+  let eqNodes=[];
+  let soundEnabled=true;
+  let soundPreset='FLAT';
+  let bassAmount=0;
+  let gainTenthDb=0;
+  const EQ_FREQS=[80,250,1000,4000,12000];
+  let eqLevels=[0,0,0,0,0];
+
+  const PRESETS={
+    FLAT:[0,0,0,0,0],
+    WARM:[2.5,1.5,0,-0.5,-1],
+    DEEP:[4,2,0,-1,-1.5],
+    VOCAL:[-1,0,2.5,1.5,0],
+    AIR:[-1,0,0,1.5,3],
+    CUSTOM:null
+  };
+
+  function ensureAudioGraph(){
+    if(audioCtx)return;
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC)return;
+    audioCtx=new AC();
+    sourceNode=audioCtx.createMediaElementSource(a);
+    bassNode=audioCtx.createBiquadFilter();
+    bassNode.type='lowshelf';
+    bassNode.frequency.value=110;
+
+    eqNodes=EQ_FREQS.map(freq=>{
+      const n=audioCtx.createBiquadFilter();
+      n.type='peaking';
+      n.frequency.value=freq;
+      n.Q.value=0.9;
+      return n;
+    });
+
+    masterGain=audioCtx.createGain();
+
+    let node=sourceNode;
+    node.connect(bassNode);node=bassNode;
+    eqNodes.forEach(n=>{node.connect(n);node=n});
+    node.connect(masterGain);
+    masterGain.connect(audioCtx.destination);
+    applySoundGraph();
+  }
+
+  function applySoundGraph(){
+    if(!audioCtx)return;
+    const t=audioCtx.currentTime;
+    const active=soundEnabled;
+    bassNode.gain.setTargetAtTime(active?(bassAmount/100)*12:0,t,.02);
+    eqNodes.forEach((n,i)=>n.gain.setTargetAtTime(active?(eqLevels[i]||0):0,t,.02));
+    const db=active?(gainTenthDb/10):0;
+    masterGain.gain.setTargetAtTime(Math.pow(10,db/20),t,.02);
+  }
+
+  function soundState(){
+    return {
+      enabled:soundEnabled,
+      preset:soundPreset,
+      eqSupported:true,
+      bassSupported:true,
+      gainSupported:true,
+      sessionAttached:true,
+      audioSessionId:'WEB AUDIO',
+      minBandLevelMb:-1200,
+      maxBandLevelMb:1200,
+      bands:EQ_FREQS.map((f,i)=>({centerMilliHz:f*1000,levelMb:Math.round((eqLevels[i]||0)*100)})),
+      bass:bassAmount,
+      gainTenthDb:gainTenthDb
+    };
+  }
+
+  function emitSound(){
+    if(window.BURZH&&typeof window.BURZH.onSound==='function')window.BURZH.onSound(soundState());
+  }
+
+  function setSoundEnabled(v){
+    ensureAudioGraph();
+    soundEnabled=!!v;
+    applySoundGraph();
+    emitSound();
+  }
+
+  function setEqPreset(name){
+    ensureAudioGraph();
+    name=String(name||'FLAT').toUpperCase();
+    if(PRESETS[name])eqLevels=PRESETS[name].slice();
+    soundPreset=name in PRESETS?name:'FLAT';
+    applySoundGraph();
+    emitSound();
+  }
+
+  function setBass(v){
+    ensureAudioGraph();
+    bassAmount=Math.max(0,Math.min(100,Number(v)||0));
+    applySoundGraph();
+    emitSound();
+  }
+
+  function setGain(v){
+    ensureAudioGraph();
+    gainTenthDb=Math.max(0,Math.min(30,Number(v)||0));
+    applySoundGraph();
+    emitSound();
+  }
+
+  function setEqBand(i,mb){
+    ensureAudioGraph();
+    i=Number(i)||0;
+    if(i<0||i>=eqLevels.length)return;
+    eqLevels[i]=Math.max(-12,Math.min(12,(Number(mb)||0)/100));
+    soundPreset='CUSTOM';
+    applySoundGraph();
+    emitSound();
+  }
 
   const q=id=>document.getElementById(id);
   const formatMs=ms=>{
@@ -123,6 +241,8 @@
     }
     if(loadedIndex!==index)loadTrack(index,{autoplay:false,reset:false});
     try{
+      ensureAudioGraph();
+      if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
       if(a.paused||a.ended)await a.play();
       else a.pause();
     }catch(e){
@@ -227,6 +347,15 @@
 
   if(window.BURZH)window.BURZH.onState=()=>{};
 
+  window.AndroidBridge=Object.assign(window.AndroidBridge||{},{
+    requestSound(){ensureAudioGraph();if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});emitSound()},
+    setSoundEnabled(v){setSoundEnabled(v)},
+    setEqPreset(v){setEqPreset(v)},
+    setBass(v){setBass(v)},
+    setGainTenthDb(v){setGain(v)},
+    setEqBand(i,v){setEqBand(i,v)}
+  });
+
   a.addEventListener('play',setPlayUI);
   a.addEventListener('pause',setPlayUI);
   a.addEventListener('loadedmetadata',()=>{setProgressUI();setTrackUI()});
@@ -255,5 +384,6 @@
     selectedStation=STATION;
     loadTrack(0,{autoplay:false,reset:false});
     syncAll();
+    emitSound();
   });
 })();
