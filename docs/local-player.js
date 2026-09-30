@@ -8,6 +8,7 @@
   const STATION='Trance';
   const THEME_KEY='burzh.web.theme.v1';
   const FAV_KEY='burzh.web.local.favorites.v1';
+  const RESUME_KEY='burzh.web.local.resume.v1';
 
   let selectedStation=STATION;
   let index=0;
@@ -16,10 +17,19 @@
   let seeking=false;
   let loadedIndex=-1;
   let favorites=new Set();
+  let resumePositions={};
+  let pendingRestoreMs=0;
+  let lastResumeSave=0;
 
   const a=new Audio();
-  a.preload='metadata';
+  a.preload='auto';
   a.playsInline=true;
+  a.setAttribute('playsinline','');
+
+  function configureAudioSession(){
+    try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
+  }
+  configureAudioSession();
 
   // Real Web Audio controls for the iPhone/PWA build.
   let audioCtx=null,sourceNode=null,bassNode=null,masterGain=null;
@@ -151,6 +161,24 @@
   function positionMs(){return Number.isFinite(a.currentTime)?Math.round(a.currentTime*1000):0}
   function isFavorite(){return favorites.has('trance-'+index)}
   function saveFavorites(){try{localStorage.setItem(FAV_KEY,JSON.stringify([...favorites]))}catch(e){}}
+  function saveResume(force=false){
+    if(selectedStation!==STATION||loadedIndex<0)return;
+    const now=Date.now();if(!force&&now-lastResumeSave<4000)return;lastResumeSave=now;
+    resumePositions[String(index)]=Math.max(0,positionMs());
+    try{localStorage.setItem(RESUME_KEY,JSON.stringify(resumePositions))}catch(e){}
+  }
+  function ensureMixInfo(){
+    const add=(anchorId,id)=>{
+      const anchor=q(anchorId);if(!anchor||q(id))return;
+      const e=document.createElement('div');e.id=id;e.className='mix-info';anchor.insertAdjacentElement('afterend',e);
+    };
+    add('artist','mixInfo');add('landArtist','landMixInfo');
+  }
+  function updateMixInfo(){
+    ensureMixInfo();
+    const text=selectedStation===STATION?String(index+1).padStart(2,'0')+' / '+String(TRACKS.length).padStart(2,'0')+' · '+formatMs(durationMs()):'LOCAL LIBRARY · EMPTY';
+    ['mixInfo','landMixInfo'].forEach(id=>{const e=q(id);if(e)e.textContent=text});
+  }
 
   function setStationUI(){
     if(q('landStation'))q('landStation').textContent=selectedStation;
@@ -164,6 +192,7 @@
     const artist=hasTrack?'TRANCE · BURZH BEATS':selectedStation.toUpperCase();
     ['title','landTitle'].forEach(id=>{const e=q(id);if(e)e.textContent=title});
     ['artist','landArtist'].forEach(id=>{const e=q(id);if(e)e.textContent=artist});
+    updateMixInfo();
     if('mediaSession' in navigator&&hasTrack){
       try{navigator.mediaSession.metadata=new MediaMetadata({title,artist:'BURZH beats',album:'BURZH beats · Trance'})}catch(e){}
     }
@@ -218,7 +247,9 @@
   function syncAll(){setStationUI();setTrackUI();setPlayUI();setProgressUI();setModesUI();setFavoriteUI();setMatrixUI()}
 
   function loadTrack(nextIndex,{autoplay=false,reset=true}={}){
+    saveResume(true);
     index=(nextIndex+TRACKS.length)%TRACKS.length;
+    pendingRestoreMs=reset?0:Math.max(0,Number(resumePositions[String(index)])||0);
     const track=current();
     if(loadedIndex!==index){
       a.src=track.url;
@@ -241,6 +272,7 @@
     }
     if(loadedIndex!==index)loadTrack(index,{autoplay:false,reset:false});
     try{
+      configureAudioSession();
       ensureAudioGraph();
       if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
       if(a.paused||a.ended)await a.play();
@@ -358,9 +390,15 @@
 
   a.addEventListener('play',setPlayUI);
   a.addEventListener('pause',setPlayUI);
-  a.addEventListener('loadedmetadata',()=>{setProgressUI();setTrackUI()});
-  a.addEventListener('durationchange',()=>setProgressUI());
-  a.addEventListener('timeupdate',()=>{if(!seeking)setProgressUI()});
+  a.addEventListener('loadedmetadata',()=>{
+    if(pendingRestoreMs>0&&Number.isFinite(a.duration)&&a.duration>0){
+      try{a.currentTime=Math.min(a.duration-1,pendingRestoreMs/1000)}catch(e){}
+      pendingRestoreMs=0;
+    }
+    setProgressUI();setTrackUI();updateMixInfo();
+  });
+  a.addEventListener('durationchange',()=>{setProgressUI();updateMixInfo()});
+  a.addEventListener('timeupdate',()=>{if(!seeking)setProgressUI();saveResume(false)});
   a.addEventListener('ended',()=>{if(repeat){a.currentTime=0;a.play().catch(()=>{})}else move(1)});
   a.addEventListener('error',()=>{if(window.showStatus)showStatus(current().title.toUpperCase()+' · AUDIO FILE ERROR','error',5000);setPlayUI()});
 
@@ -374,9 +412,16 @@
     try{navigator.mediaSession.setActionHandler('seekbackward',d=>{a.currentTime=Math.max(0,a.currentTime-(d.seekOffset||10));setProgressUI()})}catch(e){}
   }
 
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveResume(true);else configureAudioSession()});
+  window.addEventListener('pagehide',()=>saveResume(true));
+  window.addEventListener('beforeunload',()=>saveResume(true));
+
   window.addEventListener('load',()=>{
     try{localStorage.removeItem('burzh.web.yandex.token.v1')}catch(e){}
     try{favorites=new Set(JSON.parse(localStorage.getItem(FAV_KEY)||'[]'))}catch(e){favorites=new Set()}
+    try{resumePositions=JSON.parse(localStorage.getItem(RESUME_KEY)||'{}')||{}}catch(e){resumePositions={}}
+    configureAudioSession();
+    for(const n of [...document.body.childNodes]){if(n.nodeType===3&&String(n.nodeValue||'').trim()==='\\n')n.remove()}
     let theme='black';try{theme=localStorage.getItem(THEME_KEY)||'black'}catch(e){}
     applyTheme(theme);
     const auth=q('authOverlay');if(auth)auth.remove();
