@@ -229,7 +229,8 @@ html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-gr
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Favorites</div><div class="settings-value" id="favoritesSummary">0 saved tracks</div></div><button class="settings-open" onclick="openFavorites()">OPEN</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web Audio · EQ / Bass / Gain</div></div><button class="settings-open" onclick="openSound()">OPEN</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape</div><div class="settings-value">Weather · WeatherAPI · auto IP</div></div><button class="settings-open" id="weatherToggleBtn" onclick="toggleWeather()">OFF</button></div><div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape widget</div><div class="settings-value">Locator · live GPS · foreground only</div></div><button class="settings-open" id="locatorToggleBtn" onclick="toggleLocator()">OFF</button></div>
-      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Style</div><div class="settings-value">Player background</div></div><button class="settings-open" id="themeToggleBtn" onclick="toggleTheme()">BLACK</button></div>\n      <div class="settings-row"><div class="settings-label">Music library</div><div class="settings-value" id="accountState">LOCAL · TRANCE · 2 MIXES</div></div>
+      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Style</div><div class="settings-value">Player background</div></div><button class="settings-open" id="themeToggleBtn" onclick="toggleTheme()">BLACK</button></div>
+      <div class="settings-row"><div class="settings-label">Music library</div><div class="settings-value" id="accountState">LOCAL · TRANCE · 2 MIXES</div></div>
       <div class="settings-row"><div class="settings-label">BURZH beats</div><div class="settings-value">v0.17.0-web · local library</div></div>
     </div>
     <div class="auth-actions"><button class="auth-btn primary" onclick="closeSettings()">DONE</button></div>
@@ -409,5 +410,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();clo
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script>
 
 
-<script defer src="./local-player.js?v=3"></script>\n</body>
+<script defer src="./local-player.js?v=4"></script>
+</body>
 </html>
