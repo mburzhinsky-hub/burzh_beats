@@ -118,8 +118,41 @@ html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-gr
   #settingsOverlay .settings-open{min-width:84px;min-height:46px;font-size:10.5px}
 }
 
+
+/* BURZH visual polish v3 */
+.mix-info{margin-top:6px;font:400 9px/1.2 'IBM Plex Mono';letter-spacing:.1em;color:#777873;text-transform:uppercase;white-space:nowrap}
+#landMixInfo{font-size:8px;margin-top:5px;color:#777873}
+.p-progress .rail,.p-progress .fill,.l-progress .rail,.l-progress .fill{height:3px;top:8px}
+.p-progress .knob,.l-progress .knob{width:12px;height:12px;top:3.5px;transform:translateX(-6px)}
+.p-progress .bar,.l-progress .bar{height:24px;touch-action:none}
+.p-footer{font-size:8.5px}
+.mode-btn{min-height:40px;font-size:8.5px}
+.mode-dot{width:6px;height:6px}
+.station:not([data-station="Trance"]){opacity:.58}
+.station:not([data-station="Trance"]).active{opacity:.78}
+.station:not([data-station="Trance"]) .sdot{background:#5c5d58!important;box-shadow:none!important;animation:none!important}
+.l-genre-btn:not([data-station="Trance"]){opacity:.58}
+.l-genre-btn:not([data-station="Trance"]).active{opacity:.8}
+.l-genre-btn:not([data-station="Trance"]):before{background:#5c5d58!important;box-shadow:none!important}
+#settingsOverlay .card,#soundOverlay .card{border-radius:22px}
+#settingsOverlay .settings-row{min-height:64px}
+#settingsOverlay .settings-open,#soundOverlay .sound-toggle,#soundOverlay .preset-btn{touch-action:manipulation}
+#soundOverlay .preset-btn{min-width:68px}
+#soundOverlay .sound-note{max-width:36ch}
+@media(orientation:portrait) and (max-width:480px){
+  .mix-info{font-size:9px;margin-top:5px}
+  .p-footer{font-size:8.5px}
+  .mode-btn{min-height:44px;font-size:8.5px}
+  #settingsOverlay .settings-row{padding:19px 0}
+  #settingsOverlay .settings-label{font-size:11.5px}
+  #settingsOverlay .settings-value{font-size:13.5px}
+  #settingsOverlay .settings-open{min-width:88px;min-height:48px;font-size:11px}
+  #soundOverlay .preset-btn{min-height:44px;font-size:10.5px;padding:11px 15px}
+  #soundOverlay .sound-toggle{min-height:48px;font-size:11px}
+}
+
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 
 
 
@@ -194,7 +227,7 @@ html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-gr
     <div class="auth-kicker">BURZH beats / player</div><div class="auth-title" id="settingsTitle">SETTINGS</div>
     <div class="settings-list">
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Favorites</div><div class="settings-value" id="favoritesSummary">0 saved tracks</div></div><button class="settings-open" onclick="openFavorites()">OPEN</button></div>
-      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web Audio · FLAT · ON</div></div><button class="settings-open" onclick="openSound()">OPEN</button></div>
+      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web Audio · EQ / Bass / Gain</div></div><button class="settings-open" onclick="openSound()">OPEN</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape</div><div class="settings-value">Weather · WeatherAPI · auto IP</div></div><button class="settings-open" id="weatherToggleBtn" onclick="toggleWeather()">OFF</button></div><div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape widget</div><div class="settings-value">Locator · live GPS · foreground only</div></div><button class="settings-open" id="locatorToggleBtn" onclick="toggleLocator()">OFF</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Style</div><div class="settings-value">Player background</div></div><button class="settings-open" id="themeToggleBtn" onclick="toggleTheme()">BLACK</button></div>\n      <div class="settings-row"><div class="settings-label">Music library</div><div class="settings-value" id="accountState">LOCAL · TRANCE · 2 MIXES</div></div>
       <div class="settings-row"><div class="settings-label">BURZH beats</div><div class="settings-value">v0.17.0-web · local library</div></div>
@@ -214,433 +247,14 @@ html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-gr
 <div class="overlay" id="soundOverlay" role="dialog" aria-modal="true" aria-labelledby="soundTitle">
   <div class="card">
     <div class="auth-kicker">BURZH beats / audio session</div><div class="auth-title" id="soundTitle">SOUND</div>
-    <div class="sound-master"><div><div class="sound-master-label">DSP</div><div class="sound-note" id="soundSupport">ATTACHES TO THE ACTIVE PLAYER SESSION</div></div><button class="sound-toggle" id="soundMaster" onclick="toggleSoundMaster()">OFF</button></div>
+    <div class="sound-master"><div><div class="sound-master-label">DSP</div><div class="sound-note" id="soundSupport">WEB AUDIO PROCESSING · MUSIC PLAYBACK</div></div><button class="sound-toggle" id="soundMaster" onclick="toggleSoundMaster()">OFF</button></div>
     <div class="sound-section" id="eqSection"><div class="sound-section-title">Equalizer</div><div class="preset-grid" id="presetGrid"><button class="preset-btn" data-preset="FLAT" onclick="setPreset('FLAT')">FLAT</button><button class="preset-btn" data-preset="WARM" onclick="setPreset('WARM')">WARM</button><button class="preset-btn" data-preset="DEEP" onclick="setPreset('DEEP')">DEEP</button><button class="preset-btn" data-preset="VOCAL" onclick="setPreset('VOCAL')">VOCAL</button><button class="preset-btn" data-preset="AIR" onclick="setPreset('AIR')">AIR</button><button class="preset-btn" data-preset="CUSTOM" onclick="setPreset('CUSTOM')">CUSTOM</button></div><div class="eq-bands" id="eqBands"></div></div>
     <div class="sound-section" id="bassSection"><div class="sound-section-title">Bass Boost</div><div class="sound-line"><span class="sound-name">BASS</span><input class="sound-range" id="bassRange" type="range" min="0" max="100" step="1" value="0" oninput="previewBass(this.value)" onchange="commitBass(this.value)"><span class="sound-value" id="bassValue">0</span></div></div>
-    <div class="sound-section" id="gainSection"><div class="sound-section-title">Loudness</div><div class="sound-line"><span class="sound-name">GAIN</span><input class="sound-range" id="gainRange" type="range" min="0" max="30" step="1" value="0" oninput="previewGain(this.value)" onchange="commitGain(this.value)"><span class="sound-value" id="gainValue">0.0 dB</span></div><div class="sound-note">Conservative 0…+3 dB range. No “Hi-Fi enhancer” processing.</div></div>
+    <div class="sound-section" id="gainSection"><div class="sound-section-title">Loudness</div><div class="sound-line"><span class="sound-name">GAIN</span><input class="sound-range" id="gainRange" type="range" min="0" max="30" step="1" value="0" oninput="previewGain(this.value)" onchange="commitGain(this.value)"><span class="sound-value" id="gainValue">0.0 dB</span></div><div class="sound-note">Conservative 0…+3 dB range. Background playback is prioritized on iPhone.</div></div>
     <div class="auth-actions"><button class="auth-btn primary" onclick="closeSound()">BACK TO PLAYER</button></div>
   </div>
 </div>
 
-
-<script>
-/* BURZH beats browser bridge: real Yandex Music playback for the iPhone/PWA build.
-   Android sources under /app are intentionally untouched. */
-window.BURZH_WEB_BUILD = true;
-(function(){
-  'use strict';
-
-  const API='https://api.music.yandex.net';
-  const TOKEN_KEY='burzh.web.yandex.token.v1';
-  const FAV_KEY='burzh.web.favorites.v2';
-  const CLIENT_HEADER='YandexMusicAndroid/24023621';
-  const SIGN_SALT='XGRlBW9FXlekgbPrRHuSiA';
-  const URL_TTL=5*60*1000;
-
-  const SOURCES={
-    'Lo-Fi':{type:'playlist',id:'ar.d4ed84e2-b432-4bcc-b8dd-97824c25db67'},
-    'Future Garage':{type:'album',id:'23384649'},
-    'Deep House':{type:'playlist',id:'ar.3e2a1422-9810-4e40-8bd8-cef37692078a'},
-    'Trance':{type:'album',id:'7580686'}
-  };
-  const stationKey={lofi:'Lo-Fi',futureGarage:'Future Garage',deepHouse:'Deep House',d:'Deep House',trance:'Trance',t:'Trance'};
-
-  let token='';
-  let connected=false;
-  let accountLogin='';
-  let station='Lo-Fi';
-  let tracks=[];
-  let idx=0;
-  let sourceGeneration=0;
-  let playGeneration=0;
-  let repeat=false;
-  let shuffle=false;
-  let prefetchPromise=null;
-  const urlCache=new Map();
-
-  const audio=new Audio();
-  audio.preload='auto';
-  audio.playsInline=true;
-
-  function current(){return tracks.length?tracks[Math.max(0,Math.min(idx,tracks.length-1))]:null}
-  function favs(){try{const x=JSON.parse(localStorage.getItem(FAV_KEY)||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
-  function saveFavs(v){try{localStorage.setItem(FAV_KEY,JSON.stringify(v))}catch(e){}}
-  function modeCode(){return repeat?(shuffle?'transientPart':'preview'):(shuffle?'playing':'web')}
-  function isFavorite(){const c=current();return !!c&&favs().some(x=>String(x.trackId)===String(c.id))}
-  function mediaState(extra){
-    const c=current(),fs=favs();
-    return Object.assign({
-      station:station,
-      sourceType:modeCode(),
-      sourceId:(SOURCES[station]||{}).id||'',
-      index:idx,
-      count:tracks.length,
-      connected:connected,
-      playing:!audio.paused&&!audio.ended,
-      title:c?c.title:(connected?station:'BURZH beats'),
-      artist:c?c.artist:(connected?'Yandex Music':'Connect Yandex Music'),
-      durationMs:Number.isFinite(audio.duration)?Math.round(audio.duration*1000):(c&&c.durationMs||0),
-      positionMs:Number.isFinite(audio.currentTime)?Math.round(audio.currentTime*1000):0,
-      favorite:isFavorite(),
-      favoritesCount:fs.length,
-      repeat:repeat,
-      shuffle:shuffle,
-      account:accountLogin,
-      webBuild:true
-    },extra||{});
-  }
-  function emit(extra){setTimeout(()=>window.BURZH&&window.BURZH.onState(mediaState(extra)),0)}
-  function emitAuth(message,error){
-    setTimeout(()=>window.BURZH&&window.BURZH.onState(mediaState({
-      connected:false,authRequired:true,status:message||'CONNECT YANDEX',error:error||undefined
-    })),0);
-  }
-  function normalizeToken(v){v=String(v||'').trim();return v.toLowerCase().startsWith('oauth ')?v.slice(6).trim():v}
-  function authHeaders(){
-    const h={'Authorization':'OAuth '+token};
-    return h;
-  }
-  async function api(path,options){
-    if(!token) throw new Error('TOKEN REQUIRED');
-    const opt=Object.assign({method:'GET',mode:'cors',cache:'no-store'},options||{});
-    opt.headers=Object.assign({},authHeaders(),opt.headers||{});
-    const r=await fetch(API+path,opt);
-    let body=null,txt='';
-    try{txt=await r.text();body=txt?JSON.parse(txt):{}}catch(e){body={}}
-    if(body&&typeof body==='object'){
-      try{Object.defineProperty(body,'__burzhHttp',{value:r.status,enumerable:false})}catch(e){}
-      try{Object.defineProperty(body,'__burzhPath',{value:path,enumerable:false})}catch(e){}
-    }
-    if(!r.ok){
-      const er=new Error('HTTP '+r.status);
-      er.status=r.status;
-      er.payload=body;
-      throw er;
-    }
-    return body||{};
-  }
-  function parseTrack(raw){
-    if(!raw)return null;
-    const t=raw.track||raw;
-    const id=String(t.id||t.trackId||'');
-    if(!id)return null;
-    const artists=Array.isArray(t.artists)?t.artists:[];
-    const artist=artists.length&&artists[0]&&artists[0].name?String(artists[0].name):'Unknown artist';
-    return {id:id,title:String(t.title||'Unknown track'),artist:artist,durationMs:Number(t.durationMs)||0};
-  }
-  async function validateToken(){
-    const j=await api('/account/status');
-    const a=(j.result&&j.result.account)||null;
-    if(!a) throw new Error('TOKEN REJECTED');
-    accountLogin=String(a.login||a.displayName||a.uid||'Yandex Music');
-    connected=true;
-    return true;
-  }
-  function sourceShape(j,result,cfg){
-    const top=j&&typeof j==='object'?Object.keys(j).slice(0,8):[];
-    const res=result&&typeof result==='object'?Object.keys(result).slice(0,10):[];
-    const rt=result&&result.tracks;
-    const rv=result&&result.volumes;
-    const trackShape=Array.isArray(rt)?('tracks='+rt.length):(rt&&typeof rt==='object'?('tracks:{'+Object.keys(rt).slice(0,5).join(',')+'}'):'tracks=none');
-    const volumeShape=Array.isArray(rv)?('volumes='+rv.length):'volumes=none';
-    return 'HTTP '+String((j&&j.__burzhHttp)||'?')+' · '+cfg.type+' · top['+top.join(',')+'] · result['+res.join(',')+'] · '+trackShape+' · '+volumeShape;
-  }
-  function playlistEntries(j,result){
-    const c=[
-      result&&result.tracks,
-      result&&result.tracks&&result.tracks.items,
-      result&&result.playlist&&result.playlist.tracks,
-      result&&result.playlist&&result.playlist.tracks&&result.playlist.tracks.items,
-      Array.isArray(result&&result.playlists)&&result.playlists[0]&&result.playlists[0].tracks,
-      j&&j.tracks
-    ];
-    for(const x of c)if(Array.isArray(x))return x;
-    return [];
-  }
-  function albumEntries(j,result){
-    const out=[];
-    const volumes=result&&result.volumes;
-    if(Array.isArray(volumes)){
-      volumes.forEach(v=>{if(Array.isArray(v))out.push(...v)});
-      if(out.length)return out;
-    }
-    const c=[result&&result.tracks,result&&result.tracks&&result.tracks.items,j&&j.tracks];
-    for(const x of c)if(Array.isArray(x))return x;
-    return out;
-  }
-  async function loadSource(autoPlay){
-    if(!connected){emitAuth('CONNECT YANDEX MUSIC');return}
-    const gen=++sourceGeneration;
-    const cfg=SOURCES[station];
-    if(!cfg)return;
-    emit({status:'LOADING '+station.toUpperCase(),switching:true});
-    try{
-      const j=cfg.type==='playlist'?await api('/playlist/'+encodeURIComponent(cfg.id)):await api('/albums/'+encodeURIComponent(cfg.id)+'/with-tracks');
-      if(gen!==sourceGeneration)return;
-      const result=j.result||j;
-      const loaded=[];
-      const raw=cfg.type==='playlist'?playlistEntries(j,result):albumEntries(j,result);
-      raw.forEach(x=>{const t=parseTrack(x);if(t)loaded.push(t)});
-      if(!loaded.length){
-        const er=new Error('SOURCE EMPTY · '+sourceShape(j,result,cfg));
-        er.sourceEmpty=true;
-        throw er;
-      }
-      tracks=loaded;
-      idx=0;
-      resetAudio();
-      emit({status:'READY',switching:false});
-      updateMediaSession();
-      prefetchCurrent();
-      if(autoPlay)await startPlayback();
-    }catch(e){
-      if(gen!==sourceGeneration)return;
-      if(e&&e.sourceEmpty){
-        emit({status:'SOURCE EMPTY',error:String(e.message||e),switching:false});
-      }else if(Number(e&&e.status)===401||Number(e&&e.status)===403){
-        emit({status:'MUSIC API DENIED',error:'HTTP '+Number(e.status)+' · YANDEX LOGIN OK',switching:false});
-      }else{
-        emit({status:'SOURCE ERROR',error:String(e&&e.message||e),switching:false});
-      }
-    }
-  }
-  function resetAudio(){
-    playGeneration++;
-    try{audio.pause()}catch(e){}
-    try{audio.removeAttribute('src');audio.load()}catch(e){}
-  }
-  async function getDownloadInfo(trackId){
-    const j=await api('/tracks/'+encodeURIComponent(trackId)+'/download-info');
-    const arr=Array.isArray(j.result)?j.result:[];
-    const full=arr.filter(x=>x&&!x.preview&&x.downloadInfoUrl);
-    if(!full.length)throw new Error('FULL TRACK UNAVAILABLE');
-    full.sort((a,b)=>{
-      const ad=a.direct?1:0,bd=b.direct?1:0;
-      if(ad!==bd)return bd-ad;
-      const am=String(a.codec||'').toLowerCase()==='mp3'?1:0;
-      const bm=String(b.codec||'').toLowerCase()==='mp3'?1:0;
-      if(am!==bm)return bm-am;
-      return (Number(b.bitrateInKbps)||0)-(Number(a.bitrateInKbps)||0);
-    });
-    return full[0];
-  }
-  async function fetchXml(url){
-    let r;
-    try{r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store'})}catch(e){r=null}
-    if(!r||!r.ok){
-      r=await fetch(url,{method:'GET',mode:'cors',cache:'no-store',headers:{'Authorization':'OAuth '+token}});
-    }
-    if(!r.ok)throw new Error('STREAM INFO HTTP '+r.status);
-    return await r.text();
-  }
-  async function resolveTrackUrl(track){
-    const cached=urlCache.get(track.id);
-    if(cached&&Date.now()-cached.ts<URL_TTL)return cached.url;
-    const info=await getDownloadInfo(track.id);
-    let url=String(info.downloadInfoUrl||'');
-    if(!url)throw new Error('MISSING STREAM URL');
-    if(info.direct){
-      urlCache.set(track.id,{url:url,ts:Date.now()});
-      return url;
-    }
-    if(typeof CryptoJS==='undefined')throw new Error('STREAM SIGNER NOT LOADED');
-    const xml=await fetchXml(url);
-    const doc=new DOMParser().parseFromString(xml,'application/xml');
-    if(doc.querySelector('parsererror'))throw new Error('STREAM INFO XML ERROR');
-    const val=n=>{const e=doc.getElementsByTagName(n)[0];return e?String(e.textContent||''):''};
-    const host=val('host'),path=val('path'),ts=val('ts'),secret=val('s');
-    if(!host||!path||!ts||!secret)throw new Error('STREAM INFO INCOMPLETE');
-    const sign=CryptoJS.MD5(SIGN_SALT+path.slice(1)+secret).toString();
-    url='https://'+host+'/get-mp3/'+sign+'/'+ts+path;
-    urlCache.set(track.id,{url:url,ts:Date.now()});
-    return url;
-  }
-  function prefetchCurrent(){
-    const c=current();
-    if(!c)return Promise.resolve('');
-    prefetchPromise=resolveTrackUrl(c).catch(()=> '');
-    return prefetchPromise;
-  }
-  async function startPlayback(){
-    const c=current();
-    if(!c){emit({status:'NO TRACK'});return}
-    const pg=++playGeneration;
-    emit({status:'RESOLVING AUDIO'});
-    try{
-      let url='';
-      const cached=urlCache.get(c.id);
-      if(cached&&Date.now()-cached.ts<URL_TTL)url=cached.url;
-      if(!url)url=await resolveTrackUrl(c);
-      if(pg!==playGeneration)return;
-      if(audio.src!==url){
-        audio.src=url;
-        audio.load();
-      }
-      updateMediaSession();
-      await audio.play();
-      emit({status:'PLAYING'});
-    }catch(e){
-      if(pg!==playGeneration)return;
-      const name=String(e&&e.name||'');
-      const msg=String(e&&e.message||e||'PLAYBACK ERROR');
-      if(name==='NotAllowedError'){
-        emit({status:'TAP PLAY AGAIN',error:'iOS blocked autoplay after loading. Tap Play once more.'});
-      }else{
-        urlCache.delete(c.id);
-        emit({status:'AUDIO UNAVAILABLE',error:msg});
-      }
-    }
-  }
-  function pause(){try{audio.pause()}catch(e){}emit({status:'PAUSED'})}
-  async function playPause(){
-    if(!connected){emitAuth('CONNECT YANDEX MUSIC');return}
-    if(!tracks.length){await loadSource(false);return}
-    if(!audio.paused&&!audio.ended){pause();return}
-    await startPlayback();
-  }
-  async function move(step,fromEnded){
-    if(!tracks.length)return;
-    const wasPlaying=fromEnded||(!audio.paused&&!audio.ended);
-    if(shuffle&&tracks.length>1){
-      let n=idx;
-      while(n===idx)n=Math.floor(Math.random()*tracks.length);
-      idx=n;
-    }else{
-      idx=(idx+step+tracks.length)%tracks.length;
-    }
-    resetAudio();
-    emit({status:'READY'});
-    updateMediaSession();
-    prefetchCurrent();
-    if(wasPlaying)await startPlayback();
-  }
-  async function switchStation(key){
-    if(key==='reload'){
-      repeat=!repeat;
-      emit({status:'READY'});
-      return;
-    }
-    if(key==='resumePlayback'){
-      shuffle=!shuffle;
-      emit({status:'READY'});
-      return;
-    }
-    const next=stationKey[key]||key;
-    if(!SOURCES[next])return;
-    const wasPlaying=!audio.paused&&!audio.ended;
-    if(next===station){emit({status:'READY'});return}
-    station=next;
-    tracks=[];
-    idx=0;
-    resetAudio();
-    await loadSource(wasPlaying);
-  }
-  function updateMediaSession(){
-    const c=current();
-    if(!c||!('mediaSession' in navigator))return;
-    try{
-      navigator.mediaSession.metadata=new MediaMetadata({
-        title:c.title,
-        artist:c.artist,
-        album:'BURZH beats · '+station
-      });
-      navigator.mediaSession.playbackState=(!audio.paused&&!audio.ended)?'playing':'paused';
-    }catch(e){}
-  }
-  function currentFavoriteObject(){
-    const c=current();
-    return c?{trackId:String(c.id),title:c.title,artist:c.artist,station:station,index:idx}:null;
-  }
-  function toggleFavorite(){
-    const c=currentFavoriteObject();if(!c)return;
-    let a=favs();const p=a.findIndex(x=>String(x.trackId)===String(c.trackId));
-    if(p>=0)a.splice(p,1);else a.unshift(c);
-    saveFavs(a);emit({status:'READY'});
-  }
-  function requestFavorites(){setTimeout(()=>window.BURZH&&window.BURZH.onFavorites(favs()),0)}
-  function removeFavorite(id){
-    const a=favs().filter(x=>String(x.trackId)!==String(id));
-    saveFavs(a);emit({status:'READY'});setTimeout(()=>window.BURZH&&window.BURZH.onFavorites(a),0);
-  }
-  async function playFavorite(id){
-    const f=favs().find(x=>String(x.trackId)===String(id));if(!f)return;
-    const targetStation=SOURCES[f.station]?f.station:station;
-    const wasDifferent=targetStation!==station;
-    station=targetStation;
-    if(wasDifferent||!tracks.length)await loadSource(false);
-    const n=tracks.findIndex(x=>String(x.id)===String(id));
-    if(n>=0)idx=n;
-    resetAudio();emit({status:'READY'});prefetchCurrent();await startPlayback();
-  }
-  async function saveToken(v){
-    const clean=normalizeToken(v);
-    if(clean.length<10){emitAuth('YANDEX LOGIN TOKEN MISSING');return}
-    token=clean;
-    connected=true;
-    accountLogin='Yandex ID';
-    try{localStorage.setItem(TOKEN_KEY,token)}catch(e){}
-    emit({status:'YANDEX CONNECTED',authRequired:false});
-    await loadSource(false);
-  }
-  async function clearTokenInternal(emitState){
-    token='';connected=false;accountLogin='';tracks=[];idx=0;urlCache.clear();resetAudio();
-    try{localStorage.removeItem(TOKEN_KEY)}catch(e){}
-    if(emitState!==false)emitAuth('CONNECT YANDEX MUSIC');
-  }
-  function requestSound(){
-    setTimeout(()=>window.BURZH&&window.BURZH.onSound({
-      enabled:false,preset:'WEB',eqSupported:false,bassSupported:false,gainSupported:false,sessionAttached:!audio.paused,bands:[]
-    }),0);
-  }
-
-  audio.addEventListener('play',()=>{updateMediaSession();emit({status:'PLAYING'})});
-  audio.addEventListener('pause',()=>{updateMediaSession();if(!audio.ended)emit({status:'PAUSED'})});
-  audio.addEventListener('loadedmetadata',()=>emit({status:audio.paused?'READY':'PLAYING'}));
-  audio.addEventListener('durationchange',()=>emit({status:audio.paused?'READY':'PLAYING'}));
-  audio.addEventListener('ended',async()=>{
-    if(repeat){
-      try{audio.currentTime=0;await audio.play()}catch(e){emit({status:'TAP PLAY AGAIN'})}
-    }else await move(1,true);
-  });
-  audio.addEventListener('error',()=>{const c=current();if(c)urlCache.delete(c.id);emit({status:'PLAYBACK ERROR',error:'STREAM PLAYBACK ERROR'})});
-  setInterval(()=>{if(connected&&tracks.length)emit({status:(!audio.paused&&!audio.ended)?'PLAYING':'READY'})},700);
-
-  window.AndroidBridge={
-    feedback(){},
-    playPause(){playPause()},
-    next(){move(1,false)},
-    previous(){move(-1,false)},
-    reload(){loadSource(false)},
-    selectStation(k){switchStation(String(k||''))},
-    saveYandexToken(v){saveToken(v)},
-    clearYandexToken(){clearTokenInternal(true)},
-    toggleFavorite(){toggleFavorite()},
-    requestFavorites(){requestFavorites()},
-    removeFavorite(id){removeFavorite(id)},
-    playFavorite(id){playFavorite(id)},
-    requestSound(){requestSound()},
-    setSoundEnabled(){if(window.showStatus)showStatus('WEB AUDIO USES IOS / SAFARI OUTPUT');},
-    setEqPreset(){},setBass(){},setGainTenthDb(){},setEqBand(){}
-  };
-
-  if('mediaSession' in navigator){
-    try{navigator.mediaSession.setActionHandler('play',()=>{if(audio.paused)startPlayback()})}catch(e){}
-    try{navigator.mediaSession.setActionHandler('pause',()=>pause())}catch(e){}
-    try{navigator.mediaSession.setActionHandler('nexttrack',()=>move(1,false))}catch(e){}
-    try{navigator.mediaSession.setActionHandler('previoustrack',()=>move(-1,false))}catch(e){}
-  }
-
-  async function bootstrap(){
-    try{token=normalizeToken(localStorage.getItem(TOKEN_KEY)||'')}catch(e){token=''}
-    if(!token){emitAuth('LOGIN WITH YANDEX');return}
-    connected=true;
-    accountLogin='Yandex ID';
-    emit({status:'YANDEX CONNECTED',authRequired:false});
-    await loadSource(false);
-  }
-  window.addEventListener('load',()=>setTimeout(bootstrap,180));
-})();
-</script>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -795,5 +409,5 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();clo
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script>
 
 
-<script defer src="./local-player.js?v=2"></script>\n</body>
+<script defer src="./local-player.js?v=3"></script>\n</body>
 </html>
