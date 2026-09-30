@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.burzhbeats.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.burzhbeats.app"
+        minSdk 26
+        targetSdk 35
+        versionCode 10
+        versionName "0.12.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}
+
+def fontDir = file("src/main/assets/fonts")
+
+tasks.register("prepareBundledFonts") {
+    outputs.dir(fontDir)
+    doLast {
+        fontDir.mkdirs()
+        def files = [
+            "Doto.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/doto/Doto%5BROND,wght%5D.ttf",
+            "IBMPlexMono-Regular.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexmono/IBMPlexMono-Regular.ttf",
+            "IBMPlexMono-Medium.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexmono/IBMPlexMono-Medium.ttf"
+        ]
+        files.each { name, url ->
+            def target = new File(fontDir, name)
+            if (!target.exists() || target.length() < 1000) {
+                target.bytes = new URL(url).bytes
+            }
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("prepareBundledFonts")
+}
+
+dependencies {
+}
