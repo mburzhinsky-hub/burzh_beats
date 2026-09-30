@@ -86,6 +86,38 @@
 html.theme-graphite,html.theme-graphite body{--bg:#17191a;background:#17191a}
 html.theme-graphite .screen{background:radial-gradient(120% 120% at 55% -10%,#292c2d 0,#202223 35%,#17191a 72%)}
 html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-graphite .locator-map{background-color:#17191a}
+
+/* BURZH settings readability v2 */
+#settingsOverlay .card,#soundOverlay .card{width:min(520px,94vw);padding:26px}
+#settingsOverlay .auth-kicker,#soundOverlay .auth-kicker{font-size:11px}
+#settingsOverlay .auth-title,#soundOverlay .auth-title{font-size:34px;margin-top:10px}
+#settingsOverlay .settings-list{margin-top:20px}
+#settingsOverlay .settings-row{padding:18px 0}
+#settingsOverlay .settings-label{font-size:11px;line-height:1.25}
+#settingsOverlay .settings-value{font-size:14px;line-height:1.4;margin-top:7px}
+#settingsOverlay .settings-open{min-width:88px;min-height:46px;padding:12px 16px;font-size:11px}
+#settingsOverlay .auth-btn,#soundOverlay .auth-btn{min-height:48px;font-size:11px}
+#soundOverlay .sound-master{padding:18px 0}
+#soundOverlay .sound-master-label{font-size:22px}
+#soundOverlay .sound-toggle{min-width:86px;min-height:46px;font-size:11px}
+#soundOverlay .sound-section{padding:18px 0}
+#soundOverlay .sound-section-title{font-size:11px}
+#soundOverlay .preset-grid{gap:9px;margin-top:12px}
+#soundOverlay .preset-btn{min-height:42px;padding:11px 14px;font-size:10px}
+#soundOverlay .sound-line{grid-template-columns:64px minmax(0,1fr) 64px;gap:12px;margin-top:14px}
+#soundOverlay .sound-name,#soundOverlay .sound-value{font-size:11px}
+#soundOverlay .sound-range{height:30px}
+#soundOverlay .eq-freq{font-size:10px}
+#soundOverlay .sound-note{font-size:10px;line-height:1.5}
+@media(orientation:portrait) and (max-width:480px){
+  #settingsOverlay,#soundOverlay{align-items:flex-start}
+  #settingsOverlay .card,#soundOverlay .card{width:96vw;max-height:calc(100dvh - 20px);padding:22px;margin-top:2px}
+  #settingsOverlay .auth-title,#soundOverlay .auth-title{font-size:31px}
+  #settingsOverlay .settings-label{font-size:11px}
+  #settingsOverlay .settings-value{font-size:13px}
+  #settingsOverlay .settings-open{min-width:84px;min-height:46px;font-size:10.5px}
+}
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
@@ -162,7 +194,7 @@ html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-gr
     <div class="auth-kicker">BURZH beats / player</div><div class="auth-title" id="settingsTitle">SETTINGS</div>
     <div class="settings-list">
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Favorites</div><div class="settings-value" id="favoritesSummary">0 saved tracks</div></div><button class="settings-open" onclick="openFavorites()">OPEN</button></div>
-      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web build · Android DSP unavailable</div></div><button class="settings-open" onclick="openSound()">INFO</button></div>
+      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web Audio · FLAT · ON</div></div><button class="settings-open" onclick="openSound()">OPEN</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape</div><div class="settings-value">Weather · WeatherAPI · auto IP</div></div><button class="settings-open" id="weatherToggleBtn" onclick="toggleWeather()">OFF</button></div><div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape widget</div><div class="settings-value">Locator · live GPS · foreground only</div></div><button class="settings-open" id="locatorToggleBtn" onclick="toggleLocator()">OFF</button></div>
       <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Style</div><div class="settings-value">Player background</div></div><button class="settings-open" id="themeToggleBtn" onclick="toggleTheme()">BLACK</button></div>\n      <div class="settings-row"><div class="settings-label">Music library</div><div class="settings-value" id="accountState">LOCAL · TRANCE · 2 MIXES</div></div>
       <div class="settings-row"><div class="settings-label">BURZH beats</div><div class="settings-value">v0.17.0-web · local library</div></div>
