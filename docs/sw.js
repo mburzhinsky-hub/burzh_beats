@@ -1,5 +1,5 @@
-const CACHE='burzh-beats-web-v12';
-const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./local-player.js?v=3'];
+const CACHE='burzh-beats-web-v13';
+const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./local-player.js?v=4'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(
