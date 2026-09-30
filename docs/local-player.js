@@ -3,7 +3,7 @@
 
   const TRACKS=[
     {title:'Mix1',url:'./media/trance.m4a',fallbackDurationMs:3567119},
-    {title:'Mix2',url:'./media/trance-mix2.m4a',fallbackDurationMs:3901928}
+    {title:'Mix2',url:'https://drive.usercontent.google.com/download?id=1hhdiSG5G2s_VyB0JkjRBbJThe5i_SWCl&export=download&confirm=t',fallbackDurationMs:3901928}
   ];
   const STATION='Trance';
   const THEME_KEY='burzh.web.theme.v1';
