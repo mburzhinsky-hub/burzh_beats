@@ -34,7 +34,7 @@
   // Real Web Audio controls for the iPhone/PWA build.
   let audioCtx=null,sourceNode=null,bassNode=null,masterGain=null;
   let eqNodes=[];
-  let soundEnabled=true;
+  let soundEnabled=false;
   let soundPreset='FLAT';
   let bassAmount=0;
   let gainTenthDb=0;
@@ -110,14 +110,13 @@
   }
 
   function setSoundEnabled(v){
-    ensureAudioGraph();
     soundEnabled=!!v;
+    if(soundEnabled)ensureAudioGraph();
     applySoundGraph();
     emitSound();
   }
 
   function setEqPreset(name){
-    ensureAudioGraph();
     name=String(name||'FLAT').toUpperCase();
     if(PRESETS[name])eqLevels=PRESETS[name].slice();
     soundPreset=name in PRESETS?name:'FLAT';
@@ -126,21 +125,18 @@
   }
 
   function setBass(v){
-    ensureAudioGraph();
     bassAmount=Math.max(0,Math.min(100,Number(v)||0));
     applySoundGraph();
     emitSound();
   }
 
   function setGain(v){
-    ensureAudioGraph();
     gainTenthDb=Math.max(0,Math.min(30,Number(v)||0));
     applySoundGraph();
     emitSound();
   }
 
   function setEqBand(i,mb){
-    ensureAudioGraph();
     i=Number(i)||0;
     if(i<0||i>=eqLevels.length)return;
     eqLevels[i]=Math.max(-12,Math.min(12,(Number(mb)||0)/100));
@@ -219,6 +215,9 @@
     const remain=d?'-'+formatMs(Math.max(0,d-p)):'--:--';
     if(q('remaining'))q('remaining').textContent=remain;
     if(q('landRemaining'))q('landRemaining').textContent=remain;
+    if('mediaSession' in navigator&&navigator.mediaSession.setPositionState&&d>0){
+      try{navigator.mediaSession.setPositionState({duration:d/1000,position:Math.min(d,p)/1000,playbackRate:a.playbackRate||1})}catch(e){}
+    }
   }
 
   function setModesUI(){
@@ -273,8 +272,10 @@
     if(loadedIndex!==index)loadTrack(index,{autoplay:false,reset:false});
     try{
       configureAudioSession();
-      ensureAudioGraph();
-      if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
+      if(soundEnabled){
+        ensureAudioGraph();
+        if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
+      }
       if(a.paused||a.ended)await a.play();
       else a.pause();
     }catch(e){
@@ -380,7 +381,7 @@
   if(window.BURZH)window.BURZH.onState=()=>{};
 
   window.AndroidBridge=Object.assign(window.AndroidBridge||{},{
-    requestSound(){ensureAudioGraph();if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});emitSound()},
+    requestSound(){emitSound()},
     setSoundEnabled(v){setSoundEnabled(v)},
     setEqPreset(v){setEqPreset(v)},
     setBass(v){setBass(v)},
