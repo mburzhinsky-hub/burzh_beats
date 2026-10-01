@@ -35,20 +35,16 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .doto{font-family:var(--dot)}
 .swap{animation:swap .42s var(--ease)}
 
-/* ---------- Procedural artwork ---------- */
+
+/* ---------- Planet ---------- */
 .art-frame{position:relative;border:1px solid rgba(238,239,233,.13);background:radial-gradient(circle at 48% 40%,rgba(255,255,255,.028),rgba(0,0,0,0) 59%),var(--bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.015),0 18px 50px rgba(0,0,0,.38);overflow:hidden;touch-action:pan-y}
-.art-frame:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 70% at 50% 55%,transparent 55%,color-mix(in srgb,var(--accent) 7%,transparent) 100%);opacity:0;transition:opacity 1.2s var(--ease)}
-.is-playing .art-frame:after{opacity:1}
-.orbital-art{position:absolute;inset:0}.orbital-art svg{display:block;width:100%;height:100%;overflow:visible}
-.art-stars circle{fill:#d7d8d2;opacity:.23}.art-stars circle:nth-child(3n){opacity:.38}
-.sphere-rim{fill:none;stroke:rgba(240,241,235,.22);stroke-width:.65}.sphere-grain{mix-blend-mode:soft-light;opacity:.25}
-.orbit-back{fill:none;stroke:rgba(205,207,202,.18);stroke-width:1}
-.orbit-front{fill:none;stroke:rgba(235,236,231,.52);stroke-width:1.15;stroke-linecap:round;stroke-dasharray:98 510;stroke-dashoffset:22}
-.orbit-spin{transform-origin:110px 110px;animation:orbitTurn var(--orbit) linear infinite;animation-play-state:paused}
-.is-playing .orbit-spin{animation-play-state:running}
-.orbit-dot{fill:var(--accent);filter:drop-shadow(0 0 4px var(--accent));transition:fill .6s}
-.orbit-halo{fill:var(--accent);opacity:.18;transition:fill .6s}
-@keyframes orbitTurn{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.planet{position:absolute;inset:0;touch-action:pan-y}
+
+/* ---------- Icon buttons ---------- */
+.icon-btn{display:grid;place-items:center;width:48px;height:48px;border:1px solid #4a4c48;border-radius:50%;color:var(--fg);transition:transform .14s var(--ease),background .14s,border-color .3s;flex:0 0 auto}
+.icon-btn svg{width:22px;height:22px;display:block}
+.icon-btn:active{transform:scale(.92);background:rgba(255,255,255,.07)}
+.icon-btn:focus-visible,.ctrl:focus-visible,.dial button:focus-visible,.switch:focus-visible,.seg button:focus-visible,.chip:focus-visible,.tabs button:focus-visible,.btn:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
 
 /* ---------- Station glyphs ---------- */
 .sicon{width:36px;height:30px;position:relative;flex:0 0 auto}
@@ -117,76 +113,58 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 @media(orientation:portrait) and (max-height:700px){.stations{top:15.2%;height:12.5%}.p-artwrap{top:31%;width:50%;left:25%}.p-side{top:37.5%}.p-meta{top:62%}.p-live{top:71.5%}.p-controls{top:77%;height:14%}.p-footer{bottom:1.6%}}
 @media(orientation:portrait) and (max-height:560px){.p-logo{top:3.8%;font-size:28px}.stations{top:15.5%;height:13.5%}.station{gap:3px;border-radius:9px}.sicon{transform:scale(.68)}.slabel{font-size:7.5px}.sdot{bottom:4px}.p-artwrap{top:31%;left:29%;width:42%}.p-side{display:none}.p-meta{top:61%}.title{font-size:21px}.sub{font-size:10px;margin-top:4px}.p-live{top:70.5%}.readout{font-size:8px}.p-controls{top:76%;left:16%;right:16%;height:15%}.p-controls .ctrl{width:48px;height:48px}.p-controls .ctrl.big{width:64px;height:64px}.ctrl svg{width:21px;height:21px}.ctrl.big svg{width:26px;height:26px}.p-footer{bottom:1.3%;font-size:6.5px}}
 
-/* ---------- Landscape: the desk / StandBy-style screen ---------- */
-.landscape{align-items:stretch;justify-content:stretch;overflow:hidden}
-.l-shell{width:100%;height:100%;padding:max(10px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));display:grid;grid-template-rows:30px minmax(0,1fr) 22px clamp(72px,22vh,88px);row-gap:5px;transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
-.l-header{display:grid;grid-template-columns:auto minmax(30px,1fr) auto;align-items:center;gap:18px;min-width:0}
-.l-brand{font:520 17px/1 var(--dot);white-space:nowrap}
-.l-topline{height:1px;background:#3d3e3a}
-.l-main{display:grid;grid-template-columns:minmax(190px,1.25fr) minmax(150px,.9fr) minmax(118px,.62fr);column-gap:clamp(16px,3vw,34px);align-items:center;min-width:0;min-height:0;padding:0 clamp(10px,2.5vw,28px)}
-.l-info{min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}
-.clock{display:flex;align-items:center;gap:clamp(5px,1vw,9px);font:650 clamp(58px,11.4vw,102px)/.76 var(--dot);letter-spacing:.01em;white-space:nowrap;min-width:0;font-variant-numeric:tabular-nums}
-.soft-colon{width:clamp(10px,1.7vw,16px);height:.72em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(10px,2.1vh,18px);transform:translateY(2px)}
-.soft-colon i{width:clamp(5px,.9vw,8px);height:clamp(5px,.9vw,8px);border-radius:50%;background:#f0f0eb;opacity:.75;animation:colonBreath 2.8s ease-in-out infinite}.soft-colon i:nth-child(2){animation-delay:1.4s}
-.l-date{margin-top:clamp(8px,1.6vh,12px);font-size:clamp(8px,1vw,10px);letter-spacing:.14em;color:var(--muted)}
-.l-now{margin-top:clamp(10px,2.2vh,16px);display:grid;grid-template-columns:9px minmax(0,1fr);gap:12px;align-items:start;min-width:0}
-.l-now .reddot{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-top:7px;opacity:.55;transition:background .6s,opacity .4s}
-.is-on .l-now .reddot{opacity:1}.is-playing .l-now .reddot{box-shadow:0 0 10px var(--accent);animation:pulse 2.2s infinite}
-.stationname{font:520 clamp(20px,3vw,27px)/.95 var(--dot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-title{font:400 clamp(11px,1.6vw,14px)/1.15 var(--mono);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-sub{font:400 clamp(9px,1.2vw,11px)/1.15 var(--mono);margin-top:5px;color:#a9aaa4;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-visual{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;height:100%}
-.l-artframe{position:relative;width:min(100%,52vh,220px);aspect-ratio:1;border-radius:18px;flex:0 1 auto}
-.l-genre-menu{min-width:0;height:min(100%,196px);min-height:150px;border:1px solid #333532;border-radius:16px;background:linear-gradient(180deg,var(--bg) 0%,#090a0a 52%,var(--bg) 100%);padding:8px;display:flex;flex-direction:column;gap:6px;justify-content:center}
-.l-genre-btn{position:relative;width:100%;flex:1;min-height:0;border:1px solid transparent;border-radius:9px;color:#878883;font:400 clamp(7px,1.05vw,9.5px)/1.08 var(--mono);letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:5px 6px 5px 18px;transition:.2s var(--ease)}
-.l-genre-btn:before{content:"";position:absolute;left:7px;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;background:#555650;transition:background .4s}
-.l-genre-btn.active{color:#efefe9;border-color:#555650;background:#0d0e0e}
-.l-genre-btn.active:before{background:var(--accent);box-shadow:0 0 7px var(--accent)}
-.l-genre-btn.off{opacity:.45}.l-genre-btn:active{transform:scale(.97)}
-.l-live{align-self:center;margin:0 clamp(34px,7vw,74px)}.l-live .readout{margin-top:6px;font-size:9px}
-.l-bottom{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 clamp(20px,4.8vw,52px);min-width:0}
-.l-caption{justify-self:start;font:400 clamp(6.5px,.8vw,8px)/1.42 var(--mono);letter-spacing:.08em;color:#aaa;text-transform:uppercase}
-.l-caption .smallrule{width:21px;margin-top:7px}
-.has-weather .l-caption.tagline{display:none}
-.weather{justify-self:start;min-width:120px;text-transform:uppercase}
-.weather-temp{font:560 clamp(28px,3.7vw,42px)/.82 var(--dot);letter-spacing:.01em}
-.weather-meta{margin-top:9px;font:400 clamp(6.5px,.8vw,8px)/1.42 var(--mono);letter-spacing:.08em;color:#b4b5af}.weather-city{color:#858680}
-.l-controls{display:flex;align-items:center;gap:clamp(20px,5vw,42px)}
-.l-controls .ctrl{width:clamp(52px,8.2vw,66px);height:clamp(52px,8.2vw,66px)}.l-controls .ctrl.big{width:clamp(68px,10.5vw,84px);height:clamp(68px,10.5vw,84px)}
-.l-controls .ctrl svg{width:24px;height:24px}.l-controls .ctrl.big svg{width:29px;height:29px}
-.l-channel{justify-self:end;font:400 clamp(6.5px,.8vw,8px)/1.42 var(--mono);letter-spacing:.1em;color:#8e8f89;text-align:right;text-transform:uppercase}
+/* ---------- Landscape: the desk screen ---------- */
+.landscape{overflow:hidden}
+.l-shell{position:relative;width:100%;height:100%;padding:max(8px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));display:grid;grid-template-rows:auto minmax(0,1fr) auto;row-gap:clamp(2px,1.2vh,12px);transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
+.l-planet{position:absolute;top:0;bottom:0;right:0;width:min(50%,100vh);z-index:0}
+.l-shell,.l-main{pointer-events:none}
+.l-header,.l-info,.l-bottom{pointer-events:auto}
+.l-header,.l-main,.l-bottom{position:relative;z-index:1}
+.l-header{display:grid;grid-template-columns:auto minmax(16px,1fr) auto;align-items:center;gap:clamp(12px,2vw,24px);min-height:56px}
+.l-brand{font:520 clamp(18px,3vh,26px)/1 var(--dot);white-space:nowrap}
+.l-topline{height:1px;background:var(--line)}
+.l-tools{display:flex;align-items:center;gap:10px}
+.l-tools .ctrl{width:44px;height:44px}.l-tools .ctrl.big{width:54px;height:54px}
+.l-tools .ctrl svg{width:19px;height:19px}.l-tools .ctrl.big svg{width:23px;height:23px}
+.l-tools .icon-btn{width:44px;height:44px;margin-left:6px}
 
-/* Idle: chrome fades away and the screen becomes a calm clock + radio display. */
+.l-main{display:flex;align-items:center;min-height:0}
+.l-info{min-width:0;max-width:54%;display:flex;flex-direction:column;justify-content:center}
+.clock{display:flex;align-items:center;font:650 min(40vh,19vw)/.74 var(--dot);letter-spacing:.01em;white-space:nowrap;min-width:0;font-variant-numeric:tabular-nums}
+.soft-colon{width:.12em;height:.72em;margin:0 .07em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.17em;transform:translateY(.012em)}
+.soft-colon i{width:.07em;height:.07em;border-radius:50%;background:#f0f0eb;opacity:.78;animation:colonBreath 2.8s ease-in-out infinite}.soft-colon i:nth-child(2){animation-delay:1.4s}
+.l-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px;margin-top:clamp(10px,2.6vh,22px);font:400 clamp(11px,2.3vh,15px)/1.2 var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.weather{display:inline-flex;align-items:baseline;gap:10px;color:var(--soft)}
+.weather b{font:560 2em/1 var(--dot);letter-spacing:.02em;color:var(--fg)}
+.weather-city{color:var(--dim)}
+.l-now{margin-top:clamp(12px,3vh,26px);display:grid;grid-template-columns:12px minmax(0,1fr);gap:14px;align-items:start;min-width:0}
+.l-now .reddot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.7em;opacity:.55;transition:opacity .4s}
+.is-on .l-now .reddot{opacity:1}.is-playing .l-now .reddot{box-shadow:0 0 10px var(--accent);animation:pulse 2.2s infinite}
+.stationname{font:520 clamp(26px,6.6vh,48px)/.95 var(--dot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l-title{font:400 clamp(14px,3.1vh,21px)/1.15 var(--mono);margin-top:clamp(6px,1.4vh,12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l-sub{font:400 clamp(10px,2vh,14px)/1.15 var(--mono);margin-top:clamp(4px,.9vh,8px);color:#a9aaa4;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.l-bottom{display:grid;gap:clamp(2px,.8vh,8px)}
+.dial{display:flex;justify-content:space-between;gap:6px}
+.dial button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 4px;font:400 clamp(10px,2vh,13.5px)/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap;transition:color .3s,opacity .6s,transform .14s var(--ease)}
+.dial button:before{content:"";width:6px;height:6px;border-radius:50%;border:1px solid #5b5c57;transition:background .4s,border-color .4s,box-shadow .4s}
+.dial button.active{color:var(--fg)}
+.dial button.active:before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 9px var(--accent)}
+.dial button.off{opacity:.45}.dial button.off.active{opacity:.8}
+.dial button:active{transform:scale(.96)}
+.l-live .readout{margin-top:7px;font-size:clamp(9px,1.8vh,12px)}
+
+/* Idle: the controls melt away and the screen becomes a calm clock + radio. */
 .chrome{transition:opacity .9s var(--ease)}
 .idle .chrome{opacity:0;pointer-events:none}
-.idle .l-genre-menu{opacity:0}
-.idle .l-brand,.idle .l-topline{opacity:.35}
+.idle .l-brand,.idle .l-topline{opacity:.3}
+.idle .dial button:not(.active){opacity:.5}
 .idle{cursor:none}
+.l-brand,.l-topline{transition:opacity .9s var(--ease)}
 
-@media(orientation:landscape) and (min-width:900px) and (min-height:480px){
-  .l-shell{padding:max(18px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left));grid-template-rows:38px minmax(0,1fr) 30px clamp(104px,15vh,132px);row-gap:8px}
-  .l-brand{font-size:clamp(20px,1.65vw,26px)}
-  .l-main{width:100%;max-width:1580px;margin-inline:auto;grid-template-columns:minmax(300px,1.15fr) minmax(280px,1.05fr) minmax(220px,.8fr);column-gap:clamp(30px,3.6vw,58px);padding:0 clamp(22px,3vw,52px)}
-  .clock{font-size:clamp(112px,12.8vw,190px);line-height:.72;gap:clamp(8px,.9vw,14px)}
-  .soft-colon{width:clamp(16px,1.5vw,24px);gap:clamp(16px,2.3vh,26px)}.soft-colon i{width:clamp(7px,.64vw,10px);height:clamp(7px,.64vw,10px)}
-  .l-date{font-size:clamp(10px,.8vw,13px)}
-  .l-now{grid-template-columns:11px minmax(0,1fr);gap:14px;margin-top:clamp(16px,2.4vh,24px)}.l-now .reddot{width:8px;height:8px;margin-top:10px}
-  .stationname{font-size:clamp(30px,2.7vw,42px);line-height:.92}.l-title{font-size:clamp(14px,1.25vw,19px);margin-top:10px}.l-sub{font-size:clamp(11px,.9vw,14px);margin-top:6px}
-  .l-artframe{width:min(100%,46vh,30vw,430px);border-radius:24px;border-color:rgba(238,239,233,.2)}
-  .l-genre-menu{height:min(43vh,360px);min-height:248px;border-radius:22px;padding:12px;gap:8px;border-color:#4a4c48}
-  .l-genre-btn{font-size:clamp(11px,.95vw,15px);padding:8px 10px 8px 30px;border-radius:12px}.l-genre-btn:before{left:12px;width:7px;height:7px;margin-top:-3.5px}
-  .l-live{margin:0 clamp(46px,5vw,86px)}.l-live .readout{font-size:clamp(10px,.78vw,12px)}
-  .l-bottom{padding:0 clamp(42px,5.4vw,92px)}.l-caption,.l-channel{font-size:clamp(8px,.68vw,10px)}
-  .l-controls{gap:clamp(30px,3.2vw,50px)}.l-controls .ctrl{width:clamp(68px,5.6vw,84px);height:clamp(68px,5.6vw,84px)}.l-controls .ctrl.big{width:clamp(90px,7.2vw,108px);height:clamp(90px,7.2vw,108px)}
-}
-@media(orientation:landscape) and (max-height:300px){
-  .l-shell{grid-template-rows:22px minmax(0,1fr) 20px 62px;padding-top:6px;padding-bottom:6px;row-gap:2px}.l-brand{font-size:14px}
-  .l-main{grid-template-columns:minmax(170px,1.3fr) minmax(120px,.8fr) minmax(106px,.62fr);column-gap:14px}
-  .clock{font-size:clamp(46px,10vw,72px)}.l-date{margin-top:5px;font-size:7px}.l-now{margin-top:5px}.stationname{font-size:18px}.l-title{font-size:9px;margin-top:4px}.l-sub{font-size:7.5px;margin-top:2px}
-  .l-artframe{width:min(100%,48vh,150px);border-radius:14px}
-  .l-genre-menu{min-height:116px;padding:5px;gap:3px;border-radius:13px}.l-genre-btn{font-size:6.5px;padding-left:15px;border-radius:7px}
-  .l-live{margin:0 34px}.l-bottom{padding:0 24px}.l-caption,.l-channel{font-size:5.8px}
-  .l-controls{gap:20px}.l-controls .ctrl{width:46px;height:46px}.l-controls .ctrl.big{width:58px;height:58px}
+@media(orientation:landscape) and (max-height:340px){
+  .l-header{min-height:46px}.l-tools .ctrl{width:38px;height:38px}.l-tools .ctrl.big{width:46px;height:46px}.l-tools .icon-btn{width:38px;height:38px}
+  .dial button{min-height:38px}
 }
 
 /* ---------- Night mode: dim red monochrome, pure black (OLED friendly) ---------- */
@@ -198,25 +176,82 @@ html.night .art-frame{box-shadow:none}
 html.theme-graphite:not(.night),html.theme-graphite:not(.night) body{--bg:#17191a;background:#17191a}
 html.theme-graphite:not(.night) .screen{background:radial-gradient(120% 120% at 55% -10%,#292c2d 0,#202223 35%,#17191a 72%)}
 
-/* ---------- Toast + settings ---------- */
-.player-status{position:fixed;z-index:80;left:50%;bottom:max(12px,calc(env(safe-area-inset-bottom) + 8px));transform:translate(-50%,10px);max-width:min(86vw,520px);padding:9px 13px;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(8,9,9,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font:400 9px/1.25 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#c9cac4;opacity:0;pointer-events:none;transition:.22s var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ---------- Toast ---------- */
+.player-status{position:fixed;z-index:120;left:50%;bottom:max(14px,calc(env(safe-area-inset-bottom) + 10px));transform:translate(-50%,10px);max-width:min(86vw,520px);padding:10px 16px;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(8,9,9,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font:400 10px/1.25 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#c9cac4;opacity:0;pointer-events:none;transition:.22s var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-status.show{opacity:1;transform:translate(-50%,0)}.player-status.error{color:#ff776f;border-color:rgba(255,90,80,.35)}
-.overlay{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);overflow-y:auto;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
-.overlay.show{display:flex}
-.card{width:min(520px,94vw);max-height:calc(100dvh - 32px);overflow-y:auto;border:1px solid #5b5c57;border-radius:22px;background:#070808;padding:26px;box-shadow:0 20px 80px rgba(0,0,0,.5)}
-.kicker{font:400 11px/1.3 var(--mono);letter-spacing:.12em;color:#999;text-transform:uppercase}
-.card-title{font:560 34px/.95 var(--dot);margin-top:10px}
-.settings-list{margin-top:20px;border-top:1px solid #30312e}
-.settings-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid #30312e;min-height:64px}
-.settings-label{font:400 11px/1.25 var(--mono);letter-spacing:.11em;color:#888;text-transform:uppercase}
-.settings-value{font:400 13px/1.4 var(--mono);color:#ddd;margin-top:6px}
-.pill{border:1px solid #777873;border-radius:999px;min-width:88px;min-height:44px;padding:12px 16px;font:400 11px/1 var(--mono);letter-spacing:.08em;white-space:nowrap}
-.pill:active{transform:scale(.96)}
-.pill.primary{width:100%;margin-top:18px;border-color:#f0f0eb;min-height:48px}
-.city-form{display:flex;gap:8px;grid-column:1/-1}
-.city-form input{flex:1;min-width:0;background:#0d0e0e;border:1px solid #494a46;border-radius:999px;padding:12px 16px;font:400 13px/1 var(--mono);color:#eee;outline:none;-webkit-user-select:text;user-select:text}
-.city-form input:focus{border-color:#ddd}
-.settings-note{grid-column:1/-1;font:400 10px/1.5 var(--mono);color:#7f807a}
+
+/* ---------- Settings sheet ---------- */
+.overlay{position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s .25s}
+.overlay.show{opacity:1;visibility:visible;transition:opacity .25s,visibility 0s}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:min(580px,100%);display:flex;flex-direction:column;background:#070808;border-left:1px solid #2a2b28;padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);transform:translateX(28px);transition:transform .38s var(--ease)}
+.overlay.show .sheet{transform:none}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:max(14px,env(safe-area-inset-top)) 20px 8px 24px}
+.sheet-head h2{margin:0;font:560 clamp(26px,5vh,34px)/1 var(--dot)}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);margin:6px 24px 0 24px;border-bottom:1px solid #2a2b28}
+.tabs button{min-height:46px;font:400 14px/1 var(--mono);letter-spacing:.04em;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .2s,border-color .2s}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--fg)}
+.sheet-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:6px 24px 28px}
+.pane[hidden]{display:none}
+
+.group-title{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 4px;font:500 12px/1.2 var(--mono);letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.group-title small{font:400 11px/1.2 var(--mono);letter-spacing:.02em;text-transform:none;color:#6b6c66}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;align-items:center;padding:14px 0;min-height:64px;border-bottom:1px solid #1b1c1a}
+.row-title{font:400 15px/1.3 var(--mono);color:var(--fg)}
+.row-hint{font:400 12px/1.5 var(--mono);color:#7d7e78;margin-top:3px}
+.row .wide{grid-column:1/-1}
+.note{margin:14px 0 0;font:400 12px/1.55 var(--mono);color:#7d7e78}
+.status-line{font:400 12px/1.5 var(--mono);color:#a9aaa4}
+.status-line.error{color:#ff8a82}
+
+.switch{position:relative;width:58px;height:34px;border:1px solid #5b5c57;border-radius:17px;transition:background .25s,border-color .25s}
+.switch:before{content:"";position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:#8b8c86;transition:transform .28s var(--ease),background .25s}
+.switch[aria-checked="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.switch[aria-checked="true"]:before{transform:translateX(24px);background:var(--accent)}
+
+.seg{display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid #4a4c48;border-radius:12px;overflow:hidden}
+.seg button{min-height:42px;min-width:64px;padding:0 14px;font:400 13px/1 var(--mono);color:#b7b8b2;transition:background .2s,color .2s}
+.seg button+button{border-left:1px solid #4a4c48}
+.seg button[aria-pressed="true"]{background:var(--fg);color:#050606}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{min-height:42px;padding:0 16px;border:1px solid #3d3e3a;border-radius:21px;font:400 13px/1 var(--mono);color:#b7b8b2;transition:border-color .2s,color .2s,background .2s}
+.chip[aria-pressed="true"]{border-color:var(--fg);color:var(--fg);background:#161715}
+
+.fx{transition:opacity .25s}
+.fx.is-off{opacity:.5}
+.eq{position:relative;margin-top:10px;height:clamp(150px,34vh,210px);border:1px solid #232421;border-radius:14px;background:#0a0b0a;overflow:hidden;touch-action:none}
+.eq canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+.slider{display:grid;grid-template-columns:1fr auto;align-items:baseline;padding-top:12px}
+.slider .s-name{font:400 14px/1.2 var(--mono)}
+.slider output{font:400 13px/1.2 var(--mono);color:#a9aaa4;font-variant-numeric:tabular-nums}
+.slider input{grid-column:1/-1}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:40px;margin:0;background:transparent;cursor:pointer;touch-action:pan-y;--a:0%;--b:0%}
+input[type=range]::-webkit-slider-runnable-track{height:2px;border-radius:2px;background:linear-gradient(to right,#34352f var(--a),var(--fg) var(--a),var(--fg) var(--b),#34352f var(--b))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;margin-top:-11px;border-radius:50%;border:0;background:var(--fg);box-shadow:0 0 0 7px rgba(255,255,255,.06)}
+input[type=range]::-moz-range-track{height:2px;border-radius:2px;background:linear-gradient(to right,#34352f var(--a),var(--fg) var(--a),var(--fg) var(--b),#34352f var(--b))}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;border:0;background:var(--fg)}
+input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;border-radius:6px}
+
+.btn{min-height:46px;padding:0 20px;border:1px solid #5b5c57;border-radius:23px;font:400 13px/1 var(--mono);color:var(--fg);transition:transform .14s var(--ease),background .14s}
+.btn:active{transform:scale(.97);background:rgba(255,255,255,.06)}
+.btn[disabled]{opacity:.4}
+.list-row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #1b1c1a;font:400 14px/1.3 var(--mono)}
+.list-row span:last-child{color:#7d7e78;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.list-row .live{color:var(--accent)}
+
+@media(orientation:landscape) and (min-width:760px){
+  .sheet{width:min(940px,100%)}
+  #fxControls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);column-gap:32px;grid-template-areas:"presets eq" "enh eq";align-items:start}
+  .fx-presets{grid-area:presets}.fx-eq{grid-area:eq}.fx-enh{grid-area:enh}
+  .fx-eq .group-title{margin-top:22px}
+  .eq{height:clamp(190px,52vh,300px)}
+}
+@media(orientation:portrait){
+  .sheet{top:auto;left:0;width:100%;height:min(92dvh,780px);border-left:0;border-top:1px solid #2a2b28;border-radius:22px 22px 0 0;transform:translateY(40px)}
+  .sheet-head{padding-top:18px}
+}
+@media(max-width:420px){.sheet-head{padding-left:18px}.tabs,.sheet-body{margin-left:18px;margin-right:18px;padding-left:0;padding-right:0}.sheet-body{margin:0;padding:6px 18px 28px}.tabs{margin:6px 18px 0}}
 
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 25%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
 @keyframes colonBreath{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:.42;transform:scale(.9)}}
@@ -227,15 +262,14 @@ html.theme-graphite:not(.night) .screen{background:radial-gradient(120% 120% at 
 </head>
 <body>
 
-
 <section class="screen portrait" aria-label="BURZH beats radio">
   <div class="p-logo">BURZH<br>beats</div>
-  <button class="text-btn p-menu" data-open="settingsOverlay" aria-label="Settings">SETTINGS</button>
+  <button class="icon-btn p-menu" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
 
   <div class="stations" id="stationTiles" role="group" aria-label="Stations"></div>
 
   <div class="p-side left" data-bind="tagline"></div>
-  <div class="p-artwrap"><div class="art-frame swipe"><div class="orbital-art"></div></div></div>
+  <div class="p-artwrap"><div class="art-frame swipe"><div class="planet" data-planet></div></div></div>
   <div class="p-side right">LIVE<br>RADIO<br>ALWAYS<br>ON<div class="smallrule"></div></div>
 
   <div class="p-meta">
@@ -258,17 +292,26 @@ html.theme-graphite:not(.night) .screen{background:radial-gradient(120% 120% at 
 </section>
 
 <section class="screen landscape" aria-label="BURZH beats radio, desk screen">
+  <div class="l-planet swipe" data-planet></div>
   <div class="l-shell">
     <header class="l-header">
       <div class="l-brand">BURZH beats</div>
       <div class="l-topline"></div>
-      <button class="text-btn chrome" data-open="settingsOverlay" aria-label="Settings">SETTINGS</button>
+      <div class="l-tools chrome">
+        <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
+        <button class="ctrl big play-toggle" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></svg></button>
+        <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
+        <button class="icon-btn" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
+      </div>
     </header>
 
     <main class="l-main">
       <div class="l-info">
         <div class="clock" aria-label="Current time"><span data-bind="hh">--</span><span class="soft-colon"><i></i><i></i></span><span data-bind="mm">--</span></div>
-        <div class="l-date" data-bind="date"></div>
+        <div class="l-meta">
+          <span data-bind="date"></span>
+          <span class="weather" id="weatherWidget" hidden aria-live="polite"><b data-bind="w-temp">--°</b><span data-bind="w-cond"></span><span class="weather-city" data-bind="w-city"></span></span>
+        </div>
         <div class="l-now">
           <span class="reddot"></span>
           <div style="min-width:0">
@@ -278,70 +321,107 @@ html.theme-graphite:not(.night) .screen{background:radial-gradient(120% 120% at 
           </div>
         </div>
       </div>
-      <div class="l-visual"><div class="art-frame l-artframe swipe"><div class="orbital-art"></div></div></div>
-      <div class="l-genre-menu chrome" id="genreMenu" role="group" aria-label="Stations"></div>
     </main>
 
-    <div class="l-live">
-      <div class="live-rail"><div class="live-fill"></div></div>
-      <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span></span><span data-bind="remaining"></span></div>
-    </div>
-
     <div class="l-bottom">
-      <div class="l-caption tagline"><span data-bind="tagline"></span><div class="smallrule"></div></div>
-      <div class="weather" id="weatherWidget" hidden aria-live="polite">
-        <div class="weather-temp" data-bind="w-temp">--°</div>
-        <div class="weather-meta"><div data-bind="w-cond">WEATHER</div><div class="weather-city" data-bind="w-city"></div></div>
+      <nav class="dial" id="genreMenu" aria-label="Stations"></nav>
+      <div class="l-live">
+        <div class="live-rail"><div class="live-fill"></div></div>
+        <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span></span><span data-bind="channel"></span><span data-bind="remaining"></span></div>
       </div>
-      <div class="l-controls chrome">
-        <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
-        <button class="ctrl big play-toggle" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></svg></button>
-        <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
-      </div>
-      <div class="l-channel"><span data-bind="channel"></span><br>BURZH RADIO</div>
     </div>
   </div>
 </section>
 
 <div class="player-status" id="playerStatus" role="status" aria-live="polite"></div>
 
-<div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-  <div class="card">
-    <div class="kicker">BURZH beats / radio</div>
-    <div class="card-title" id="settingsTitle">SETTINGS</div>
-    <div class="settings-list">
-      <div class="settings-row">
-        <div><div class="settings-label">Desk screen</div><div class="settings-value">Keep the screen on in landscape</div></div>
-        <button class="pill" id="awakeBtn">ON</button>
+<div class="overlay" id="settingsOverlay">
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <header class="sheet-head">
+      <h2 id="settingsTitle">Settings</h2>
+      <button class="icon-btn" data-close="settingsOverlay" aria-label="Close settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </header>
+    <div class="tabs" role="tablist" aria-label="Settings sections">
+      <button role="tab" id="tab-sound" data-tab="sound" aria-selected="true" aria-controls="pane-sound">Sound</button>
+      <button role="tab" id="tab-screen" data-tab="screen" aria-selected="false" aria-controls="pane-screen">Screen</button>
+      <button role="tab" id="tab-about" data-tab="about" aria-selected="false" aria-controls="pane-about">About</button>
+    </div>
+
+    <div class="sheet-body">
+      <div class="pane" id="pane-sound" role="tabpanel" aria-labelledby="tab-sound" data-pane="sound">
+        <div class="row">
+          <div>
+            <div class="row-title">Sound shaping</div>
+            <div class="row-hint" id="soundHint">Equalizer, bass and clarity, tuned for each station.</div>
+          </div>
+          <button class="switch" role="switch" aria-checked="false" aria-label="Sound shaping" data-switch="sound.on"></button>
+        </div>
+
+        <div class="fx is-off" id="fxControls">
+          <div class="fx-presets">
+          <div class="group-title">Preset</div>
+          <div class="chips" id="presetChips" role="group" aria-label="Sound presets"></div>
+          <div class="row-hint" id="presetHint" style="margin-top:10px"></div>
+          </div>
+
+          <div class="fx-eq">
+          <div class="group-title">Equalizer <small>drag a point · double-tap resets it</small></div>
+          <div class="eq"><canvas id="eqCanvas" aria-label="Equalizer"></canvas></div>
+          </div>
+
+          <div class="fx-enh">
+          <div class="group-title">Enhancer</div>
+          <label class="slider"><span class="s-name">Bass punch</span><output></output><input type="range" min="0" max="100" step="1" data-param="bass" aria-label="Bass punch"></label>
+          <label class="slider"><span class="s-name">Clarity</span><output></output><input type="range" min="0" max="100" step="1" data-param="clarity" aria-label="Clarity"></label>
+          <label class="slider"><span class="s-name">Stereo width</span><output></output><input type="range" min="0" max="160" step="1" data-param="width" aria-label="Stereo width"></label>
+          <label class="slider"><span class="s-name">Glue</span><output></output><input type="range" min="0" max="100" step="1" data-param="glue" aria-label="Glue compression"></label>
+          <label class="slider"><span class="s-name">Level</span><output></output><input type="range" min="-6" max="6" step="0.5" data-param="level" data-bipolar aria-label="Output level"></label>
+
+          <div style="margin-top:18px"><button class="btn" id="soundReset">Reset to preset</button></div>
+          </div>
+        </div>
+        <p class="note" id="soundNote">Heads up for iPhone: with sound shaping on, playback may pause when the screen locks. If it does, switch it off.</p>
       </div>
-      <div class="settings-row">
-        <div><div class="settings-label">Night mode</div><div class="settings-value">Dim red display · auto 23:00–07:00</div></div>
-        <button class="pill" id="nightBtn">OFF</button>
+
+      <div class="pane" id="pane-screen" role="tabpanel" aria-labelledby="tab-screen" data-pane="screen" hidden>
+        <div class="row">
+          <div><div class="row-title">Keep screen on</div><div class="row-hint">Stops the display from sleeping in landscape.</div></div>
+          <button class="switch" role="switch" aria-checked="true" aria-label="Keep screen on" data-switch="keepAwake"></button>
+        </div>
+        <div class="row">
+          <div><div class="row-title">Night mode</div><div class="row-hint" id="nightHint">Dims the screen. Auto runs 23:00 to 07:00.</div></div>
+          <div class="seg" data-seg="night" role="group" aria-label="Night mode"><button data-value="off">Off</button><button data-value="auto">Auto</button><button data-value="on">On</button></div>
+        </div>
+        <div class="row">
+          <div><div class="row-title">Background</div></div>
+          <div class="seg" data-seg="theme" role="group" aria-label="Background"><button data-value="black">Black</button><button data-value="graphite">Graphite</button></div>
+        </div>
+        <div class="row">
+          <div><div class="row-title">Weather</div><div class="row-hint">Shows the temperature on the desk screen, based on your location.</div></div>
+          <button class="switch" role="switch" aria-checked="false" aria-label="Weather" data-switch="weather"></button>
+          <div class="wide" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div class="status-line" id="weatherStatus" aria-live="polite"></div>
+            <button class="btn" id="locationBtn" hidden>Update location</button>
+          </div>
+        </div>
       </div>
-      <div class="settings-row">
-        <div><div class="settings-label">Style</div><div class="settings-value">Background</div></div>
-        <button class="pill" id="themeBtn">BLACK</button>
-      </div>
-      <div class="settings-row">
-        <div><div class="settings-label">Weather · landscape</div><div class="settings-value" data-bind="city-setting">NOT SET</div></div>
-        <button class="pill" id="weatherToggleBtn">OFF</button>
-        <form class="city-form" id="cityForm" autocomplete="off">
-          <input id="cityInput" type="text" inputmode="text" enterkeyhint="done" placeholder="City, e.g. Moscow" aria-label="City for weather">
-          <button class="pill" type="submit">SET</button>
-        </form>
-        <div class="settings-note">Open-Meteo · no account, no location access</div>
-      </div>
-      <div class="settings-row">
-        <div><div class="settings-label">Library</div><div class="settings-value" id="libraryState">—</div></div>
-      </div>
-      <div class="settings-row">
-        <div><div class="settings-label">BURZH beats</div><div class="settings-value" id="versionState">—</div></div>
+
+      <div class="pane" id="pane-about" role="tabpanel" aria-labelledby="tab-about" data-pane="about" hidden>
+        <div class="group-title">Stations</div>
+        <div id="stationList"></div>
+        <div class="group-title">How it works</div>
+        <p class="note" style="margin-top:6px">Every station plays on a shared clock. When you press play you join whatever is on air right now, and everyone with the app hears the same moment.</p>
+        <div class="group-title">App</div>
+        <div class="list-row"><span>Version</span><span id="versionState">-</span></div>
+        <div class="list-row"><span>Library</span><span id="libraryState">-</span></div>
       </div>
     </div>
-    <button class="pill primary" data-close="settingsOverlay">DONE</button>
-  </div>
+  </section>
 </div>
 
+<script src="./planet.js" defer></script>
+<script src="./sound.js" defer></script>
+<script src="./sound-ui.js" defer></script>
 <script src="./app.js" defer></script>
 </body>
 </html>

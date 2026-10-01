@@ -3,7 +3,9 @@ package com.burzhbeats.app;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -14,9 +16,11 @@ import android.os.VibratorManager;
 import android.view.HapticFeedbackConstants;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -34,8 +38,12 @@ public class MainActivity extends Activity {
     private static final String APP_PATH = "/burzh_beats/";
     private static final String OFFLINE_URL = "file:///android_asset/offline.html";
 
+    private static final int REQ_LOCATION = 7;
+
     private WebView webView;
     private Vibrator vibrator;
+    private GeolocationPermissions.Callback pendingGeoCallback;
+    private String pendingGeoOrigin;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -73,6 +81,23 @@ public class MainActivity extends Activity {
 
         webView.addJavascriptInterface(new Bridge(), "AndroidBridge");
         webView.setWebViewClient(new ShellClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+            // Weather asks for the device location; coarse is enough and only our own page may ask.
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                if (origin == null || !origin.startsWith("https://" + APP_HOST)) {
+                    callback.invoke(origin, false, false);
+                    return;
+                }
+                if (Build.VERSION.SDK_INT < 23 || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    callback.invoke(origin, true, false);
+                } else {
+                    pendingGeoCallback = callback;
+                    pendingGeoOrigin = origin;
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION);
+                }
+            }
+        });
         setContentView(webView);
 
         if (savedInstanceState != null) {
@@ -86,6 +111,16 @@ public class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         if (webView != null) webView.saveState(outState);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQ_LOCATION || pendingGeoCallback == null) return;
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        pendingGeoCallback.invoke(pendingGeoOrigin, granted, false);
+        pendingGeoCallback = null;
+        pendingGeoOrigin = null;
     }
 
     /* The radio keeps playing in the background, so the WebView is deliberately

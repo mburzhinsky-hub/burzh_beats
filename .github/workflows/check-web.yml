@@ -29,8 +29,7 @@ jobs:
 
       - name: JavaScript syntax
         run: |
-          node --check docs/app.js
-          node --check docs/sw.js
+          for f in docs/app.js docs/planet.js docs/sound.js docs/sound-ui.js docs/sw.js; do node --check "$f"; done
 
       - name: Station list, icons and artwork
         run: python3 tools/radio.py validate
