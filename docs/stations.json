@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "epoch": "2026-01-01T00:00:00Z",
+  "mediaBase": "./media/",
+  "stations": [
+    {
+      "id": "future-garage",
+      "name": "Future Garage",
+      "glyph": "grid",
+      "accent": "#7aa7ff",
+      "tempo": 13,
+      "tagline": ["NIGHT", "RAIN", "SUBBASS"],
+      "art": "./art/future-garage.png",
+      "items": []
+    },
+    {
+      "id": "lofi",
+      "name": "Lo-Fi",
+      "glyph": "wave",
+      "accent": "#ffb057",
+      "tempo": 18,
+      "tagline": ["SLOW", "WARM", "TAPE"],
+      "art": "./art/lofi.png",
+      "items": []
+    },
+    {
+      "id": "deep-house",
+      "name": "Deep House",
+      "glyph": "rings",
+      "accent": "#b98cff",
+      "tempo": 10,
+      "tagline": ["LATE", "DEEP", "GROOVE"],
+      "art": "./art/deep-house.png",
+      "items": []
+    },
+    {
+      "id": "trance",
+      "name": "Trance",
+      "glyph": "tri",
+      "accent": "#ff3b30",
+      "tempo": 6,
+      "tagline": ["A HIGHER", "STATE", "THROUGH", "SOUND"],
+      "art": "./art/trance.png",
+      "items": [
+        {
+          "file": "trance/mix-01.m4a",
+          "title": "Mix 01",
+          "duration": 3567.119,
+          "cues": []
+        },
+        {
+          "file": "trance/mix-02.m4a",
+          "title": "Mix 02",
+          "duration": 3901.928,
+          "cues": []
+        }
+      ]
+    }
+  ]
+}
