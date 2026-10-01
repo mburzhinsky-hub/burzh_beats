@@ -54,10 +54,10 @@
 
     let ctx = null, g = null, source = null, sourceEl = null;
     let params = clone(PRESETS.flat.p);
-    let freqBins = null, lastLevel = 0;
+    let freqBins = null, lastLevel = 0, timeBins = null;
 
     function build() {
-      ctx = new AC({ latencyHint: 'playback' });
+      ctx = new AC();
       const n = {};
       n.trim = ctx.createGain();
       n.trim.channelCount = 2; n.trim.channelCountMode = 'explicit'; n.trim.channelInterpretation = 'speakers';
@@ -89,7 +89,7 @@
       const mL = half(0.5), mR = half(0.5), sL = half(0.5), sR = half(-0.5);
 
       n.glue = ctx.createDynamicsCompressor();
-      n.glue.knee.value = 14; n.glue.attack.value = 0.012; n.glue.release.value = 0.22; n.glue.threshold.value = 0; n.glue.ratio.value = 1;
+      n.glue.knee.value = 8; n.glue.attack.value = 0.012; n.glue.release.value = 0.22; n.glue.threshold.value = 0; n.glue.ratio.value = 1.1;
       n.out = ctx.createGain();
       n.limit = ctx.createDynamicsCompressor();
       n.limit.threshold.value = -1.2; n.limit.knee.value = 0; n.limit.ratio.value = 20; n.limit.attack.value = 0.002; n.limit.release.value = 0.07;
@@ -116,6 +116,7 @@
       n.limit.connect(ctx.destination);
       n.limit.connect(n.analyser);
       freqBins = new Uint8Array(n.analyser.frequencyBinCount);
+      timeBins = new Uint8Array(n.analyser.fftSize);
       g = n;
       ctx.addEventListener('statechange', () => { if (api.onstate) api.onstate(ctx.state); });
     }
@@ -137,7 +138,7 @@
 
       const gl = clamp(params.glue, 0, 100);
       g.glue.threshold.setTargetAtTime(gl === 0 ? 0 : -8 - 0.2 * gl, t, tc);
-      g.glue.ratio.setTargetAtTime(gl === 0 ? 1 : 1.5 + 0.025 * gl, t, tc);
+      g.glue.ratio.setTargetAtTime(gl === 0 ? 1.1 : 1.5 + 0.025 * gl, t, tc);
 
       g.out.gain.setTargetAtTime(Math.pow(10, clamp(params.level, -9, 9) / 20), t, tc);
     }
@@ -206,6 +207,15 @@
         }
         return true;
       },
+
+      /** True once any non-silent sample has come out of the chain. Used to detect a muted route. */
+      hasSignal() {
+        if (!g || ctx.state !== 'running') return false;
+        g.analyser.getByteTimeDomainData(timeBins);
+        for (let i = 0; i < timeBins.length; i++) if (timeBins[i] !== 128) return true;
+        return false;
+      },
+      info() { return ctx ? ctx.state + ' · ' + Math.round(ctx.sampleRate / 100) / 10 + ' kHz' : 'not started'; },
 
       /** Low-end energy 0..1 for visuals; null while the chain is not running. */
       level() {
