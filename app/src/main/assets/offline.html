@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BURZH beats</title>
+<style>
+html,body{margin:0;height:100%;background:#050606;color:#f1f1ec;font-family:ui-monospace,Menlo,monospace}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px;box-sizing:border-box}
+.b{font-size:34px;letter-spacing:.04em}.b i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff3b30;margin-left:6px;box-shadow:0 0 12px #ff3b30}
+p{margin:0;font-size:11px;letter-spacing:.12em;color:#8b8c86;text-transform:uppercase;line-height:1.6}
+button{margin-top:8px;background:none;color:inherit;border:1px solid #f1f1ec;border-radius:999px;padding:14px 26px;font:inherit;font-size:11px;letter-spacing:.12em}
+</style>
+</head>
+<body>
+<div class="b">BURZH beats<i></i></div>
+<p>No signal<br>Check the connection and tune in again</p>
+<button onclick="try{AndroidBridge.retry()}catch(e){location.reload()}">RETRY</button>
+</body>
+</html>
