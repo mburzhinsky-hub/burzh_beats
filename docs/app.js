@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.21.2';
+  const VERSION = '0.21.3';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -333,6 +333,7 @@
    * plain <audio> path again. */
   let fxBroken = false;
   let fxWatchTimer = 0;
+  let abHold = false;      // A/B compare: while held, the chain is neutral
 
   function switchTo(next) {
     if (next === audio) return;
@@ -399,7 +400,7 @@
   function applySound() {
     if (!sound) return;
     // Off keeps the chain in the signal path but neutral (flat EQ, no enhancement).
-    const p = settings.sound.on && !fxBroken ? effectiveParams() : window.BurzhSound.clone(window.BurzhSound.PRESETS.flat.p);
+    const p = settings.sound.on && !fxBroken && !abHold ? effectiveParams() : window.BurzhSound.clone(window.BurzhSound.PRESETS.flat.p);
     sound.apply(p, false);
     renderSound();
   }
@@ -868,6 +869,8 @@
     const fx = $('fxControls');
     if (!fx) return;
     fx.classList.toggle('is-off', !settings.sound.on);
+    const ab = $('abRow');
+    if (ab) ab.hidden = !(settings.sound.on && !fxBroken);
     const sh = $('soundHint');
     if (sh) sh.textContent = fxBroken ? 'Not supported on this device. Playing the original sound.' : settings.sound.on ? (fxActive() ? 'On · engine ' + sound.info().split(' ·')[0] + '. The equalizer and enhancer shape every station.' : 'On. Press play to start the engine.') : 'Off. Plays the original sound; you can still set things up.';
     const params = effectiveParams();
@@ -1016,6 +1019,10 @@
       inp.addEventListener('input', () => editParams(p => { p[inp.dataset.param] = Number(inp.value); }));
       inp.addEventListener('change', saveSettings);
     });
+    const abBtn = $('abBtn');
+    const abSet = on => { if (abHold === on) return; abHold = on; abBtn.classList.toggle('holding', on); abBtn.textContent = on ? 'Original' : 'Hold: original'; if (sound) applySound(); };
+    abBtn.addEventListener('pointerdown', e => { e.preventDefault(); try { abBtn.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } feedback(); abSet(true); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => abBtn.addEventListener(t, () => abSet(false)));
     $('soundReset').addEventListener('click', () => { feedback(); settings.sound.preset = 'auto'; settings.sound.custom = null; saveSettings(); applySound(); });
     if (sound && window.BurzhEqView) {
       eqView = window.BurzhEqView.create($('eqCanvas'), {
