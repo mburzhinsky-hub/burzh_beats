@@ -64,6 +64,28 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .live-rail{position:relative;height:2px;background:#2c2d2a;overflow:hidden;border-radius:2px}
 .live-fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(0);transition:transform 1s linear,background .6s}
 .readout{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10px;letter-spacing:.08em;color:var(--soft);font-variant-numeric:tabular-nums;text-transform:uppercase}
+/* Seek: the rail is a draggable slider (time-shift inside the current mix). */
+.seek{position:relative;height:26px;margin:-12px 0;display:flex;align-items:center;touch-action:none;-webkit-tap-highlight-color:transparent;outline:none;-webkit-user-select:none;user-select:none}
+.seek.can-seek{cursor:pointer}
+.seek .live-rail{flex:1;transition:height .2s var(--ease)}
+.seek-ticks{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none}
+.seek-ticks i{position:absolute;top:-4px;width:1px;height:8px;background:rgba(238,239,233,.3)}
+.seek-thumb{position:absolute;top:50%;left:0;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:var(--fg);box-shadow:0 0 0 3px rgba(0,0,0,.6);opacity:0;transform:scale(.3);transition:left 1s linear,transform .22s var(--ease),opacity .3s,background .2s,box-shadow .22s;pointer-events:none}
+.seek.can-seek .seek-thumb{opacity:1;transform:scale(1)}
+.seek.can-seek:hover .seek-thumb{transform:scale(1.35)}
+.seek.dragging .seek-thumb{transform:scale(2.2);background:var(--accent);box-shadow:0 0 0 4px rgba(0,0,0,.55),0 0 20px var(--accent);transition:transform .22s var(--ease),background .2s,box-shadow .22s}
+.seek.dragging .live-rail{height:4px}
+.seek.dragging .live-fill{transition:none}
+.seek:focus-visible .seek-thumb{box-shadow:0 0 0 3px rgba(0,0,0,.6),0 0 0 5px var(--fg)}
+.seek-tip{position:absolute;bottom:calc(50% + 20px);left:0;transform:translateX(-50%);padding:7px 12px 8px;border:1px solid rgba(238,239,233,.2);border-radius:11px;background:rgba(9,10,10,.94);font:500 12px/1.2 var(--mono);letter-spacing:.06em;white-space:nowrap;text-align:center;opacity:0;pointer-events:none;transition:opacity .14s;z-index:3}
+.seek.dragging .seek-tip{opacity:1}
+.seek-tip b{display:block;font-size:18px;font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.seek-tip span{display:block;margin-top:3px;font-size:9.5px;letter-spacing:.1em;color:var(--soft);text-transform:uppercase;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
+.readout{position:relative;z-index:1}
+.golive{display:none;position:relative;margin:-6px 0 -6px 10px;height:24px;padding:0 11px;border:1px solid var(--accent);border-radius:12px;background:transparent;color:var(--fg);font:500 9px/22px var(--mono);letter-spacing:.12em;text-transform:uppercase;transition:transform .14s var(--ease),background .2s}
+.golive:active{transform:scale(.94);background:rgba(255,59,48,.18)}
+.shifted .golive{display:inline-block}
+.shifted .onair i{background:var(--soft);box-shadow:none;animation:none}
 .onair{display:flex;align-items:center;gap:8px}
 .onair i{width:6px;height:6px;border-radius:50%;background:var(--dim);transition:background .4s}
 .is-on .onair i{background:var(--accent)}
@@ -280,8 +302,13 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
   </div>
 
   <div class="p-live">
-    <div class="live-rail"><div class="live-fill"></div></div>
-    <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span></span><span data-bind="remaining"></span></div>
+    <div class="seek" role="slider" tabindex="0" aria-label="Position in the mix" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-disabled="true">
+          <div class="seek-ticks"></div>
+          <div class="live-rail"><div class="live-fill"></div></div>
+          <div class="seek-thumb"></div>
+          <div class="seek-tip"><b></b><span></span></div>
+        </div>
+    <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span><button class="golive" type="button" aria-label="Back to live">&#8634; Live</button></span><span data-bind="remaining"></span></div>
   </div>
 
   <div class="p-controls">
@@ -328,8 +355,13 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
     <div class="l-bottom">
       <nav class="dial" id="genreMenu" aria-label="Stations"></nav>
       <div class="l-live">
-        <div class="live-rail"><div class="live-fill"></div></div>
-        <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span></span><span data-bind="channel"></span><span data-bind="remaining"></span></div>
+        <div class="seek" role="slider" tabindex="0" aria-label="Position in the mix" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-disabled="true">
+          <div class="seek-ticks"></div>
+          <div class="live-rail"><div class="live-fill"></div></div>
+          <div class="seek-thumb"></div>
+          <div class="seek-tip"><b></b><span></span></div>
+        </div>
+        <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span><button class="golive" type="button" aria-label="Back to live">&#8634; Live</button></span><span data-bind="channel"></span><span data-bind="remaining"></span></div>
       </div>
     </div>
   </div>
