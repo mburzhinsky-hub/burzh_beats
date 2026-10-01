@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.20.0';
+  const VERSION = '0.20.1';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -28,9 +28,12 @@
     set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* private mode */ } }
   };
 
+  const storedSettings = store.get(KEYS.settings, {});
+  // v2: night mode no longer recolours the screen and is off unless chosen.
+  if (storedSettings.v !== 2) { delete storedSettings.night; storedSettings.v = 2; }
   const settings = Object.assign(
-    { keepAwake: true, night: 'auto', theme: 'black', weather: false, city: null },
-    store.get(KEYS.settings, {})
+    { v: 2, keepAwake: true, night: 'off', theme: 'black', weather: false, city: null },
+    storedSettings
   );
   const saveSettings = () => store.set(KEYS.settings, settings);
 
