@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.21.1';
+  const VERSION = '0.21.2';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -869,7 +869,7 @@
     if (!fx) return;
     fx.classList.toggle('is-off', !settings.sound.on);
     const sh = $('soundHint');
-    if (sh) sh.textContent = fxBroken ? 'Not supported on this device. Playing the original sound.' : settings.sound.on ? 'On. The equalizer and enhancer shape every station.' : 'Off. Plays the original sound; you can still set things up.';
+    if (sh) sh.textContent = fxBroken ? 'Not supported on this device. Playing the original sound.' : settings.sound.on ? (fxActive() ? 'On · engine ' + sound.info().split(' ·')[0] + '. The equalizer and enhancer shape every station.' : 'On. Press play to start the engine.') : 'Off. Plays the original sound; you can still set things up.';
     const params = effectiveParams();
     const current = settings.sound.preset;
 
@@ -1108,7 +1108,8 @@
     version: VERSION,
     liveAt: (id, t) => liveAt(stations.find(s => s.id === id), t),
     stations: () => stations,
-    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused })
+    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused }),
+    spectrum: () => { const a = new Uint8Array(64); return sound && sound.spectrum(a) ? Array.from(a) : Array(64).fill(0); }
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
