@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.21.0';
+  const VERSION = '0.21.1';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -136,6 +136,19 @@
   const sound = window.BurzhSound ? window.BurzhSound.create() : null;
   let fxEverPlayed = false;
   const fxActive = () => !!sound && audio === audioFx;
+  if (sound) {
+    // iOS interrupts audio contexts (calls, Siri, route changes); bring the chain back when the app is visible.
+    sound.onstate = state => {
+      if (fxActive() && wantPlaying && state !== 'running' && document.visibilityState === 'visible') sound.resume();
+      const el = document.getElementById('engineState');
+      if (el) el.textContent = engineLabel();
+    };
+  }
+  function engineLabel() {
+    if (!sound) return 'Not supported';
+    if (fxBroken) return 'Unavailable on this device';
+    return audio === audioFx ? 'Active · ' + sound.info() : 'Standby';
+  }
 
   let station = null;
   let current = null;          // { st, item, url } loaded into <audio>
@@ -273,7 +286,7 @@
     },
     playing() {
       retryDelay = 4000;
-      if (audio === audioFx) fxEverPlayed = true;
+      if (audio === audioFx) { fxEverPlayed = true; watchFx(); }
       if (wantPlaying) setPhase('live');
       toast('');
     },
@@ -293,9 +306,7 @@
       if (!wantPlaying) return;
       if (audio === audioFx && !fxEverPlayed) {
         // The chain needs CORS-enabled audio; fall back to the plain player instead of staying silent.
-        settings.sound.on = false; saveSettings();
-        toast('SOUND SHAPING OFF · AUDIO SOURCE BLOCKS IT', 'error', 4200);
-        selectOutput(); renderSettings();
+        fxFailed('SOUND SHAPING OFF · AUDIO SOURCE BLOCKS IT');
         return;
       }
       signalLost();
@@ -316,22 +327,63 @@
     return el;
   }
 
-  function selectOutput() {
-    let next = audioPlain;
-    if (settings.sound.on && sound) {
-      try { next = ensureFx(); } catch (e) {
-        console.warn('BURZH sound chain unavailable:', e);
-        settings.sound.on = false; saveSettings();
-        toast('SOUND SHAPING IS NOT AVAILABLE HERE', 'error', 3200);
-        next = audioPlain;
-      }
-    }
-    if (next === audio) { applySound(); return; }
+  /* The first time shaping is switched on, playback moves to an element that is routed
+   * through the sound chain (one re-tune). From then on "off" is a neutral bypass inside the
+   * chain, so toggling never interrupts the music. A fresh app launch with shaping off uses the
+   * plain <audio> path again. */
+  let fxBroken = false;
+  let fxWatchTimer = 0;
+
+  function switchTo(next) {
+    if (next === audio) return;
     const was = wantPlaying, prev = audio;
     audio = next; current = null; fxEverPlayed = false;
-    try { prev.pause(); prev.removeAttribute('src'); prev.load(); } catch (e) { /* ignore */ }
-    applySound();
+    try { prev.pause(); } catch (e) { /* ignore */ }
     if (was) tune({ autoplay: true }); else render();
+  }
+
+  function selectOutput() {
+    if (settings.sound.on && sound && !fxBroken && audio !== audioFx) {
+      try { switchTo(ensureFx()); } catch (e) {
+        console.warn('BURZH sound chain unavailable:', e);
+        fxFailed('SOUND SHAPING IS NOT AVAILABLE HERE');
+        return;
+      }
+    }
+    applySound();
+  }
+
+  // Never leave the listener in silence: give the chain up and play the plain way.
+  function fxFailed(message) {
+    fxBroken = true;
+    clearInterval(fxWatchTimer);
+    settings.sound.on = false;
+    saveSettings();
+    toast(message, 'error', 4800);
+    if (audio !== audioPlain) switchTo(audioPlain);
+    applySound();
+    syncControls();
+    renderSettings();
+  }
+
+  // After playback starts through the chain, make sure sound actually comes out of it.
+  function watchFx() {
+    clearInterval(fxWatchTimer);
+    if (!fxActive()) return;
+    let ticks = 0;
+    const t0 = audio.currentTime;
+    fxWatchTimer = setInterval(() => {
+      if (!fxActive() || !wantPlaying) { clearInterval(fxWatchTimer); return; }
+      if (document.visibilityState !== 'visible') return;
+      ticks++;
+      if (sound.state !== 'running') {
+        if (ticks === 3 || ticks === 8) sound.resume();
+        if (ticks > 14) fxFailed('SOUND SHAPING DID NOT START · PLAYING THE ORIGINAL SOUND');
+        return;
+      }
+      if (sound.hasSignal()) { clearInterval(fxWatchTimer); return; }
+      if (ticks > 12 && !audio.paused && audio.currentTime - t0 > 3) fxFailed('SOUND SHAPING WAS SILENT · PLAYING THE ORIGINAL SOUND');
+    }, 500);
   }
 
   /* Sound presets: "auto" follows the station (stations.json: "sound"). */
@@ -346,7 +398,9 @@
   }
   function applySound() {
     if (!sound) return;
-    sound.apply(effectiveParams(), false);
+    // Off keeps the chain in the signal path but neutral (flat EQ, no enhancement).
+    const p = settings.sound.on && !fxBroken ? effectiveParams() : window.BurzhSound.clone(window.BurzhSound.PRESETS.flat.p);
+    sound.apply(p, false);
     renderSound();
   }
 
@@ -815,7 +869,7 @@
     if (!fx) return;
     fx.classList.toggle('is-off', !settings.sound.on);
     const sh = $('soundHint');
-    if (sh) sh.textContent = settings.sound.on ? 'On. The equalizer and enhancer shape every station.' : 'Off. Plays the original sound; you can still set things up.';
+    if (sh) sh.textContent = fxBroken ? 'Not supported on this device. Playing the original sound.' : settings.sound.on ? 'On. The equalizer and enhancer shape every station.' : 'Off. Plays the original sound; you can still set things up.';
     const params = effectiveParams();
     const current = settings.sound.preset;
 
@@ -893,7 +947,8 @@
     const hint = $('soundHint');
     if (hint && !sound) hint.textContent = 'This browser cannot process audio.';
     const sw = document.querySelector('[data-switch="sound.on"]');
-    if (sw && !sound) sw.disabled = true;
+    if (sw) sw.disabled = !sound || fxBroken;
+    set('engineState', engineLabel());
   }
 
   function buildStationButtons() {
@@ -1053,7 +1108,7 @@
     version: VERSION,
     liveAt: (id, t) => liveAt(stations.find(s => s.id === id), t),
     stations: () => stations,
-    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused })
+    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused })
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
