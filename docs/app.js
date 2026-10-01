@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.21.3';
+  const VERSION = '0.21.4';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -158,6 +158,10 @@
   let retryTimer = 0;
   let retryDelay = 4000;
   let lastCueKey = '';
+  let lastTuneAt = 0;       // iOS can pause a freshly started element while the audio session reconfigures
+  let pauseRetries = 0;
+  let stallTimer = 0;
+  let stallRetried = false;
   let lastMetaKey = '';
 
   function configureAudioSession() {
@@ -180,6 +184,8 @@
     if (!available(st)) { wantPlaying = false; setPhase('stopped'); render(); return; }
     configureAudioSession();
     if (fxActive()) sound.resume();
+    lastTuneAt = Date.now();
+    pauseRetries = 0;
 
     let url;
     let offset = 0;
@@ -214,6 +220,7 @@
     if (!autoplay) { done(); return; }
     wantPlaying = true;
     setPhase('tuning');
+    armStall();
     const p = audio.play();
     if (!p || !p.then) { done(); return; }
     p.then(done).catch(err => {
@@ -224,6 +231,17 @@
     });
   }
 
+  // If tuning never reaches "live", retry once, then give up on the chain (or report lost signal).
+  function armStall() {
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => {
+      if (!wantPlaying || phase === 'live') return;
+      if (fxActive() && !stallRetried) { stallRetried = true; sound.resume(); tune({ autoplay: true }); return; }
+      if (fxActive()) { fxFailed('SOUND SHAPING DID NOT START · PLAYING THE ORIGINAL SOUND'); return; }
+      signalLost();
+    }, 8000);
+  }
+
   function play() {
     if (!available(station)) { toast(station.name.toUpperCase() + ' · OFF AIR', 'info', 2600); nudge(); return; }
     tune({ autoplay: true });
@@ -231,6 +249,7 @@
   function stop() {
     wantPlaying = false;
     clearTimeout(retryTimer);
+    clearTimeout(stallTimer);
     audio.pause();
     setPhase('stopped');
     render();
@@ -286,14 +305,39 @@
     },
     playing() {
       retryDelay = 4000;
+      stallRetried = false;
+      clearTimeout(stallTimer);
       if (audio === audioFx) { fxEverPlayed = true; watchFx(); }
       if (wantPlaying) setPhase('live');
       toast('');
     },
     waiting() { if (wantPlaying && phase !== 'tuning') setPhase('buffering'); },
     pause() {
+      if (audio.ended || !wantPlaying) return;
+      // Right after (re)tuning, a pause is the audio session reconfiguring, not the listener
+      // (this includes pauses that arrive while the source is still being swapped): start again.
+      if (Date.now() - lastTuneAt < 5000 && document.visibilityState === 'visible') {
+        if (pauseRetries >= 4) {
+          // Give control back instead of hanging: the next tap on play starts it inside a user gesture.
+          wantPlaying = false;
+          clearTimeout(stallTimer);
+          setPhase('stopped');
+          render();
+          toast('TAP PLAY TO RESUME', 'info', 3000);
+          return;
+        }
+        pauseRetries++;
+        const el = audio;
+        setTimeout(() => {
+          if (el !== audio || !wantPlaying || !audio.paused) return;
+          if (fxActive()) sound.resume();
+          const r = audio.play();
+          if (r && r.catch) r.catch(() => { /* the stall watchdog handles it */ });
+        }, 120);
+        return;
+      }
       // Paused by the system (call, Siri, another app): treat it as a stop.
-      if (switching || audio.ended || !wantPlaying) return;
+      if (switching) return;
       wantPlaying = false;
       setPhase('stopped');
       render();
@@ -339,6 +383,7 @@
     if (next === audio) return;
     const was = wantPlaying, prev = audio;
     audio = next; current = null; fxEverPlayed = false;
+    if (next === audioFx && was) toast('STARTING SOUND ENGINE…', 'info', 3000);
     try { prev.pause(); } catch (e) { /* ignore */ }
     if (was) tune({ autoplay: true }); else render();
   }
@@ -1115,6 +1160,7 @@
     version: VERSION,
     liveAt: (id, t) => liveAt(stations.find(s => s.id === id), t),
     stations: () => stations,
+    audioEl: () => audio,
     debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused }),
     spectrum: () => { const a = new Uint8Array(64); return sound && sound.spectrum(a) ? Array.from(a) : Array(64).fill(0); }
   };
