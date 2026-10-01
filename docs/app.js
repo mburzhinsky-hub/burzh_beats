@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.20.1';
+  const VERSION = '0.21.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -31,10 +31,14 @@
   const storedSettings = store.get(KEYS.settings, {});
   // v2: night mode no longer recolours the screen and is off unless chosen.
   if (storedSettings.v !== 2) { delete storedSettings.night; storedSettings.v = 2; }
+  // v0.20 asked for a typed city; weather now works from the device location.
+  if (!storedSettings.geo) storedSettings.weather = false;
+  delete storedSettings.city;
   const settings = Object.assign(
-    { v: 2, keepAwake: true, night: 'off', theme: 'black', weather: false, city: null },
+    { v: 2, keepAwake: true, night: 'off', theme: 'black', weather: false, geo: null, sound: {} },
     storedSettings
   );
+  settings.sound = Object.assign({ on: false, preset: 'auto', custom: null }, settings.sound || {});
   const saveSettings = () => store.set(KEYS.settings, settings);
 
   /* ------------------------------------------------------------------ */
@@ -115,11 +119,23 @@
   /* Player                                                              */
   /* ------------------------------------------------------------------ */
 
-  const audio = new Audio();
-  audio.preload = 'none';
-  audio.playsInline = true;
-  audio.setAttribute('playsinline', '');
-  audio.setAttribute('webkit-playsinline', '');
+  // Two outputs: a plain <audio> (best background/lock-screen behaviour) and one
+  // routed through the sound chain. Only one is ever active; switching re-tunes live.
+  function makeAudio(fx) {
+    const el = new Audio();
+    el.preload = 'none';
+    el.playsInline = true;
+    el.setAttribute('playsinline', '');
+    el.setAttribute('webkit-playsinline', '');
+    if (fx) el.crossOrigin = 'anonymous';
+    return el;
+  }
+  const audioPlain = makeAudio(false);
+  let audioFx = null;
+  let audio = audioPlain;
+  const sound = window.BurzhSound ? window.BurzhSound.create() : null;
+  let fxEverPlayed = false;
+  const fxActive = () => !!sound && audio === audioFx;
 
   let station = null;
   let current = null;          // { st, item, url } loaded into <audio>
@@ -150,6 +166,7 @@
     clearTimeout(retryTimer);
     if (!available(st)) { wantPlaying = false; setPhase('stopped'); render(); return; }
     configureAudioSession();
+    if (fxActive()) sound.resume();
 
     let url;
     let offset = 0;
@@ -243,31 +260,95 @@
     retryDelay = Math.min(30000, retryDelay * 2);
   }
 
-  audio.addEventListener('loadedmetadata', () => {
-    if (!current || audio.dataset.sync !== '1' || !current.item) return;
-    audio.dataset.sync = '';
-    const live = liveAt(current.st);
-    if (!live) return;
-    if (live.item !== current.item) { if (wantPlaying) tune({ autoplay: true }); return; }
-    if (Math.abs(audio.currentTime - live.offset) > 2) {
-      try { audio.currentTime = live.offset; } catch (e) { /* ignore */ }
+  const handlers = {
+    loadedmetadata() {
+      if (!current || audio.dataset.sync !== '1' || !current.item) return;
+      audio.dataset.sync = '';
+      const live = liveAt(current.st);
+      if (!live) return;
+      if (live.item !== current.item) { if (wantPlaying) tune({ autoplay: true }); return; }
+      if (Math.abs(audio.currentTime - live.offset) > 2) {
+        try { audio.currentTime = live.offset; } catch (e) { /* ignore */ }
+      }
+    },
+    playing() {
+      retryDelay = 4000;
+      if (audio === audioFx) fxEverPlayed = true;
+      if (wantPlaying) setPhase('live');
+      toast('');
+    },
+    waiting() { if (wantPlaying && phase !== 'tuning') setPhase('buffering'); },
+    pause() {
+      // Paused by the system (call, Siri, another app): treat it as a stop.
+      if (switching || audio.ended || !wantPlaying) return;
+      wantPlaying = false;
+      setPhase('stopped');
+      render();
+    },
+    ended() {
+      const finished = current && current.item;
+      if (wantPlaying) tune({ autoplay: true, after: finished });
+    },
+    error() {
+      if (!wantPlaying) return;
+      if (audio === audioFx && !fxEverPlayed) {
+        // The chain needs CORS-enabled audio; fall back to the plain player instead of staying silent.
+        settings.sound.on = false; saveSettings();
+        toast('SOUND SHAPING OFF · AUDIO SOURCE BLOCKS IT', 'error', 4200);
+        selectOutput(); renderSettings();
+        return;
+      }
+      signalLost();
+    },
+    timeupdate() { checkCue(); }
+  };
+  function wireAudio(el) {
+    Object.keys(handlers).forEach(type => el.addEventListener(type, e => { if (el === audio) handlers[type](e); }));
+  }
+  wireAudio(audioPlain);
+
+  function ensureFx() {
+    if (audioFx) return audioFx;
+    const el = makeAudio(true);
+    wireAudio(el);
+    sound.connect(el);       // throws if Web Audio is unavailable
+    audioFx = el;
+    return el;
+  }
+
+  function selectOutput() {
+    let next = audioPlain;
+    if (settings.sound.on && sound) {
+      try { next = ensureFx(); } catch (e) {
+        console.warn('BURZH sound chain unavailable:', e);
+        settings.sound.on = false; saveSettings();
+        toast('SOUND SHAPING IS NOT AVAILABLE HERE', 'error', 3200);
+        next = audioPlain;
+      }
     }
-  });
-  audio.addEventListener('playing', () => { retryDelay = 4000; if (wantPlaying) setPhase('live'); toast(''); });
-  audio.addEventListener('waiting', () => { if (wantPlaying && phase !== 'tuning') setPhase('buffering'); });
-  audio.addEventListener('pause', () => {
-    // Paused by the system (call, Siri, another app): treat it as a stop.
-    if (switching || audio.ended || !wantPlaying) return;
-    wantPlaying = false;
-    setPhase('stopped');
-    render();
-  });
-  audio.addEventListener('ended', () => {
-    const finished = current && current.item;
-    if (wantPlaying) tune({ autoplay: true, after: finished });
-  });
-  audio.addEventListener('error', () => { if (wantPlaying) signalLost(); });
-  audio.addEventListener('timeupdate', () => { checkCue(); });
+    if (next === audio) { applySound(); return; }
+    const was = wantPlaying, prev = audio;
+    audio = next; current = null; fxEverPlayed = false;
+    try { prev.pause(); prev.removeAttribute('src'); prev.load(); } catch (e) { /* ignore */ }
+    applySound();
+    if (was) tune({ autoplay: true }); else render();
+  }
+
+  /* Sound presets: "auto" follows the station (stations.json: "sound"). */
+  function presetKey() {
+    const k = settings.sound.preset;
+    return k === 'auto' ? ((station && station.sound) || 'flat') : k;
+  }
+  function effectiveParams() {
+    const P = window.BurzhSound;
+    if (settings.sound.preset === 'custom' && settings.sound.custom) return P.clone(settings.sound.custom);
+    return P.clone((P.PRESETS[presetKey()] || P.PRESETS.flat).p);
+  }
+  function applySound() {
+    if (!sound) return;
+    sound.apply(effectiveParams(), false);
+    renderSound();
+  }
 
   /* ------------------------------------------------------------------ */
   /* Now playing                                                         */
@@ -364,12 +445,19 @@
     }
   });
 
+  const planets = [];
+  let planetsPrimed = false;
+
   function applyStationTheme() {
     if (!station) return;
     const root = document.documentElement.style;
     root.setProperty('--accent', station.accent || '#ff3b30');
     root.setProperty('--orbit', (station.tempo || 11) + 's');
     document.documentElement.dataset.current = station.id;
+    const idx = stations.indexOf(station);
+    planets.forEach(pl => pl.setStation(station, idx, stations.length, { instant: !planetsPrimed }));
+    planetsPrimed = true;
+    if (settings.sound.preset === 'auto') applySound();
     document.querySelectorAll('button[data-station]').forEach(btn => {
       const st = stations.find(s => s.id === btn.dataset.station);
       btn.classList.toggle('active', btn.dataset.station === station.id);
@@ -394,6 +482,7 @@
     });
     document.documentElement.classList.toggle('is-playing', playing && phase === 'live');
     document.documentElement.classList.toggle('is-on', playing);
+    planets.forEach(pl => pl.setPlaying(playing && phase === 'live'));
   }
 
   function render() {
@@ -534,6 +623,7 @@
       applyNight();
       render();
       refreshWeather(false);
+      if (fxActive() && wantPlaying) sound.resume().then(() => { if (wantPlaying && audio.paused) tune({ autoplay: true }); });
     }
     updateWakeLock();
   });
@@ -565,62 +655,87 @@
     }
   }
 
+  function weatherStatus(text, isError) {
+    const el = $('weatherStatus');
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.toggle('error', !!isError);
+  }
+  const zoneName = zone => String(zone || '').split('/').pop().replace(/_/g, ' ');
+
   function renderWeather() {
+    const geo = settings.geo;
+    const on = !!(settings.weather && geo);
+    document.documentElement.classList.toggle('has-weather', on);
     const box = $('weatherWidget');
-    const on = settings.weather && settings.city;
-    document.documentElement.classList.toggle('has-weather', !!on);
     if (box) box.hidden = !on;
-    const btn = $('weatherToggleBtn');
-    if (btn) btn.textContent = settings.weather ? 'ON' : 'OFF';
-    bind('city-setting', settings.city ? settings.city.name.toUpperCase() : 'NOT SET');
-    if (!on) return;
+    const btn = $('locationBtn');
+    if (btn) btn.hidden = !on;
+    syncControls();
+    if (!on) { weatherStatus(''); return; }
     const w = store.get(KEYS.weather, null);
-    if (w && w.cityId === settings.city.id) {
-      bind('w-temp', Math.round(w.temp) + '°');
-      bind('w-cond', WMO[w.code] || 'WEATHER');
-      bind('w-city', settings.city.name.toUpperCase());
-    } else {
-      bind('w-temp', '--°');
-      bind('w-cond', 'WEATHER');
-      bind('w-city', settings.city.name.toUpperCase());
-    }
+    const place = ((geo.name || (w && zoneName(w.zone))) || '').toUpperCase();
+    bind('w-temp', w ? Math.round(w.temp) + '°' : '--°');
+    bind('w-cond', w ? (WMO[w.code] || 'WEATHER') : '');
+    bind('w-city', place);
+    weatherStatus(place ? 'Showing the weather for ' + place.charAt(0) + place.slice(1).toLowerCase() + '.' : 'Showing the weather for your location.');
   }
 
   async function refreshWeather(force) {
-    if (!settings.weather || !settings.city || weatherLoading) return;
+    const geo = settings.geo;
+    if (!settings.weather || !geo || weatherLoading) return;
     const cached = store.get(KEYS.weather, null);
-    if (!force && cached && cached.cityId === settings.city.id && Date.now() - cached.ts < WEATHER_REFRESH_MS) { renderWeather(); return; }
+    if (!force && cached && Date.now() - cached.ts < WEATHER_REFRESH_MS) { renderWeather(); return; }
     weatherLoading = true;
     try {
-      const c = settings.city;
-      const j = await fetchJson('https://api.open-meteo.com/v1/forecast?latitude=' + c.lat + '&longitude=' + c.lon + '&current=temperature_2m,weather_code&timezone=auto');
+      const j = await fetchJson('https://api.open-meteo.com/v1/forecast?latitude=' + geo.lat + '&longitude=' + geo.lon + '&current=temperature_2m,weather_code&timezone=auto');
       const cur = j && j.current;
       if (cur && Number.isFinite(cur.temperature_2m)) {
-        store.set(KEYS.weather, { ts: Date.now(), cityId: c.id, temp: cur.temperature_2m, code: cur.weather_code });
+        store.set(KEYS.weather, { ts: Date.now(), temp: cur.temperature_2m, code: cur.weather_code, zone: j.timezone || '' });
       }
     } catch (e) { /* keep the cached value */ }
     weatherLoading = false;
     renderWeather();
   }
 
-  async function setCity(name) {
-    name = String(name || '').trim();
-    if (!name) return;
-    toast('LOOKING UP ' + name.toUpperCase(), 'info', 0);
+  // Reverse-geocoding is a nicety: the timezone name is used when it is unavailable.
+  async function lookupPlace() {
+    const geo = settings.geo;
+    if (!geo) return;
     try {
-      const j = await fetchJson('https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=' + encodeURIComponent(name));
-      const r = j && j.results && j.results[0];
-      if (!r) { toast('CITY NOT FOUND', 'error'); return; }
-      settings.city = { id: r.id, name: r.name, lat: r.latitude, lon: r.longitude };
+      const j = await fetchJson('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en&latitude=' + geo.lat + '&longitude=' + geo.lon, 8000);
+      const name = j && (j.city || j.locality || j.principalSubdivision);
+      if (name && settings.geo === geo) { geo.name = name; saveSettings(); renderWeather(); }
+    } catch (e) { /* ignore */ }
+  }
+
+  async function updateLocation() {
+    if (!navigator.geolocation) { weatherStatus('This device cannot share a location.', true); return; }
+    weatherStatus('Waiting for permission to use your location…');
+    try {
+      const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 }));
+      // Rounded to ~1 km: enough for weather, and nothing more precise is ever stored.
+      settings.geo = { lat: Number(pos.coords.latitude.toFixed(2)), lon: Number(pos.coords.longitude.toFixed(2)), name: null };
       settings.weather = true;
       saveSettings();
       store.set(KEYS.weather, null);
-      toast(r.name.toUpperCase() + (r.country ? ' · ' + r.country.toUpperCase() : ''));
       renderWeather();
-      refreshWeather(true);
-    } catch (e) {
-      toast('WEATHER UNAVAILABLE', 'error');
+      await refreshWeather(true);
+      lookupPlace();
+    } catch (err) {
+      settings.weather = false;
+      saveSettings();
+      renderWeather();
+      weatherStatus(err && err.code === 1
+        ? 'Location access is blocked. Allow it for this app in your phone settings, then try again.'
+        : 'Could not get your location. Check your connection and try again.', true);
     }
+  }
+
+  function setWeather(on) {
+    if (!on) { settings.weather = false; saveSettings(); renderWeather(); return; }
+    if (settings.geo) { settings.weather = true; saveSettings(); renderWeather(); refreshWeather(true); return; }
+    updateLocation();
   }
 
   /* ------------------------------------------------------------------ */
@@ -655,19 +770,130 @@
     document.querySelectorAll('button[data-station].active').forEach(el => { el.classList.remove('nudge'); void el.offsetWidth; el.classList.add('nudge'); });
   }
 
-  function openOverlay(id) { const o = $(id); if (o) { o.classList.add('show'); document.documentElement.classList.remove('idle'); } }
-  function closeOverlay(id) { const o = $(id); if (o) o.classList.remove('show'); scheduleIdle(); }
+  let activeTab = 'sound';
+  function openOverlay(id) {
+    const o = $(id);
+    if (!o) return;
+    o.classList.add('show');
+    document.documentElement.classList.remove('idle');
+    if (id === 'settingsOverlay') { showTab(activeTab); const c = o.querySelector('[data-close]'); if (c) c.focus({ preventScroll: true }); }
+  }
+  function closeOverlay(id) {
+    const o = $(id);
+    if (o) o.classList.remove('show');
+    if (id === 'settingsOverlay' && eqView) eqView.stop();
+    scheduleIdle();
+  }
+  function showTab(name) {
+    activeTab = name;
+    document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+    document.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
+    if (eqView) { if (name === 'sound' && overlayOpen()) eqView.start(); else eqView.stop(); }
+    const body = document.querySelector('.sheet-body');
+    if (body) body.scrollTop = 0;
+  }
+
+  /* ---- Settings: controls are described in the markup (data-switch, data-seg, data-param) ---- */
+  const getPath = (obj, path) => path.split('.').reduce((o, k) => (o ? o[k] : undefined), obj);
+  function syncControls() {
+    document.querySelectorAll('[data-switch]').forEach(b => b.setAttribute('aria-checked', String(!!getPath(settings, b.dataset.switch))));
+    document.querySelectorAll('[data-seg]').forEach(seg => {
+      const v = settings[seg.dataset.seg];
+      seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === v)));
+    });
+  }
+
+  const PRESET_LABEL = k => (k === 'auto' ? 'Auto' : k === 'custom' ? 'Custom' : window.BurzhSound.PRESETS[k].name);
+  const PARAM_FORMAT = {
+    bass: v => v + '%', clarity: v => v + '%', glue: v => v + '%', width: v => v + '%',
+    level: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB'
+  };
+  function renderSound() {
+    if (!sound) return;
+    const P = window.BurzhSound;
+    const fx = $('fxControls');
+    if (!fx) return;
+    fx.classList.toggle('is-off', !settings.sound.on);
+    const sh = $('soundHint');
+    if (sh) sh.textContent = settings.sound.on ? 'On. The equalizer and enhancer shape every station.' : 'Off. Plays the original sound; you can still set things up.';
+    const params = effectiveParams();
+    const current = settings.sound.preset;
+
+    const chips = $('presetChips');
+    const keys = P.ORDER.slice();
+    if (settings.sound.custom) keys.push('custom');
+    if (chips.dataset.keys !== keys.join()) {
+      chips.dataset.keys = keys.join();
+      chips.textContent = '';
+      keys.forEach(k => {
+        const b = document.createElement('button');
+        b.className = 'chip'; b.dataset.preset = k; b.textContent = PRESET_LABEL(k);
+        b.addEventListener('click', () => { feedback(); settings.sound.preset = k; saveSettings(); applySound(); });
+        chips.appendChild(b);
+      });
+    }
+    chips.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.preset === current)));
+    const key = presetKey();
+    $('presetHint').textContent = current === 'custom'
+      ? 'Your own settings. Pick a preset to start over.'
+      : current === 'auto'
+        ? 'Follows the station: ' + (P.PRESETS[key] || P.PRESETS.flat).name + ' for ' + (station ? station.name : 'this station') + '.'
+        : P.PRESETS[current].hint + '.';
+
+    document.querySelectorAll('input[data-param]').forEach(inp => {
+      const name = inp.dataset.param;
+      if (document.activeElement !== inp) inp.value = params[name];
+      const min = Number(inp.min), max = Number(inp.max), v = Number(inp.value);
+      const pct = (v - min) / (max - min) * 100;
+      const zero = (0 - min) / (max - min) * 100;
+      const bip = inp.hasAttribute('data-bipolar');
+      inp.style.setProperty('--a', (bip ? Math.min(pct, zero) : 0) + '%');
+      inp.style.setProperty('--b', (bip ? Math.max(pct, zero) : pct) + '%');
+      const out = inp.parentElement.querySelector('output');
+      if (out) out.textContent = PARAM_FORMAT[name](Number(params[name]));
+    });
+    if (eqView) eqView.draw();
+  }
+
+  function editParams(mutate) {
+    const p = effectiveParams();
+    mutate(p);
+    settings.sound.custom = p;
+    settings.sound.preset = 'custom';
+    if (sound) sound.apply(p, false);
+    renderSound();
+  }
+
+  let eqView = null;
+  function renderStationList() {
+    const box = $('stationList');
+    if (!box) return;
+    box.textContent = '';
+    stations.forEach(st => {
+      const row = document.createElement('div');
+      row.className = 'list-row';
+      const a = document.createElement('span'); a.textContent = st.name;
+      const b = document.createElement('span');
+      b.textContent = available(st) ? (st.stream ? 'Live stream' : st.items.length + (st.items.length === 1 ? ' mix' : ' mixes')) : 'Off air';
+      if (available(st)) b.className = 'live';
+      row.append(a, b);
+      box.appendChild(row);
+    });
+  }
 
   function renderSettings() {
     const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
-    set('awakeBtn', settings.keepAwake ? 'ON' : 'OFF');
-    set('nightBtn', settings.night.toUpperCase());
-    set('themeBtn', settings.theme === 'graphite' ? 'GRAPHITE' : 'BLACK');
     const mixes = stations.reduce((n, s) => n + (s.items ? s.items.length : 0), 0);
-    const onAir = availableStations().length;
-    set('libraryState', stations.length + ' STATIONS · ' + mixes + ' MIXES · ' + onAir + ' ON AIR');
-    set('versionState', 'v' + VERSION + ' · RADIO');
+    set('libraryState', mixes + (mixes === 1 ? ' mix' : ' mixes') + ' · ' + availableStations().length + ' of ' + stations.length + ' on air');
+    set('versionState', 'v' + VERSION);
+    syncControls();
+    renderStationList();
     renderWeather();
+    renderSound();
+    const hint = $('soundHint');
+    if (hint && !sound) hint.textContent = 'This browser cannot process audio.';
+    const sw = document.querySelector('[data-switch="sound.on"]');
+    if (sw && !sound) sw.disabled = true;
   }
 
   function buildStationButtons() {
@@ -699,9 +925,8 @@
       }
       if (menu) {
         const b = document.createElement('button');
-        b.className = 'l-genre-btn';
         b.dataset.station = st.id;
-        label(b, st.name);
+        b.textContent = st.name;
         b.addEventListener('click', onTap(b));
         menu.appendChild(b);
       }
@@ -714,21 +939,39 @@
     document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { feedback(); renderSettings(); openOverlay(btn.dataset.open); }));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => { feedback(); closeOverlay(btn.dataset.close); }));
     document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeOverlay(o.id); }));
+    document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { feedback(); showTab(b.dataset.tab); }));
 
-    $('awakeBtn').addEventListener('click', () => { settings.keepAwake = !settings.keepAwake; saveSettings(); renderSettings(); updateWakeLock(); });
-    $('nightBtn').addEventListener('click', () => {
-      const order = ['auto', 'on', 'off'];
-      settings.night = order[(order.indexOf(settings.night) + 1) % order.length];
-      saveSettings(); renderSettings(); applyNight();
-    });
-    $('themeBtn').addEventListener('click', () => { settings.theme = settings.theme === 'graphite' ? 'black' : 'graphite'; saveSettings(); renderSettings(); applyTheme(); });
-    $('weatherToggleBtn').addEventListener('click', () => {
-      if (!settings.city) { $('cityInput').focus(); toast('ENTER A CITY FIRST'); return; }
-      settings.weather = !settings.weather; saveSettings(); renderSettings(); refreshWeather(false);
-    });
-    $('cityForm').addEventListener('submit', e => { e.preventDefault(); const input = $('cityInput'); setCity(input.value); input.value = ''; input.blur(); });
+    document.querySelectorAll('[data-switch]').forEach(b => b.addEventListener('click', () => {
+      feedback();
+      const key = b.dataset.switch;
+      if (key === 'weather') { setWeather(!settings.weather); return; }
+      if (key === 'sound.on') { settings.sound.on = !settings.sound.on; saveSettings(); syncControls(); selectOutput(); return; }
+      settings[key] = !settings[key];
+      saveSettings(); syncControls();
+      if (key === 'keepAwake') updateWakeLock();
+    }));
+    document.querySelectorAll('[data-seg] button').forEach(b => b.addEventListener('click', () => {
+      feedback();
+      settings[b.parentElement.dataset.seg] = b.dataset.value;
+      saveSettings(); syncControls(); applyTheme();
+    }));
+    $('locationBtn').addEventListener('click', () => { feedback(); updateLocation(); });
 
-    // Swipe across the artwork to change station.
+    document.querySelectorAll('input[data-param]').forEach(inp => {
+      inp.addEventListener('input', () => editParams(p => { p[inp.dataset.param] = Number(inp.value); }));
+      inp.addEventListener('change', saveSettings);
+    });
+    $('soundReset').addEventListener('click', () => { feedback(); settings.sound.preset = 'auto'; settings.sound.custom = null; saveSettings(); applySound(); });
+    if (sound && window.BurzhEqView) {
+      eqView = window.BurzhEqView.create($('eqCanvas'), {
+        engine: sound,
+        getParams: effectiveParams,
+        onBand: (i, db) => editParams(p => { p.bands[i] = db; }),
+        onCommit: saveSettings
+      });
+    }
+
+    // Swipe across the planet to change station.
     document.querySelectorAll('.swipe').forEach(el => {
       let x0 = null, y0 = 0;
       el.addEventListener('pointerdown', e => { x0 = e.clientX; y0 = e.clientY; });
@@ -742,26 +985,12 @@
     });
 
     document.addEventListener('keydown', e => {
-      if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
-      if (e.key === 'Escape') document.querySelectorAll('.overlay.show').forEach(o => closeOverlay(o.id));
-      else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); togglePlay(); }
+      if (e.key === 'Escape') { document.querySelectorAll('.overlay.show').forEach(o => closeOverlay(o.id)); return; }
+      if (e.target && /INPUT|TEXTAREA|BUTTON/.test(e.target.tagName)) return;
+      if (e.key === ' ' || e.key === 'k') { e.preventDefault(); togglePlay(); }
       else if (e.key === 'ArrowRight') stepStation(1);
       else if (e.key === 'ArrowLeft') stepStation(-1);
     });
-  }
-
-  function artworkSvg(s) {
-    return '<svg viewBox="0 0 220 220" aria-hidden="true" focusable="false"><defs>' +
-      '<radialGradient id="sphere-' + s + '" cx="34%" cy="27%" r="76%"><stop offset="0" stop-color="#686966"/><stop offset=".19" stop-color="#42433f"/><stop offset=".46" stop-color="#222320"/><stop offset=".72" stop-color="#0f100f"/><stop offset="1" stop-color="#020303"/></radialGradient>' +
-      '<linearGradient id="rim-' + s + '" x1="18%" y1="12%" x2="84%" y2="90%"><stop offset="0" stop-color="#f2f3ed" stop-opacity=".42"/><stop offset=".4" stop-color="#9b9c96" stop-opacity=".12"/><stop offset=".77" stop-color="#20211f" stop-opacity="0"/></linearGradient>' +
-      '<filter id="grain-' + s + '" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".78" numOctaves="3" seed="17" result="n"/><feColorMatrix in="n" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .34 0" result="g"/><feComposite in="g" in2="SourceGraphic" operator="in"/></filter>' +
-      '</defs><g class="art-stars"><circle cx="24" cy="45" r="1"/><circle cx="38" cy="171" r=".8"/><circle cx="64" cy="27" r=".65"/><circle cx="173" cy="36" r=".8"/><circle cx="193" cy="157" r=".65"/><circle cx="157" cy="189" r=".9"/><circle cx="31" cy="111" r=".55"/><circle cx="187" cy="91" r=".6"/><circle cx="82" cy="194" r=".5"/><circle cx="134" cy="22" r=".5"/></g>' +
-      '<ellipse class="orbit-back" cx="110" cy="110" rx="94" ry="35" transform="rotate(-31 110 110)"/>' +
-      '<circle cx="110" cy="110" r="63" fill="url(#sphere-' + s + ')"/>' +
-      '<circle class="sphere-grain" cx="110" cy="110" r="62.4" fill="#fff" filter="url(#grain-' + s + ')"/>' +
-      '<circle class="sphere-rim" cx="110" cy="110" r="63" stroke="url(#rim-' + s + ')"/>' +
-      '<ellipse class="orbit-front" cx="110" cy="110" rx="94" ry="35" transform="rotate(-31 110 110)"/>' +
-      '<g transform="rotate(-31 110 110)"><g transform="translate(110 110) scale(1 .372) translate(-110 -110)"><g class="orbit-spin"><ellipse class="orbit-halo" cx="204" cy="110" rx="8.5" ry="22"/><ellipse class="orbit-dot" cx="204" cy="110" rx="4.1" ry="10.8"/></g></g></g></svg>';
   }
 
   /* ------------------------------------------------------------------ */
@@ -784,9 +1013,11 @@
   }
 
   async function boot() {
-    document.querySelectorAll('.orbital-art').forEach((el, i) => { el.innerHTML = artworkSvg('a' + i); });
     applyTheme();
     renderClock();
+    if (window.BurzhPlanet) {
+      document.querySelectorAll('[data-planet]').forEach(box => planets.push(window.BurzhPlanet.create(box, { getLevel: () => (fxActive() ? sound.level() : null) })));
+    }
     bindUi();
     bindMediaSession();
     configureAudioSession();
@@ -806,6 +1037,7 @@
     station = (saved && available(saved) ? saved : null) || availableStations()[0] || saved || stations[0];
     applyStationTheme();
     setPhase('stopped');
+    selectOutput();
     render();
     updateMediaSession(true);
     renderSettings();
@@ -821,7 +1053,7 @@
     version: VERSION,
     liveAt: (id, t) => liveAt(stations.find(s => s.id === id), t),
     stations: () => stations,
-    debug: () => ({ station: station && station.id, phase, wantPlaying, src: audio.currentSrc, time: audio.currentTime, paused: audio.paused })
+    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused })
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

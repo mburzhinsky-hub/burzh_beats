@@ -9,9 +9,14 @@
       "glyph": "grid",
       "accent": "#ff3b30",
       "tempo": 13,
-      "tagline": ["NIGHT", "RAIN", "SUBBASS"],
+      "tagline": [
+        "NIGHT",
+        "RAIN",
+        "SUBBASS"
+      ],
       "art": "./art/future-garage.png",
-      "items": []
+      "items": [],
+      "sound": "wide"
     },
     {
       "id": "lofi",
@@ -19,9 +24,14 @@
       "glyph": "wave",
       "accent": "#ff3b30",
       "tempo": 18,
-      "tagline": ["SLOW", "WARM", "TAPE"],
+      "tagline": [
+        "SLOW",
+        "WARM",
+        "TAPE"
+      ],
       "art": "./art/lofi.png",
-      "items": []
+      "items": [],
+      "sound": "warm"
     },
     {
       "id": "deep-house",
@@ -29,9 +39,14 @@
       "glyph": "rings",
       "accent": "#ff3b30",
       "tempo": 10,
-      "tagline": ["LATE", "DEEP", "GROOVE"],
+      "tagline": [
+        "LATE",
+        "DEEP",
+        "GROOVE"
+      ],
       "art": "./art/deep-house.png",
-      "items": []
+      "items": [],
+      "sound": "deep"
     },
     {
       "id": "trance",
@@ -39,7 +54,12 @@
       "glyph": "tri",
       "accent": "#ff3b30",
       "tempo": 6,
-      "tagline": ["A HIGHER", "STATE", "THROUGH", "SOUND"],
+      "tagline": [
+        "A HIGHER",
+        "STATE",
+        "THROUGH",
+        "SOUND"
+      ],
       "art": "./art/trance.png",
       "items": [
         {
@@ -54,7 +74,8 @@
           "duration": 3901.928,
           "cues": []
         }
-      ]
+      ],
+      "sound": "club"
     }
   ]
 }
