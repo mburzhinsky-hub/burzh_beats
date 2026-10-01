@@ -1,0 +1,20 @@
+# Your music library (source files) — processed copies go to docs/media or external storage
+library/
+dist-media/
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+*.apk
+*.aab
+.idea/
+*.iml
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+
+# Python
+__pycache__/

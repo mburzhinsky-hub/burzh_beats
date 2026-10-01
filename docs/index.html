@@ -1,415 +1,353 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>BURZH beats</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="BURZH beats — minimal genre radio.">
 <meta name="theme-color" content="#050606">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BURZH beats">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="preload" href="./fonts/doto.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/plex-mono-latin-400.woff2" as="font" type="font/woff2" crossorigin>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Doto:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
-:root{--bg:#050606;--fg:#f1f1ec;--soft:#c8c9c3;--muted:#8b8c86;--line:#5b5c57;--red:#ff3b30;--ease:cubic-bezier(.2,.8,.2,1)}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:'IBM Plex Mono',monospace;-webkit-text-size-adjust:100%;text-size-adjust:100%}button,input{font:inherit;color:inherit}button{background:none;border:0;padding:0}.screen{position:absolute;inset:0;background:radial-gradient(120% 120% at 55% -10%,#101111 0,#080909 33%,#050606 70%)}
-.portrait{display:block;top:env(safe-area-inset-top);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);left:env(safe-area-inset-left)}.landscape{display:none}.doto{font-family:'Doto',monospace}.red{color:var(--red)}
+@font-face{font-family:'Doto';src:url('./fonts/doto.woff2') format('woff2');font-weight:100 900;font-display:swap}
+@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-latin-400.woff2') format('woff2');font-weight:400;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-cyrillic-400.woff2') format('woff2');font-weight:400;font-display:swap;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-latin-500.woff2') format('woff2');font-weight:500;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-cyrillic-500.woff2') format('woff2');font-weight:500;font-display:swap;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
 
-/* ---------- Shared procedural artwork ---------- */
-.art-frame{position:relative;border:1px solid rgba(238,239,233,.13);background:radial-gradient(circle at 48% 40%,rgba(255,255,255,.028),rgba(0,0,0,0) 59%),#050606;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015),0 18px 50px rgba(0,0,0,.38);overflow:hidden}
-.orbital-art{position:absolute;inset:0}.orbital-art svg{display:block;width:100%;height:100%;overflow:visible}.art-stars circle{fill:#d7d8d2;opacity:.23}.art-stars circle:nth-child(3n){opacity:.38}.sphere-rim{fill:none;stroke:rgba(240,241,235,.22);stroke-width:.65}.sphere-grain{mix-blend-mode:soft-light;opacity:.25}.orbit-back{fill:none;stroke:rgba(205,207,202,.18);stroke-width:1}.orbit-front{fill:none;stroke:rgba(235,236,231,.52);stroke-width:1.15;stroke-linecap:round;stroke-dasharray:98 510;stroke-dashoffset:22}.orbit-spin{transform-origin:110px 110px;animation:orbitTurn 11.5s linear infinite;animation-play-state:paused}.orbital-art.is-playing .orbit-spin{animation-play-state:running}.orbit-dot{fill:var(--red);filter:drop-shadow(0 0 4px rgba(255,59,48,.9))}.orbit-halo{fill:rgba(255,59,48,.18)}
+:root{--bg:#050606;--fg:#f1f1ec;--soft:#c8c9c3;--muted:#8b8c86;--dim:#5b5c57;--line:#3d3e3a;--accent:#ff3b30;--orbit:11s;--ease:cubic-bezier(.2,.8,.2,1);--shift-x:0px;--shift-y:0px;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--dot:'Doto','IBM Plex Mono',monospace}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:var(--mono);-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+button,input{font:inherit;color:inherit}button{background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
+.screen{position:absolute;inset:0;background:radial-gradient(120% 120% at 55% -10%,#101111 0,#080909 33%,var(--bg) 70%);transition:filter .8s var(--ease)}
+.portrait{display:block}.landscape{display:none}
+@media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}
+.doto{font-family:var(--dot)}
+.swap{animation:swap .42s var(--ease)}
+
+/* ---------- Procedural artwork ---------- */
+.art-frame{position:relative;border:1px solid rgba(238,239,233,.13);background:radial-gradient(circle at 48% 40%,rgba(255,255,255,.028),rgba(0,0,0,0) 59%),var(--bg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.015),0 18px 50px rgba(0,0,0,.38);overflow:hidden;touch-action:pan-y}
+.art-frame:after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 70% at 50% 55%,transparent 55%,color-mix(in srgb,var(--accent) 7%,transparent) 100%);opacity:0;transition:opacity 1.2s var(--ease)}
+.is-playing .art-frame:after{opacity:1}
+.orbital-art{position:absolute;inset:0}.orbital-art svg{display:block;width:100%;height:100%;overflow:visible}
+.art-stars circle{fill:#d7d8d2;opacity:.23}.art-stars circle:nth-child(3n){opacity:.38}
+.sphere-rim{fill:none;stroke:rgba(240,241,235,.22);stroke-width:.65}.sphere-grain{mix-blend-mode:soft-light;opacity:.25}
+.orbit-back{fill:none;stroke:rgba(205,207,202,.18);stroke-width:1}
+.orbit-front{fill:none;stroke:rgba(235,236,231,.52);stroke-width:1.15;stroke-linecap:round;stroke-dasharray:98 510;stroke-dashoffset:22}
+.orbit-spin{transform-origin:110px 110px;animation:orbitTurn var(--orbit) linear infinite;animation-play-state:paused}
+.is-playing .orbit-spin{animation-play-state:running}
+.orbit-dot{fill:var(--accent);filter:drop-shadow(0 0 4px var(--accent));transition:fill .6s}
+.orbit-halo{fill:var(--accent);opacity:.18;transition:fill .6s}
 @keyframes orbitTurn{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
+/* ---------- Station glyphs ---------- */
+.sicon{width:36px;height:30px;position:relative;flex:0 0 auto}
+.glyph-grid{border-radius:50%;background:radial-gradient(circle,#eee 1.1px,transparent 1.45px);background-size:5.3px 5.3px}
+.glyph-wave:before{content:"";position:absolute;left:2px;right:2px;top:15px;height:1px;background:#eee;box-shadow:4px -4px #eee,8px -10px #eee,12px -4px #eee,16px 5px #eee,20px -8px #eee,24px -12px #eee,28px -3px #eee,32px 5px #eee}
+.glyph-rings:before,.glyph-rings:after{content:"";position:absolute;top:4px;width:21px;height:21px;border:1px solid #eee;border-radius:50%}.glyph-rings:before{left:3px}.glyph-rings:after{right:3px}
+.glyph-tri{width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:28px solid #eee}
+.glyph-tri:after{content:"";position:absolute;left:-13px;top:5px;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:22px solid var(--bg)}
+
+/* ---------- Shared controls ---------- */
+.ctrl{border:1px solid #767772;border-radius:50%;display:grid;place-items:center;transition:transform .14s var(--ease),background .14s,border-color .3s}
+.ctrl:active{transform:scale(.92);background:rgba(255,255,255,.055)}
+.ctrl svg{fill:var(--fg);width:27px;height:27px}
+.ctrl.big{border-color:#edede8}.ctrl.big svg{width:33px;height:33px}
+.is-on .ctrl.big{border-color:var(--accent)}
+.play-toggle .i-stop{display:none}.play-toggle.is-playing .i-play{display:none}.play-toggle.is-playing .i-stop{display:block}
+.live-rail{position:relative;height:2px;background:#2c2d2a;overflow:hidden;border-radius:2px}
+.live-fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(0);transition:transform 1s linear,background .6s}
+.readout{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10px;letter-spacing:.08em;color:var(--soft);font-variant-numeric:tabular-nums;text-transform:uppercase}
+.onair{display:flex;align-items:center;gap:8px}
+.onair i{width:6px;height:6px;border-radius:50%;background:var(--dim);transition:background .4s}
+.is-on .onair i{background:var(--accent)}
+.is-playing .onair i{box-shadow:0 0 10px var(--accent);animation:pulse 2.2s infinite}
+[data-phase="lost"] .onair{color:#ff776f}
+.text-btn{font-size:9px;letter-spacing:.11em;color:#b7b8b2;text-transform:uppercase;display:flex;align-items:center;gap:10px;min-height:36px}
+.text-btn:before{content:"";width:6px;height:6px;background:#eee;flex:0 0 auto}
+
 /* ---------- Portrait ---------- */
-.p-logo{position:absolute;left:6.1%;top:6.1%;font:650 clamp(36px,9.1vw,46px)/.79 'Doto';letter-spacing:.005em}.p-menu{position:absolute;right:5.6%;top:7.3%;font:400 9px/1.4 'IBM Plex Mono';letter-spacing:.11em;color:#b7b8b2;text-transform:uppercase}.p-menu:before{content:"";display:inline-block;width:6px;height:6px;background:#eee;margin-right:10px;vertical-align:11px}
-.stations{position:absolute;left:5.1%;right:5.1%;top:18.2%;height:15.3%;display:grid;grid-template-columns:repeat(4,1fr);gap:1.4%}.station{position:relative;border:1px solid #3d3e3a;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;transition:.16s var(--ease);min-width:0}.station.active{border-color:#f2f2ed;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}.station.switching{animation:stationGlow .48s var(--ease)}.station:active{transform:scale(.95)}.station.unavailable{opacity:.42}.station.unavailable:after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,transparent 48%,rgba(255,255,255,.07) 49%,rgba(255,255,255,.07) 51%,transparent 52%);pointer-events:none}.station.nudge{animation:nudge .24s}
-.sicon{width:36px;height:30px;position:relative}.grid{border-radius:50%;background:radial-gradient(circle,#eee 1.1px,transparent 1.45px);background-size:5.3px 5.3px}.wave:before{content:"";position:absolute;left:2px;right:2px;top:15px;height:1px;background:#eee;box-shadow:4px -4px #eee,8px -10px #eee,12px -4px #eee,16px 5px #eee,20px -8px #eee,24px -12px #eee,28px -3px #eee,32px 5px #eee}.rings:before,.rings:after{content:"";position:absolute;top:4px;width:21px;height:21px;border:1px solid #eee;border-radius:50%}.rings:before{left:3px}.rings:after{right:3px}.tri{width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:28px solid #eee}.tri:after{content:"";position:absolute;left:-13px;top:5px;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:22px solid var(--bg)}.slabel{font-size:clamp(10px,2.65vw,13px);line-height:1.05;text-align:center}.sdot{position:absolute;bottom:8px;width:6px;height:6px;border-radius:50%;background:#666761}.active .sdot{background:var(--red);box-shadow:0 0 10px rgba(255,59,48,.65);animation:pulse 2.2s infinite}
-.p-artwrap{position:absolute;left:21.7%;top:36%;width:54.7%;aspect-ratio:1}.p-artwrap .art-frame{position:absolute;inset:0;border-radius:18px}.p-side{position:absolute;top:43.3%;font:400 8px/1.45 'IBM Plex Mono';letter-spacing:.08em;color:#aaa;text-transform:uppercase}.p-side.left{left:5.2%}.p-side.right{right:4.8%;width:13.8%}.smallrule{width:22px;height:1px;background:#c5c5bf;margin-top:14px}
-.p-matrix{position:absolute;right:5.5%;top:57.4%;display:grid;grid-template-columns:repeat(6,4px);gap:7px}.p-matrix i,.matrix i{width:4px;height:4px;border-radius:50%;background:#747570;transition:.24s ease}.p-matrix i.past,.matrix i.past{background:#bfc0ba;opacity:.38}.p-matrix i.hot,.matrix i.hot{background:var(--red);box-shadow:0 0 8px rgba(255,59,48,.68);animation:matrixPulse 1.9s ease-in-out infinite}
-.p-meta{position:absolute;left:6.3%;right:6%;top:67.2%;display:flex;align-items:end;gap:6px}.copy{min-width:0;flex:1}.title{font:560 clamp(24px,5.8vw,30px)/.98 'Doto';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{font-size:14px;margin-top:5px;color:#d2d2cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.icon-btn{display:grid;place-items:center;flex:0 0 auto;width:48px;height:48px;border-radius:50%;transition:.14s var(--ease)}.icon-btn:active{background:rgba(255,255,255,.05);transform:scale(.94)}.heart svg{width:25px;height:25px;fill:none;stroke:#eee;stroke-width:1.5;transition:.16s var(--ease)}.heart.active svg{fill:var(--red);stroke:var(--red);filter:drop-shadow(0 0 5px rgba(255,59,48,.45))}.more{font-size:25px;line-height:1;color:#deded9}
-.p-progress{position:absolute;left:6.4%;right:6.4%;top:76.8%}.bar{position:relative;height:20px}.rail{position:absolute;left:0;right:0;top:9px;height:2px;background:#5b5c57}.fill{position:absolute;left:0;top:9px;height:2px;background:var(--red);width:0;transition:width .15s linear}.knob{position:absolute;left:0;top:6px;width:8px;height:8px;border-radius:50%;background:#f3f3ee;transform:translateX(-4px);transition:left .15s linear;pointer-events:none}.times{display:flex;justify-content:space-between;font-size:10px;color:#d6d6d0;font-variant-numeric:tabular-nums}
-.p-controls{position:absolute;left:13%;right:13%;top:82.7%;height:11.3%;display:flex;align-items:center;justify-content:space-between}.ctrl{border:1px solid #767772;border-radius:50%;display:grid;place-items:center;transition:.14s var(--ease);touch-action:manipulation}.ctrl:active{transform:scale(.92);background:rgba(255,255,255,.055)}.ctrl.sm{width:70px;height:70px}.ctrl.big{width:98px;height:98px;border-color:#edede8}.ctrl svg{fill:#f1f1ec;width:27px;height:27px}.big svg{width:33px;height:33px}.pause{display:none}.is-playing .play{display:none}.is-playing .pause{display:block}.ctrl.busy{opacity:.42;pointer-events:none}.p-footer{position:absolute;left:5.5%;right:5.5%;bottom:2.5%;display:flex;justify-content:space-between;align-items:end;font:400 8px/1.25 'IBM Plex Mono';letter-spacing:.08em;color:#8e8f89;text-transform:uppercase;pointer-events:none}.mode-btn{pointer-events:auto;min-width:76px;min-height:32px;display:flex;align-items:center;gap:9px;color:#8e8f89;text-transform:uppercase;letter-spacing:.08em;line-height:1.25;text-align:left;touch-action:manipulation;transition:.16s var(--ease)}.mode-btn:last-child{justify-content:flex-end;text-align:right}.mode-btn:active{transform:scale(.95)}.mode-dot{width:5px;height:5px;flex:0 0 auto;border-radius:50%;background:#777;transition:.16s var(--ease)}.mode-btn.active{color:#f1f1ec}.mode-btn.active .mode-dot{background:var(--red);box-shadow:0 0 9px rgba(255,59,48,.65)}.mode-state{font-weight:400;color:inherit}
+.portrait{top:env(safe-area-inset-top);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);left:env(safe-area-inset-left)}
+.p-logo{position:absolute;left:6.1%;top:5.6%;font:650 clamp(36px,9.1vw,46px)/.79 var(--dot);letter-spacing:.005em}
+.p-menu{position:absolute;right:5.6%;top:6.4%}
+.stations{position:absolute;left:5.1%;right:5.1%;top:17.4%;height:14.6%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:1.6%}
+.station{position:relative;border:1px solid var(--line);border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;transition:transform .16s var(--ease),border-color .3s,opacity .3s;min-width:0}
+.station.active{border-color:#f2f2ed;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+.station:active{transform:scale(.95)}
+.station.off{opacity:.42}
+.station.off:after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,transparent 48%,rgba(255,255,255,.07) 49%,rgba(255,255,255,.07) 51%,transparent 52%);pointer-events:none}
+.station.active.off{opacity:.7}
+.slabel{font-size:clamp(10px,2.65vw,13px);line-height:1.05;text-align:center}
+.sdot{position:absolute;bottom:8px;width:6px;height:6px;border-radius:50%;background:#666761;transition:background .4s}
+.station.active .sdot{background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.is-playing .station.active .sdot{animation:pulse 2.2s infinite}
+.nudge{animation:nudge .24s}
+.p-artwrap{position:absolute;left:21.7%;top:35.4%;width:54.7%;aspect-ratio:1}
+.p-artwrap .art-frame{position:absolute;inset:0;border-radius:18px}
+.p-side{position:absolute;top:42.8%;font:400 8px/1.45 var(--mono);letter-spacing:.08em;color:#aaa;text-transform:uppercase}
+.p-side.left{left:5.2%;width:14%}.p-side.right{right:4.8%;width:13.8%;text-align:right}
+.smallrule{width:22px;height:1px;background:#c5c5bf;margin-top:14px}.p-side.right .smallrule{margin-left:auto}
+.p-side.left:after{content:"";display:block;width:22px;height:1px;background:#c5c5bf;margin-top:14px}
+.p-meta{position:absolute;left:6.3%;right:6.3%;top:67.4%}
+.title{font:560 clamp(24px,5.8vw,30px)/.98 var(--dot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:12px;margin-top:7px;color:#d2d2cc;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-live{position:absolute;left:6.4%;right:6.4%;top:76.4%}
+.p-controls{position:absolute;left:13%;right:13%;top:82.3%;height:11.3%;display:flex;align-items:center;justify-content:space-between}
+.p-controls .ctrl{width:70px;height:70px}.p-controls .ctrl.big{width:98px;height:98px}
+.p-footer{position:absolute;left:6%;right:6%;bottom:2.4%;display:flex;justify-content:space-between;font:400 8.5px/1.25 var(--mono);letter-spacing:.08em;color:#8e8f89;text-transform:uppercase;pointer-events:none}
 
-/* ---------- Landscape: fully responsive, no fixed 594x376 canvas ---------- */
-.landscape{align-items:stretch;justify-content:stretch;overflow:hidden}.l-shell{width:100%;height:100%;padding:max(10px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));display:grid;grid-template-rows:28px minmax(0,1fr) 31px clamp(72px,22vh,88px);row-gap:5px}.l-header{display:grid;grid-template-columns:auto minmax(30px,1fr) auto;align-items:center;gap:18px;min-width:0}.l-brand{font:520 17px/1 'Doto';white-space:nowrap}.l-topline{height:1px;background:#777873}.l-motto{font:400 7px/1.2 'IBM Plex Mono';letter-spacing:.1em;color:#b8b9b3;text-transform:uppercase;white-space:nowrap;text-align:right}.l-header-right{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0}.l-actions{display:flex;align-items:center;gap:4px}.l-action-btn{display:grid;place-items:center;width:36px;height:36px;flex:0 0 auto;border:1px solid #3f413d;border-radius:50%;color:#deded9;transition:.14s var(--ease);touch-action:manipulation}.l-action-btn:active{transform:scale(.92);background:rgba(255,255,255,.055);border-color:#777873}.l-action-btn.heart svg{width:18px;height:18px;fill:none;stroke:#eee;stroke-width:1.5;transition:.16s var(--ease)}.l-action-btn.heart.active{border-color:rgba(255,59,48,.52)}.l-action-btn.heart.active svg{fill:var(--red);stroke:var(--red);filter:drop-shadow(0 0 5px rgba(255,59,48,.42))}.l-action-btn.more{font:400 22px/.7 'IBM Plex Mono';padding-bottom:5px}
-.l-main{display:grid;grid-template-columns:minmax(190px,1.25fr) minmax(150px,.9fr) minmax(118px,.62fr);column-gap:clamp(16px,3vw,34px);align-items:center;min-width:0;min-height:0;padding:0 clamp(10px,2.5vw,28px)}.l-info{min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}.clock{display:flex;align-items:center;gap:clamp(5px,1vw,9px);font:650 clamp(58px,11.4vw,102px)/.76 'Doto';letter-spacing:.01em;white-space:nowrap;min-width:0}.soft-colon{width:clamp(10px,1.7vw,16px);height:.72em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(10px,2.1vh,18px);transform:translateY(2px)}.soft-colon i{width:clamp(5px,.9vw,8px);height:clamp(5px,.9vw,8px);border-radius:50%;background:#f0f0eb;opacity:.75;animation:colonBreath 2.8s ease-in-out infinite}.soft-colon i:nth-child(2){animation-delay:1.4s}
-.l-now{margin-top:clamp(8px,1.9vh,14px);display:grid;grid-template-columns:9px minmax(0,1fr);gap:12px;align-items:start;min-width:0;max-width:100%}.l-now .reddot{width:7px;height:7px;border-radius:50%;background:var(--red);margin-top:7px;box-shadow:0 0 10px rgba(255,59,48,.5);animation:pulse 2.2s infinite}.stationname{font:520 clamp(20px,3vw,27px)/.95 'Doto';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.l-title{font:400 clamp(11px,1.6vw,14px)/1.15 'IBM Plex Mono';margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.l-artist{font:400 clamp(10px,1.45vw,13px)/1.15 'IBM Plex Mono';margin-top:4px;color:#d0d1cb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-visual{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;height:100%}.l-artframe{position:relative;width:min(100%,52vh,220px);aspect-ratio:1;border-radius:18px;flex:0 1 auto}.locator-widget{position:relative;width:min(100%,52vh,220px);aspect-ratio:1;border:1px solid rgba(238,239,233,.16);border-radius:18px;overflow:hidden;flex:0 1 auto;background:#050606;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015),0 18px 50px rgba(0,0,0,.38)}.locator-map{position:absolute;inset:0;background:radial-gradient(circle at 50% 48%,rgba(255,255,255,.045),transparent 46%),#050606}.locator-grid{position:absolute;inset:0;opacity:.23;background-image:radial-gradient(circle,rgba(235,236,231,.42) 1px,transparent 1.25px);background-size:18px 18px;background-position:2px 2px}.locator-lines{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:rgba(235,236,231,.32);stroke-width:1.1;vector-effect:non-scaling-stroke}.locator-lines .locator-minor{stroke:rgba(235,236,231,.13);stroke-width:.7}.locator-live-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}.locator-live-layer polyline{fill:none;stroke:rgba(255,59,48,.58);stroke-width:1.45;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.locator-dot,.locator-pulse{transition:left .7s cubic-bezier(.2,.8,.2,1),top .7s cubic-bezier(.2,.8,.2,1)}.locator-crosshair{position:absolute;left:50%;top:50%;width:42px;height:42px;transform:translate(-50%,-50%);opacity:.42}.locator-crosshair:before,.locator-crosshair:after{content:"";position:absolute;background:#d8d9d3}.locator-crosshair:before{left:20px;top:0;width:1px;height:42px}.locator-crosshair:after{left:0;top:20px;width:42px;height:1px}.locator-crosshair i{position:absolute;left:-1px;top:19px;width:4px;height:3px;background:#050606}.locator-crosshair b{position:absolute;left:19px;top:-1px;width:3px;height:4px;background:#050606}.locator-dot{position:absolute;left:50%;top:50%;width:9px;height:9px;border-radius:50%;background:var(--red);transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(255,59,48,.78);z-index:3}.locator-pulse{position:absolute;left:50%;top:50%;width:26px;height:26px;border:1px solid rgba(255,59,48,.4);border-radius:50%;transform:translate(-50%,-50%);animation:locatorPulse 2.4s ease-out infinite;z-index:2}.locator-top{position:absolute;left:12px;right:12px;top:11px;display:flex;align-items:center;justify-content:space-between;gap:8px;font:400 6px/1 'IBM Plex Mono';letter-spacing:.12em;color:#b7b8b2;z-index:4}.locator-top>span:first-child{color:#f0f0eb}.locator-mode{color:#777873}.locator-readout{position:absolute;left:12px;right:12px;bottom:11px;z-index:4}.locator-kicker{font:400 6px/1 'IBM Plex Mono';letter-spacing:.12em;color:#777873}.locator-coords{margin-top:4px;font:520 11px/1 'Doto';letter-spacing:.02em;color:#f0f0eb}.locator-accuracy{margin-top:5px;font:400 5.5px/1.2 'IBM Plex Mono';letter-spacing:.08em;color:#777873}.locator-widget:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(5,6,6,.86) 0,transparent 24%,transparent 70%,rgba(5,6,6,.92) 100%)}@keyframes locatorPulse{0%{opacity:.75;transform:translate(-50%,-50%) scale(.55)}70%,100%{opacity:0;transform:translate(-50%,-50%) scale(1.35)}}
-.l-genre-menu{min-width:0;height:min(100%,196px);min-height:150px;border:1px solid #333532;border-radius:16px;background:linear-gradient(180deg,#050606 0%,#090a0a 52%,#050606 100%);box-shadow:0 0 24px rgba(0,0,0,.28);padding:8px;display:flex;flex-direction:column;gap:6px;justify-content:center}.l-genre-btn{position:relative;width:100%;flex:1;min-height:0;border:1px solid transparent;border-radius:9px;color:#878883;font:400 clamp(7px,1.05vw,9.5px)/1.08 'IBM Plex Mono';letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:5px 6px 5px 18px;transition:.2s var(--ease)}.l-genre-btn:before{content:"";position:absolute;left:7px;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;background:#555650}.l-genre-btn.active{color:#efefe9;border-color:#555650;background:#0d0e0e}.l-genre-btn.active:before{background:var(--red);box-shadow:0 0 7px rgba(255,59,48,.7)}.l-genre-btn.unavailable{opacity:.42}.l-genre-btn:active{transform:scale(.97)}
-.l-progress{align-self:center;margin:0 clamp(34px,7vw,74px)}.l-progress .times{font-size:9px}.l-bottom{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 clamp(20px,4.8vw,52px);min-width:0}.l-caption{justify-self:start;font:400 clamp(6.5px,.8vw,8px)/1.42 'IBM Plex Mono';letter-spacing:.08em;color:#aaa;text-transform:uppercase}.l-caption .smallrule{width:21px;margin-top:7px}.weather-widget{justify-self:start;min-width:132px;text-transform:uppercase}.weather-temp{font:560 clamp(28px,3.7vw,42px)/.82 'Doto';letter-spacing:.01em;color:var(--fg)}.weather-meta{margin-top:9px;font:400 clamp(6.5px,.8vw,8px)/1.42 'IBM Plex Mono';letter-spacing:.08em;color:#b4b5af}.weather-city{color:#858680}.weather-widget .smallrule{width:21px;margin-top:8px}.weather-unavailable{color:#858680}.l-controls{display:flex;align-items:center;gap:clamp(20px,5vw,42px)}.l-controls .sm{width:clamp(52px,8.2vw,66px);height:clamp(52px,8.2vw,66px)}.l-controls .big{width:clamp(68px,10.5vw,84px);height:clamp(68px,10.5vw,84px)}.l-controls .ctrl svg{width:24px;height:24px}.l-controls .big svg{width:29px;height:29px}.matrix{justify-self:end;display:grid;grid-template-columns:repeat(6,4px);gap:7px}
+@media(orientation:portrait) and (max-width:480px){
+  .p-logo{left:5.5%;top:4.8%;font-size:clamp(33px,10vw,42px)}.p-menu{right:5%;top:5.4%}
+  .stations{left:4.5%;right:4.5%;top:15.8%;height:13.6%;gap:1.8%}.station{border-radius:11px;gap:6px}.sicon{transform:scale(.82)}.slabel{font-size:9px}.sdot{bottom:6px;width:5px;height:5px}
+  .p-artwrap{left:20%;top:32.8%;width:60%}.p-side{top:38.6%;font-size:6.5px}.p-side.left{left:4.7%}.p-side.right{right:3.8%;width:13%}
+  .p-meta{left:5.5%;right:5.5%;top:65.4%}.title{font-size:clamp(22px,7vw,28px)}.sub{font-size:11px}
+  .p-live{left:5.7%;right:5.7%;top:75%}
+  .p-controls{left:12%;right:12%;top:80.8%;height:11.5%}.p-controls .ctrl{width:58px;height:58px}.p-controls .ctrl.big{width:82px;height:82px}
+}
+@media(orientation:portrait) and (max-height:700px){.stations{top:15.2%;height:12.5%}.p-artwrap{top:31%;width:50%;left:25%}.p-side{top:37.5%}.p-meta{top:62%}.p-live{top:71.5%}.p-controls{top:77%;height:14%}.p-footer{bottom:1.6%}}
+@media(orientation:portrait) and (max-height:560px){.p-logo{top:3.8%;font-size:28px}.stations{top:15.5%;height:13.5%}.station{gap:3px;border-radius:9px}.sicon{transform:scale(.68)}.slabel{font-size:7.5px}.sdot{bottom:4px}.p-artwrap{top:31%;left:29%;width:42%}.p-side{display:none}.p-meta{top:61%}.title{font-size:21px}.sub{font-size:10px;margin-top:4px}.p-live{top:70.5%}.readout{font-size:8px}.p-controls{top:76%;left:16%;right:16%;height:15%}.p-controls .ctrl{width:48px;height:48px}.p-controls .ctrl.big{width:64px;height:64px}.ctrl svg{width:21px;height:21px}.ctrl.big svg{width:26px;height:26px}.p-footer{bottom:1.3%;font-size:6.5px}}
 
-/* ---------- Status / auth / settings ---------- */
-.player-status{position:fixed;z-index:80;left:50%;bottom:max(12px,calc(env(safe-area-inset-bottom) + 8px));transform:translate(-50%,10px);max-width:min(86vw,520px);padding:9px 13px;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(8,9,9,.92);backdrop-filter:blur(10px);font:400 9px/1.25 'IBM Plex Mono';letter-spacing:.08em;text-transform:uppercase;color:#c9cac4;opacity:0;pointer-events:none;transition:.22s var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.player-status.show{opacity:1;transform:translate(-50%,0)}.player-status.error{color:#ff776f;border-color:rgba(255,90,80,.35)}
-.overlay{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.86);backdrop-filter:blur(8px);overflow-y:auto;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}.overlay.show{display:flex}.card{width:min(430px,92vw);max-height:calc(100dvh - 32px);overflow-y:auto;border:1px solid #5b5c57;border-radius:18px;background:#070808;padding:22px;box-shadow:0 20px 80px rgba(0,0,0,.5)}.auth-kicker{font:400 9px/1.3 'IBM Plex Mono';letter-spacing:.12em;color:#999;text-transform:uppercase}.auth-title{font:560 28px/.95 'Doto';margin-top:8px}.auth-copy{font:400 11px/1.45 'IBM Plex Mono';color:#bbb;margin-top:12px}.auth-input{width:100%;margin-top:16px;background:#0d0e0e;border:1px solid #494a46;color:#eee;border-radius:10px;padding:13px 14px;font:400 12px/1 'IBM Plex Mono';outline:none}.auth-input:focus{border-color:#ddd}.auth-actions{display:flex;gap:10px;margin-top:14px}.auth-btn{flex:1;border:1px solid #777873;border-radius:999px;padding:11px 14px;font:400 10px/1 'IBM Plex Mono';letter-spacing:.08em;min-height:42px}.auth-btn.primary{border-color:#f0f0eb}.auth-btn.danger{color:#ff776f;border-color:rgba(255,105,95,.4)}.auth-error{min-height:15px;margin-top:10px;color:#ff655c;font:400 9px/1.3 Plex}.settings-list{margin-top:18px;border-top:1px solid #30312e}.settings-row{padding:14px 0;border-bottom:1px solid #30312e}.settings-label{font:400 8px/1.2 'IBM Plex Mono';letter-spacing:.11em;color:#888;text-transform:uppercase}.settings-value{font:400 12px/1.35 'IBM Plex Mono';color:#ddd;margin-top:5px}.settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}.settings-actions .auth-btn{flex:1 1 140px}.settings-row.actionable{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center}.settings-row.actionable .settings-copy{min-width:0}.settings-open{border:1px solid #777873;border-radius:999px;padding:9px 12px;font:400 8px/1 'IBM Plex Mono';letter-spacing:.08em;white-space:nowrap}.favorites-list{margin-top:17px;border-top:1px solid #30312e}.favorite-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #30312e}.favorite-main{min-width:0;text-align:left}.favorite-title{font:520 15px/1.05 'Doto';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.favorite-artist{font:400 10px/1.3 'IBM Plex Mono';color:#c0c1bb;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.favorite-station{font:400 7px/1.2 'IBM Plex Mono';letter-spacing:.09em;color:#777873;text-transform:uppercase;margin-top:5px}.favorite-remove{width:38px;height:38px;border:1px solid #464743;border-radius:50%;font:400 18px/1 'IBM Plex Mono';color:#aaa}.empty-state{padding:38px 0 28px;text-align:center;font:560 17px/1 'Doto';letter-spacing:.035em;color:#c9cac4}.sound-master{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding:14px 0;border-top:1px solid #30312e;border-bottom:1px solid #30312e}.sound-master-label{font:560 18px/1 Doto}.sound-toggle{min-width:70px;border:1px solid #777873;border-radius:999px;padding:10px 14px;font:400 9px/1 'IBM Plex Mono';letter-spacing:.09em}.sound-toggle.on{border-color:var(--red);color:#fff}.sound-section{padding:15px 0;border-bottom:1px solid #30312e}.sound-section-title{font:400 8px/1.2 'IBM Plex Mono';letter-spacing:.11em;color:#888;text-transform:uppercase}.preset-grid{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.preset-btn{border:1px solid #454642;border-radius:999px;padding:9px 11px;font:400 8px/1 'IBM Plex Mono';letter-spacing:.07em;color:#aaa}.preset-btn.active{border-color:#eee;color:#fff}.sound-line{display:grid;grid-template-columns:54px minmax(0,1fr) 52px;gap:10px;align-items:center;margin-top:11px}.sound-name{font:400 9px/1 'IBM Plex Mono';letter-spacing:.08em}.sound-value{text-align:right;font:400 9px/1 'IBM Plex Mono';color:#bbb}.sound-range{width:100%;accent-color:var(--red)}.eq-bands{margin-top:11px}.eq-band{display:grid;grid-template-columns:56px minmax(0,1fr) 52px;gap:9px;align-items:center;margin-top:9px}.eq-freq{font:400 8px/1 'IBM Plex Mono';color:#aaa}.sound-note{font:400 8px/1.45 'IBM Plex Mono';color:#7f807a;margin-top:9px}.hidden{display:none!important}
+/* ---------- Landscape: the desk / StandBy-style screen ---------- */
+.landscape{align-items:stretch;justify-content:stretch;overflow:hidden}
+.l-shell{width:100%;height:100%;padding:max(10px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));display:grid;grid-template-rows:30px minmax(0,1fr) 22px clamp(72px,22vh,88px);row-gap:5px;transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
+.l-header{display:grid;grid-template-columns:auto minmax(30px,1fr) auto;align-items:center;gap:18px;min-width:0}
+.l-brand{font:520 17px/1 var(--dot);white-space:nowrap}
+.l-topline{height:1px;background:#3d3e3a}
+.l-main{display:grid;grid-template-columns:minmax(190px,1.25fr) minmax(150px,.9fr) minmax(118px,.62fr);column-gap:clamp(16px,3vw,34px);align-items:center;min-width:0;min-height:0;padding:0 clamp(10px,2.5vw,28px)}
+.l-info{min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}
+.clock{display:flex;align-items:center;gap:clamp(5px,1vw,9px);font:650 clamp(58px,11.4vw,102px)/.76 var(--dot);letter-spacing:.01em;white-space:nowrap;min-width:0;font-variant-numeric:tabular-nums}
+.soft-colon{width:clamp(10px,1.7vw,16px);height:.72em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(10px,2.1vh,18px);transform:translateY(2px)}
+.soft-colon i{width:clamp(5px,.9vw,8px);height:clamp(5px,.9vw,8px);border-radius:50%;background:#f0f0eb;opacity:.75;animation:colonBreath 2.8s ease-in-out infinite}.soft-colon i:nth-child(2){animation-delay:1.4s}
+.l-date{margin-top:clamp(8px,1.6vh,12px);font-size:clamp(8px,1vw,10px);letter-spacing:.14em;color:var(--muted)}
+.l-now{margin-top:clamp(10px,2.2vh,16px);display:grid;grid-template-columns:9px minmax(0,1fr);gap:12px;align-items:start;min-width:0}
+.l-now .reddot{width:7px;height:7px;border-radius:50%;background:var(--accent);margin-top:7px;opacity:.55;transition:background .6s,opacity .4s}
+.is-on .l-now .reddot{opacity:1}.is-playing .l-now .reddot{box-shadow:0 0 10px var(--accent);animation:pulse 2.2s infinite}
+.stationname{font:520 clamp(20px,3vw,27px)/.95 var(--dot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l-title{font:400 clamp(11px,1.6vw,14px)/1.15 var(--mono);margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l-sub{font:400 clamp(9px,1.2vw,11px)/1.15 var(--mono);margin-top:5px;color:#a9aaa4;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.l-visual{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;height:100%}
+.l-artframe{position:relative;width:min(100%,52vh,220px);aspect-ratio:1;border-radius:18px;flex:0 1 auto}
+.l-genre-menu{min-width:0;height:min(100%,196px);min-height:150px;border:1px solid #333532;border-radius:16px;background:linear-gradient(180deg,var(--bg) 0%,#090a0a 52%,var(--bg) 100%);padding:8px;display:flex;flex-direction:column;gap:6px;justify-content:center}
+.l-genre-btn{position:relative;width:100%;flex:1;min-height:0;border:1px solid transparent;border-radius:9px;color:#878883;font:400 clamp(7px,1.05vw,9.5px)/1.08 var(--mono);letter-spacing:.06em;text-transform:uppercase;text-align:left;padding:5px 6px 5px 18px;transition:.2s var(--ease)}
+.l-genre-btn:before{content:"";position:absolute;left:7px;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;background:#555650;transition:background .4s}
+.l-genre-btn.active{color:#efefe9;border-color:#555650;background:#0d0e0e}
+.l-genre-btn.active:before{background:var(--accent);box-shadow:0 0 7px var(--accent)}
+.l-genre-btn.off{opacity:.45}.l-genre-btn:active{transform:scale(.97)}
+.l-live{align-self:center;margin:0 clamp(34px,7vw,74px)}.l-live .readout{margin-top:6px;font-size:9px}
+.l-bottom{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 clamp(20px,4.8vw,52px);min-width:0}
+.l-caption{justify-self:start;font:400 clamp(6.5px,.8vw,8px)/1.42 var(--mono);letter-spacing:.08em;color:#aaa;text-transform:uppercase}
+.l-caption .smallrule{width:21px;margin-top:7px}
+.has-weather .l-caption.tagline{display:none}
+.weather{justify-self:start;min-width:120px;text-transform:uppercase}
+.weather-temp{font:560 clamp(28px,3.7vw,42px)/.82 var(--dot);letter-spacing:.01em}
+.weather-meta{margin-top:9px;font:400 clamp(6.5px,.8vw,8px)/1.42 var(--mono);letter-spacing:.08em;color:#b4b5af}.weather-city{color:#858680}
+.l-controls{display:flex;align-items:center;gap:clamp(20px,5vw,42px)}
+.l-controls .ctrl{width:clamp(52px,8.2vw,66px);height:clamp(52px,8.2vw,66px)}.l-controls .ctrl.big{width:clamp(68px,10.5vw,84px);height:clamp(68px,10.5vw,84px)}
+.l-controls .ctrl svg{width:24px;height:24px}.l-controls .ctrl.big svg{width:29px;height:29px}
+.l-channel{justify-self:end;font:400 clamp(6.5px,.8vw,8px)/1.42 var(--mono);letter-spacing:.1em;color:#8e8f89;text-align:right;text-transform:uppercase}
 
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,48,.23)}50%{box-shadow:0 0 0 6px rgba(255,59,48,0)}}@keyframes matrixPulse{0%,100%{transform:scale(.92);opacity:.72}50%{transform:scale(1.22);opacity:1}}@keyframes stationGlow{0%{opacity:.55;transform:scale(.975)}55%{opacity:1;transform:scale(1.015)}100%{transform:scale(1)}}@keyframes colonBreath{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:.42;transform:scale(.9)}}@keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}@keyframes swap{0%{opacity:.18;transform:translateY(4px)}100%{opacity:1;transform:none}}
+/* Idle: chrome fades away and the screen becomes a calm clock + radio display. */
+.chrome{transition:opacity .9s var(--ease)}
+.idle .chrome{opacity:0;pointer-events:none}
+.idle .l-genre-menu{opacity:0}
+.idle .l-brand,.idle .l-topline{opacity:.35}
+.idle{cursor:none}
 
-@media(orientation:portrait) and (max-width:480px){.p-logo{left:5.5%;top:5.2%;font-size:clamp(33px,10vw,42px)}.p-menu{right:5%;top:6.1%;font-size:7.5px}.stations{left:4.5%;right:4.5%;top:16.2%;height:13.8%;gap:1.8%}.station{border-radius:11px;gap:6px}.sicon{transform:scale(.82)}.slabel{font-size:9px}.sdot{bottom:6px;width:5px;height:5px}.p-artwrap{left:20%;top:33.2%;width:60%}.p-side{top:39%;font-size:6.5px}.p-side.left{left:4.7%}.p-side.right{right:3.8%;width:13%}.p-matrix{right:4.8%;top:56%;grid-template-columns:repeat(4,4px);gap:6px}.p-meta{left:5.5%;right:4.4%;top:65.3%}.title{font-size:clamp(22px,7vw,28px)}.artist{font-size:12px}.icon-btn{width:42px;height:42px}.p-progress{left:5.7%;right:5.7%;top:75.1%}.p-controls{left:12%;right:12%;top:81.1%;height:11.5%}.ctrl.sm{width:58px;height:58px}.ctrl.big{width:82px;height:82px}.p-footer{left:5.5%;right:5.5%;bottom:2.5%;font-size:7px}}
-@media(orientation:portrait) and (max-height:700px){.stations{top:15.5%;height:12.5%}.p-artwrap{top:31.5%;width:52%;left:24%}.p-side{top:38.5%}.p-meta{top:61.5%}.p-progress{top:70.5%}.p-controls{top:76%;height:14%}.p-footer{bottom:1.8%}}
-@media(orientation:portrait) and (max-height:560px){.p-logo{top:3.8%;font-size:28px}.p-menu{top:4.3%;font-size:6.5px}.p-menu:before{width:4px;height:4px;margin-right:6px;vertical-align:8px}.stations{top:15.5%;height:13.5%}.station{gap:3px;border-radius:9px}.sicon{transform:scale(.68)}.slabel{font-size:7.5px}.sdot{bottom:4px}.p-artwrap{top:31%;left:29%;width:42%}.p-side{display:none}.p-matrix{top:46%;right:5%;grid-template-columns:repeat(4,3px);gap:5px}.p-matrix i{width:3px;height:3px}.p-meta{top:61%;left:5.5%;right:4.5%;align-items:center}.title{font-size:21px}.artist{font-size:10px;margin-top:3px}.icon-btn{width:36px;height:36px}.heart svg{width:21px;height:21px}.more{font-size:21px}.p-progress{top:69.5%}.times{font-size:8px}.p-controls{top:75%;left:16%;right:16%;height:15%}.ctrl.sm{width:48px;height:48px}.ctrl.big{width:64px;height:64px}.ctrl svg{width:21px;height:21px}.big svg{width:26px;height:26px}.p-footer{bottom:1.3%;font-size:6px}}
-/* Tablet / standby landscape: use the extra surface instead of scaling a phone UI. */
 @media(orientation:landscape) and (min-width:900px) and (min-height:480px){
-  .l-shell{padding:max(18px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left));grid-template-rows:38px minmax(0,1fr) 42px clamp(104px,15vh,132px);row-gap:8px}
-  .l-header{gap:24px}.l-brand{font-size:clamp(20px,1.65vw,26px);letter-spacing:.01em}.l-motto{font-size:clamp(8px,.72vw,11px);line-height:1.25;letter-spacing:.12em}.l-topline{opacity:.88}.l-header-right{gap:clamp(12px,1.2vw,20px)}.l-actions{gap:8px}.l-action-btn{width:clamp(42px,3.4vw,50px);height:clamp(42px,3.4vw,50px);border-color:#4a4c48}.l-action-btn.heart svg{width:clamp(20px,1.6vw,24px);height:clamp(20px,1.6vw,24px)}.l-action-btn.more{font-size:clamp(25px,2vw,30px);padding-bottom:6px}
-  .l-main{width:100%;max-width:1580px;margin-inline:auto;grid-template-columns:minmax(300px,1.15fr) minmax(280px,1.05fr) minmax(220px,.8fr);column-gap:clamp(30px,3.6vw,58px);padding:0 clamp(22px,3vw,52px);align-items:center}
-  .l-info{justify-content:center;padding-bottom:1vh}.clock{font-size:clamp(112px,12.8vw,190px);line-height:.72;gap:clamp(8px,.9vw,14px);letter-spacing:.005em}.soft-colon{width:clamp(16px,1.5vw,24px);gap:clamp(16px,2.3vh,26px)}.soft-colon i{width:clamp(7px,.64vw,10px);height:clamp(7px,.64vw,10px)}
-  .l-now{grid-template-columns:11px minmax(0,1fr);gap:14px;margin-top:clamp(16px,2.4vh,24px)}.l-now .reddot{width:8px;height:8px;margin-top:10px}.stationname{font-size:clamp(30px,2.7vw,42px);line-height:.92}.l-title{font-size:clamp(14px,1.25vw,19px);margin-top:10px}.l-artist{font-size:clamp(12px,1vw,15px);margin-top:5px;color:#d6d7d1}
-  .l-visual{justify-content:center}.l-artframe,.locator-widget{width:min(100%,46vh,30vw,430px);border-radius:24px;border-color:rgba(238,239,233,.2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02),0 28px 72px rgba(0,0,0,.42)}.locator-top{left:18px;right:18px;top:17px;font-size:clamp(7px,.58vw,9px)}.locator-readout{left:18px;right:18px;bottom:17px}.locator-kicker{font-size:clamp(7px,.56vw,9px)}.locator-coords{font-size:clamp(15px,1.25vw,20px);margin-top:6px}.locator-accuracy{font-size:clamp(6px,.52vw,8px);margin-top:7px}.locator-grid{background-size:clamp(20px,1.8vw,28px) clamp(20px,1.8vw,28px)}.locator-dot{width:11px;height:11px}.locator-pulse{width:34px;height:34px}#landArt svg{transform:scale(1.075);transform-origin:50% 50%}
-  .l-genre-menu{height:min(43vh,360px);min-height:248px;border-radius:22px;padding:12px;gap:8px;border-color:#4a4c48}.l-genre-btn{font-size:clamp(11px,.95vw,15px);line-height:1.08;letter-spacing:.065em;padding:8px 10px 8px 30px;border-radius:12px}.l-genre-btn:before{left:12px;width:7px;height:7px;margin-top:-3.5px}.l-genre-btn.active{border-color:#8c8e88;box-shadow:inset 0 0 0 1px rgba(255,255,255,.035)}
-  .l-progress{margin:0 clamp(46px,5vw,86px)}.l-progress .bar{height:22px}.l-progress .times{font-size:clamp(10px,.78vw,12px)}
-  .l-bottom{padding:0 clamp(42px,5.4vw,92px)}.l-caption{font-size:clamp(8px,.68vw,10px);line-height:1.45}.l-caption .smallrule{width:30px;margin-top:10px}.l-controls{gap:clamp(30px,3.2vw,50px)}.l-controls .sm{width:clamp(68px,5.6vw,84px);height:clamp(68px,5.6vw,84px)}.l-controls .big{width:clamp(90px,7.2vw,108px);height:clamp(90px,7.2vw,108px)}.l-controls .ctrl svg{width:29px;height:29px}.l-controls .big svg{width:36px;height:36px}.matrix{grid-template-columns:repeat(6,5px);gap:9px}.matrix i{width:5px;height:5px}
+  .l-shell{padding:max(18px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left));grid-template-rows:38px minmax(0,1fr) 30px clamp(104px,15vh,132px);row-gap:8px}
+  .l-brand{font-size:clamp(20px,1.65vw,26px)}
+  .l-main{width:100%;max-width:1580px;margin-inline:auto;grid-template-columns:minmax(300px,1.15fr) minmax(280px,1.05fr) minmax(220px,.8fr);column-gap:clamp(30px,3.6vw,58px);padding:0 clamp(22px,3vw,52px)}
+  .clock{font-size:clamp(112px,12.8vw,190px);line-height:.72;gap:clamp(8px,.9vw,14px)}
+  .soft-colon{width:clamp(16px,1.5vw,24px);gap:clamp(16px,2.3vh,26px)}.soft-colon i{width:clamp(7px,.64vw,10px);height:clamp(7px,.64vw,10px)}
+  .l-date{font-size:clamp(10px,.8vw,13px)}
+  .l-now{grid-template-columns:11px minmax(0,1fr);gap:14px;margin-top:clamp(16px,2.4vh,24px)}.l-now .reddot{width:8px;height:8px;margin-top:10px}
+  .stationname{font-size:clamp(30px,2.7vw,42px);line-height:.92}.l-title{font-size:clamp(14px,1.25vw,19px);margin-top:10px}.l-sub{font-size:clamp(11px,.9vw,14px);margin-top:6px}
+  .l-artframe{width:min(100%,46vh,30vw,430px);border-radius:24px;border-color:rgba(238,239,233,.2)}
+  .l-genre-menu{height:min(43vh,360px);min-height:248px;border-radius:22px;padding:12px;gap:8px;border-color:#4a4c48}
+  .l-genre-btn{font-size:clamp(11px,.95vw,15px);padding:8px 10px 8px 30px;border-radius:12px}.l-genre-btn:before{left:12px;width:7px;height:7px;margin-top:-3.5px}
+  .l-live{margin:0 clamp(46px,5vw,86px)}.l-live .readout{font-size:clamp(10px,.78vw,12px)}
+  .l-bottom{padding:0 clamp(42px,5.4vw,92px)}.l-caption,.l-channel{font-size:clamp(8px,.68vw,10px)}
+  .l-controls{gap:clamp(30px,3.2vw,50px)}.l-controls .ctrl{width:clamp(68px,5.6vw,84px);height:clamp(68px,5.6vw,84px)}.l-controls .ctrl.big{width:clamp(90px,7.2vw,108px);height:clamp(90px,7.2vw,108px)}
 }
-@media(orientation:landscape) and (max-height:300px){.l-header-right{gap:6px}.l-actions{gap:3px}.l-action-btn{width:30px;height:30px}.l-action-btn.heart svg{width:15px;height:15px}.l-action-btn.more{font-size:19px;padding-bottom:4px}.l-motto{display:none}.l-shell{grid-template-rows:22px minmax(0,1fr) 25px 62px;padding-top:6px;padding-bottom:6px;row-gap:2px}.l-brand{font-size:14px}.l-motto{font-size:6px}.l-main{grid-template-columns:minmax(170px,1.3fr) minmax(120px,.8fr) minmax(106px,.62fr);column-gap:14px}.clock{font-size:clamp(46px,10vw,72px)}.l-now{margin-top:4px}.stationname{font-size:18px}.l-title{font-size:9px;margin-top:4px}.l-artist{font-size:8px;margin-top:2px}.l-artframe,.locator-widget{width:min(100%,48vh,150px);border-radius:14px}.locator-top{left:8px;right:8px;top:7px;font-size:5px}.locator-readout{left:8px;right:8px;bottom:7px}.locator-kicker{font-size:4.7px}.locator-coords{font-size:8px;margin-top:3px}.locator-accuracy{font-size:4px;margin-top:3px}.locator-dot{width:7px;height:7px}.locator-pulse{width:20px;height:20px}.l-genre-menu{min-height:116px;padding:5px;gap:3px;border-radius:13px}.l-genre-btn{font-size:6.5px;padding-left:15px;border-radius:7px}.l-progress{margin:0 34px}.l-bottom{padding:0 24px}.l-caption{font-size:5.8px}.l-controls{gap:20px}.l-controls .sm{width:46px;height:46px}.l-controls .big{width:58px;height:58px}.matrix{gap:5px;grid-template-columns:repeat(6,3px)}.matrix i{width:3px;height:3px}.card{padding:16px}.auth-title{font-size:23px}.auth-copy{font-size:9px;margin-top:8px}.auth-input{margin-top:10px;padding:10px 12px}.auth-actions{margin-top:9px}.auth-btn{padding:9px 12px;min-height:36px}.auth-error{margin-top:6px}}
-@media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}@media(orientation:portrait){.portrait{display:block}.landscape{display:none}}
+@media(orientation:landscape) and (max-height:300px){
+  .l-shell{grid-template-rows:22px minmax(0,1fr) 20px 62px;padding-top:6px;padding-bottom:6px;row-gap:2px}.l-brand{font-size:14px}
+  .l-main{grid-template-columns:minmax(170px,1.3fr) minmax(120px,.8fr) minmax(106px,.62fr);column-gap:14px}
+  .clock{font-size:clamp(46px,10vw,72px)}.l-date{margin-top:5px;font-size:7px}.l-now{margin-top:5px}.stationname{font-size:18px}.l-title{font-size:9px;margin-top:4px}.l-sub{font-size:7.5px;margin-top:2px}
+  .l-artframe{width:min(100%,48vh,150px);border-radius:14px}
+  .l-genre-menu{min-height:116px;padding:5px;gap:3px;border-radius:13px}.l-genre-btn{font-size:6.5px;padding-left:15px;border-radius:7px}
+  .l-live{margin:0 34px}.l-bottom{padding:0 24px}.l-caption,.l-channel{font-size:5.8px}
+  .l-controls{gap:20px}.l-controls .ctrl{width:46px;height:46px}.l-controls .ctrl.big{width:58px;height:58px}
+}
+
+/* ---------- Night mode: dim red monochrome, pure black (OLED friendly) ---------- */
+html.night,html.night body{--bg:#000;background:#000}
+html.night .screen{background:#000;filter:url(#night-red)}
+html.night .art-frame{box-shadow:none}
+
+/* ---------- Graphite theme ---------- */
+html.theme-graphite:not(.night),html.theme-graphite:not(.night) body{--bg:#17191a;background:#17191a}
+html.theme-graphite:not(.night) .screen{background:radial-gradient(120% 120% at 55% -10%,#292c2d 0,#202223 35%,#17191a 72%)}
+
+/* ---------- Toast + settings ---------- */
+.player-status{position:fixed;z-index:80;left:50%;bottom:max(12px,calc(env(safe-area-inset-bottom) + 8px));transform:translate(-50%,10px);max-width:min(86vw,520px);padding:9px 13px;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(8,9,9,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font:400 9px/1.25 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:#c9cac4;opacity:0;pointer-events:none;transition:.22s var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-status.show{opacity:1;transform:translate(-50%,0)}.player-status.error{color:#ff776f;border-color:rgba(255,90,80,.35)}
+.overlay{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.86);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);overflow-y:auto;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.overlay.show{display:flex}
+.card{width:min(520px,94vw);max-height:calc(100dvh - 32px);overflow-y:auto;border:1px solid #5b5c57;border-radius:22px;background:#070808;padding:26px;box-shadow:0 20px 80px rgba(0,0,0,.5)}
+.kicker{font:400 11px/1.3 var(--mono);letter-spacing:.12em;color:#999;text-transform:uppercase}
+.card-title{font:560 34px/.95 var(--dot);margin-top:10px}
+.settings-list{margin-top:20px;border-top:1px solid #30312e}
+.settings-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:16px 0;border-bottom:1px solid #30312e;min-height:64px}
+.settings-label{font:400 11px/1.25 var(--mono);letter-spacing:.11em;color:#888;text-transform:uppercase}
+.settings-value{font:400 13px/1.4 var(--mono);color:#ddd;margin-top:6px}
+.pill{border:1px solid #777873;border-radius:999px;min-width:88px;min-height:44px;padding:12px 16px;font:400 11px/1 var(--mono);letter-spacing:.08em;white-space:nowrap}
+.pill:active{transform:scale(.96)}
+.pill.primary{width:100%;margin-top:18px;border-color:#f0f0eb;min-height:48px}
+.city-form{display:flex;gap:8px;grid-column:1/-1}
+.city-form input{flex:1;min-width:0;background:#0d0e0e;border:1px solid #494a46;border-radius:999px;padding:12px 16px;font:400 13px/1 var(--mono);color:#eee;outline:none;-webkit-user-select:text;user-select:text}
+.city-form input:focus{border-color:#ddd}
+.settings-note{grid-column:1/-1;font:400 10px/1.5 var(--mono);color:#7f807a}
+
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 25%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
+@keyframes colonBreath{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:.42;transform:scale(.9)}}
+@keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}
+@keyframes swap{0%{opacity:.18;transform:translateY(4px)}100%{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
-
-/* Clear Yandex device-code glyphs on iPhone: avoid the dotted display font. */
-#yandexLoginMount .settings-label + div{
-  font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
-  font-size: 30px !important;
-  font-weight: 600 !important;
-  line-height: 1.15 !important;
-  letter-spacing: .10em !important;
-  font-variant-ligatures: none !important;
-  text-transform: none !important;
-  user-select: all !important;
-  -webkit-user-select: all !important;
-}
-
-
-/* BURZH local-library UI fixes */
-.p-progress .bar,.l-progress .bar{cursor:pointer;touch-action:none}
-#playBtn.is-playing .play,#landPlayBtn.is-playing .play{display:none}
-#playBtn.is-playing .pause,#landPlayBtn.is-playing .pause{display:block}
-html.theme-graphite,html.theme-graphite body{--bg:#17191a;background:#17191a}
-html.theme-graphite .screen{background:radial-gradient(120% 120% at 55% -10%,#292c2d 0,#202223 35%,#17191a 72%)}
-html.theme-graphite .art-frame,html.theme-graphite .locator-widget,html.theme-graphite .locator-map{background-color:#17191a}
-
-/* BURZH settings readability v2 */
-#settingsOverlay .card,#soundOverlay .card{width:min(520px,94vw);padding:26px}
-#settingsOverlay .auth-kicker,#soundOverlay .auth-kicker{font-size:11px}
-#settingsOverlay .auth-title,#soundOverlay .auth-title{font-size:34px;margin-top:10px}
-#settingsOverlay .settings-list{margin-top:20px}
-#settingsOverlay .settings-row{padding:18px 0}
-#settingsOverlay .settings-label{font-size:11px;line-height:1.25}
-#settingsOverlay .settings-value{font-size:14px;line-height:1.4;margin-top:7px}
-#settingsOverlay .settings-open{min-width:88px;min-height:46px;padding:12px 16px;font-size:11px}
-#settingsOverlay .auth-btn,#soundOverlay .auth-btn{min-height:48px;font-size:11px}
-#soundOverlay .sound-master{padding:18px 0}
-#soundOverlay .sound-master-label{font-size:22px}
-#soundOverlay .sound-toggle{min-width:86px;min-height:46px;font-size:11px}
-#soundOverlay .sound-section{padding:18px 0}
-#soundOverlay .sound-section-title{font-size:11px}
-#soundOverlay .preset-grid{gap:9px;margin-top:12px}
-#soundOverlay .preset-btn{min-height:42px;padding:11px 14px;font-size:10px}
-#soundOverlay .sound-line{grid-template-columns:64px minmax(0,1fr) 64px;gap:12px;margin-top:14px}
-#soundOverlay .sound-name,#soundOverlay .sound-value{font-size:11px}
-#soundOverlay .sound-range{height:30px}
-#soundOverlay .eq-freq{font-size:10px}
-#soundOverlay .sound-note{font-size:10px;line-height:1.5}
-@media(orientation:portrait) and (max-width:480px){
-  #settingsOverlay,#soundOverlay{align-items:flex-start}
-  #settingsOverlay .card,#soundOverlay .card{width:96vw;max-height:calc(100dvh - 20px);padding:22px;margin-top:2px}
-  #settingsOverlay .auth-title,#soundOverlay .auth-title{font-size:31px}
-  #settingsOverlay .settings-label{font-size:11px}
-  #settingsOverlay .settings-value{font-size:13px}
-  #settingsOverlay .settings-open{min-width:84px;min-height:46px;font-size:10.5px}
-}
-
-
-/* BURZH visual polish v3 */
-.mix-info{margin-top:6px;font:400 9px/1.2 'IBM Plex Mono';letter-spacing:.1em;color:#777873;text-transform:uppercase;white-space:nowrap}
-#landMixInfo{font-size:8px;margin-top:5px;color:#777873}
-.p-progress .rail,.p-progress .fill,.l-progress .rail,.l-progress .fill{height:3px;top:8px}
-.p-progress .knob,.l-progress .knob{width:12px;height:12px;top:3.5px;transform:translateX(-6px)}
-.p-progress .bar,.l-progress .bar{height:24px;touch-action:none}
-.p-footer{font-size:8.5px}
-.mode-btn{min-height:40px;font-size:8.5px}
-.mode-dot{width:6px;height:6px}
-.station:not([data-station="Trance"]){opacity:.58}
-.station:not([data-station="Trance"]).active{opacity:.78}
-.station:not([data-station="Trance"]) .sdot{background:#5c5d58!important;box-shadow:none!important;animation:none!important}
-.l-genre-btn:not([data-station="Trance"]){opacity:.58}
-.l-genre-btn:not([data-station="Trance"]).active{opacity:.8}
-.l-genre-btn:not([data-station="Trance"]):before{background:#5c5d58!important;box-shadow:none!important}
-#settingsOverlay .card,#soundOverlay .card{border-radius:22px}
-#settingsOverlay .settings-row{min-height:64px}
-#settingsOverlay .settings-open,#soundOverlay .sound-toggle,#soundOverlay .preset-btn{touch-action:manipulation}
-#soundOverlay .preset-btn{min-width:68px}
-#soundOverlay .sound-note{max-width:36ch}
-@media(orientation:portrait) and (max-width:480px){
-  .mix-info{font-size:9px;margin-top:5px}
-  .p-footer{font-size:8.5px}
-  .mode-btn{min-height:44px;font-size:8.5px}
-  #settingsOverlay .settings-row{padding:19px 0}
-  #settingsOverlay .settings-label{font-size:11.5px}
-  #settingsOverlay .settings-value{font-size:13.5px}
-  #settingsOverlay .settings-open{min-width:88px;min-height:48px;font-size:11px}
-  #soundOverlay .preset-btn{min-height:44px;font-size:10.5px;padding:11px 15px}
-  #soundOverlay .sound-toggle{min-height:48px;font-size:11px}
-}
-
 </style>
-
-
-
-
 </head>
 <body>
 
-<section class="screen portrait" aria-label="BURZH beats player">
-  <div class="p-logo">BURZH<br>beats</div><button class="p-menu" aria-label="Open sound controls" onclick="openSound()">SOUND<br>PEOPLE<br>PLACES<br>MOOD</button>
-  <div class="stations" role="group" aria-label="Stations">
-    <button class="station" data-station="Future Garage" aria-label="Future Garage" onclick="stationTap(this,'futureGarage',true)"><span class="sicon grid"></span><span class="slabel">Future<br>Garage</span><i class="sdot"></i></button>
-    <button class="station active" data-station="Lo-Fi" aria-label="Lo-Fi" onclick="stationTap(this,'lofi',true)"><span class="sicon wave"></span><span class="slabel">Lo-Fi</span><i class="sdot"></i></button>
-    <button class="station" data-station="Deep House" aria-label="Deep House" onclick="stationTap(this,'d',true)"><span class="sicon rings"></span><span class="slabel">Deep<br>House</span><i class="sdot"></i></button>
-    <button class="station" data-station="Trance" aria-label="Trance" onclick="stationTap(this,'t',true)"><span class="sicon tri"></span><span class="slabel">Trance</span><i class="sdot"></i></button>
+<!-- Night mode: maps everything to dim red by luminance (keeps dark adaptation, easy on OLED). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="night-red" color-interpolation-filters="sRGB">
+    <feColorMatrix type="matrix" values="0.15 0.5 0.05 0 0  0.012 0.04 0.004 0 0  0.008 0.026 0.003 0 0  0 0 0 1 0"/>
+  </filter>
+</svg>
+
+<section class="screen portrait" aria-label="BURZH beats radio">
+  <div class="p-logo">BURZH<br>beats</div>
+  <button class="text-btn p-menu" data-open="settingsOverlay" aria-label="Settings">SETTINGS</button>
+
+  <div class="stations" id="stationTiles" role="group" aria-label="Stations"></div>
+
+  <div class="p-side left" data-bind="tagline"></div>
+  <div class="p-artwrap"><div class="art-frame swipe"><div class="orbital-art"></div></div></div>
+  <div class="p-side right">LIVE<br>RADIO<br>ALWAYS<br>ON<div class="smallrule"></div></div>
+
+  <div class="p-meta">
+    <div class="title" data-bind="title" data-swap>BURZH beats</div>
+    <div class="sub" data-bind="sub">TUNING</div>
   </div>
-  <div class="p-side left">BASS<br>ATMOSPHERE<br>RHYTHM<br><br>ALWAYS<br>ON<div class="smallrule"></div></div>
-  <div class="p-artwrap"><div class="art-frame"><div class="orbital-art" id="portraitArt"></div></div></div>
-  <div class="p-side right">A<br>HIGHER<br>STATE<br>THROUGH<br>SOUND<div class="smallrule"></div></div>
-  <div class="p-matrix track-matrix" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-  <div class="p-meta"><div class="copy"><div class="title" id="title">BURZH beats</div><div class="artist" id="artist">Connecting…</div></div><button class="icon-btn heart" id="heartBtn" aria-label="Add to Favorites" onclick="toggleFavorite()"><svg viewBox="0 0 24 24"><path d="M12 20.5S3.5 15.3 3.5 8.7A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 8.5 1.3c0 6.6-8.5 11.8-8.5 11.8Z"/></svg></button><button class="icon-btn more" aria-label="Player settings" onclick="openSettings()">⋮</button></div>
-  <div class="p-progress"><div class="bar"><div class="rail"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div><div class="times"><span id="elapsed">0:00</span><span id="remaining">--:--</span></div></div>
+
+  <div class="p-live">
+    <div class="live-rail"><div class="live-fill"></div></div>
+    <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span></span><span data-bind="remaining"></span></div>
+  </div>
+
   <div class="p-controls">
-    <button class="ctrl sm transport" aria-label="Previous track" onclick="tap('previous',this)"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
-    <button class="ctrl big transport" id="playBtn" aria-label="Play or pause" onclick="tap('play',this)"><svg class="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
-    <button class="ctrl sm transport" aria-label="Next track" onclick="tap('next',this)"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
+    <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
+    <button class="ctrl big play-toggle" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></svg></button>
+    <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
   </div>
-  <div class="p-footer" role="group" aria-label="Playback modes"><button class="mode-btn" id="repeatMode" aria-label="Repeat track" aria-pressed="false" onclick="toggleMode('repeat',this)"><i class="mode-dot"></i><span>REPEAT<br><span class="mode-state" id="repeatState">OFF</span></span></button><button class="mode-btn" id="shuffleMode" aria-label="Shuffle tracks" aria-pressed="false" onclick="toggleMode('shuffle',this)"><span>SHUFFLE<br><span class="mode-state" id="shuffleState">OFF</span></span><i class="mode-dot"></i></button></div>
+
+  <div class="p-footer"><span data-bind="channel">CH -- / --</span><span>BURZH RADIO · 24/7</span></div>
 </section>
 
-<section class="screen landscape" aria-label="BURZH beats player landscape">
+<section class="screen landscape" aria-label="BURZH beats radio, desk screen">
   <div class="l-shell">
-    <header class="l-header"><div class="l-brand">BURZH beats</div><div class="l-topline"></div><div class="l-header-right"><div class="l-motto">GOOD MUSIC<br>BETTER DAYS&nbsp;&nbsp;■</div><div class="l-actions"><button class="l-action-btn heart" id="landHeartBtn" aria-label="Add to Favorites" onclick="toggleFavorite()"><svg viewBox="0 0 24 24"><path d="M12 20.5S3.5 15.3 3.5 8.7A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 8.5 1.3c0 6.6-8.5 11.8-8.5 11.8Z"/></svg></button><button class="l-action-btn more" aria-label="Open settings" onclick="openSettings()">⋮</button></div></div></header>
+    <header class="l-header">
+      <div class="l-brand">BURZH beats</div>
+      <div class="l-topline"></div>
+      <button class="text-btn chrome" data-open="settingsOverlay" aria-label="Settings">SETTINGS</button>
+    </header>
+
     <main class="l-main">
       <div class="l-info">
-        <div class="clock" id="clock"><span id="hh">--</span><span class="soft-colon"><i></i><i></i></span><span id="mm">--</span></div>
-        <div class="l-now"><span class="reddot"></span><div style="min-width:0"><div class="stationname" id="landStation">Lo-Fi</div><div class="l-title" id="landTitle">BURZH beats</div><div class="l-artist" id="landArtist">Connecting…</div></div></div>
+        <div class="clock" aria-label="Current time"><span data-bind="hh">--</span><span class="soft-colon"><i></i><i></i></span><span data-bind="mm">--</span></div>
+        <div class="l-date" data-bind="date"></div>
+        <div class="l-now">
+          <span class="reddot"></span>
+          <div style="min-width:0">
+            <div class="stationname" data-bind="station" data-swap>BURZH beats</div>
+            <div class="l-title" data-bind="title" data-swap></div>
+            <div class="l-sub" data-bind="sub"></div>
+          </div>
+        </div>
       </div>
-      <div class="l-visual"><div class="art-frame l-artframe" id="landArtFrame"><div class="orbital-art" id="landArt"></div></div><div class="locator-widget hidden" id="locatorWidget" aria-live="polite" role="button" tabindex="0" onclick="recenterLocator()"><div class="locator-map" aria-hidden="true"><div class="locator-grid"></div><svg class="locator-lines" viewBox="0 0 240 240" preserveAspectRatio="none"><path d="M-18 52 C35 41 62 63 104 54 S177 20 258 41"/><path d="M-25 174 C31 151 68 161 105 146 S166 108 263 123"/><path d="M48 -18 C57 36 40 74 69 112 S102 173 83 258"/><path d="M184 -14 C164 33 179 76 153 109 S132 180 154 258"/><path class="locator-minor" d="M-10 99 C54 113 91 94 126 105 S190 154 253 151"/><path class="locator-minor" d="M113 -10 C126 46 111 80 126 122 S139 201 126 255"/></svg><svg class="locator-live-layer" viewBox="0 0 240 240" preserveAspectRatio="none" aria-hidden="true"><polyline id="locatorTrail" points=""></polyline></svg><div class="locator-crosshair"><i></i><b></b></div><div class="locator-pulse" id="locatorPulse"></div><div class="locator-dot" id="locatorDot"></div></div><div class="locator-top"><span>LOCATOR</span><span class="locator-mode" id="locatorMode">LIVE GPS</span></div><div class="locator-readout"><div class="locator-kicker">POSITION</div><div class="locator-coords" id="locatorCoords">--.----- / --.-----</div><div class="locator-accuracy" id="locatorAccuracy">LIVE GPS · DRIFT FILTERED</div></div></div></div>
-      <div class="l-genre-menu" role="group" aria-label="Stations">
-        <button class="l-genre-btn" data-station="Future Garage" onclick="landStationTap(this,'futureGarage',true)">FUTURE<br>GARAGE</button>
-        <button class="l-genre-btn active" data-station="Lo-Fi" onclick="landStationTap(this,'lofi',true)">LO-FI</button>
-        <button class="l-genre-btn" data-station="Deep House" onclick="landStationTap(this,'d',true)">DEEP<br>HOUSE</button>
-        <button class="l-genre-btn" data-station="Trance" onclick="landStationTap(this,'t',true)">TRANCE</button>
-      </div>
+      <div class="l-visual"><div class="art-frame l-artframe swipe"><div class="orbital-art"></div></div></div>
+      <div class="l-genre-menu chrome" id="genreMenu" role="group" aria-label="Stations"></div>
     </main>
-    <div class="l-progress"><div class="bar"><div class="rail"></div><div class="fill" id="landFill"></div><div class="knob" id="landKnob"></div></div><div class="times"><span id="landElapsed">0:00</span><span id="landRemaining">--:--</span></div></div>
+
+    <div class="l-live">
+      <div class="live-rail"><div class="live-fill"></div></div>
+      <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span></span><span data-bind="remaining"></span></div>
+    </div>
+
     <div class="l-bottom">
-      <div class="l-caption" id="landSlogan">A HIGHER<br>STATE THROUGH<br>SOUND<div class="smallrule"></div></div><div class="weather-widget hidden" id="weatherWidget" aria-live="polite"><div class="weather-temp" id="weatherTemp">--°</div><div class="weather-meta"><div id="weatherCondition">WEATHER</div><div class="weather-city" id="weatherCity">LOADING</div></div><div class="smallrule"></div></div>
-      <div class="l-controls">
-        <button class="ctrl sm transport" aria-label="Previous track" onclick="tap('previous',this)"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
-        <button class="ctrl big transport" id="landPlayBtn" aria-label="Play or pause" onclick="tap('play',this)"><svg class="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
-        <button class="ctrl sm transport" aria-label="Next track" onclick="tap('next',this)"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
+      <div class="l-caption tagline"><span data-bind="tagline"></span><div class="smallrule"></div></div>
+      <div class="weather" id="weatherWidget" hidden aria-live="polite">
+        <div class="weather-temp" data-bind="w-temp">--°</div>
+        <div class="weather-meta"><div data-bind="w-cond">WEATHER</div><div class="weather-city" data-bind="w-city"></div></div>
       </div>
-      <div class="matrix track-matrix" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="l-controls chrome">
+        <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
+        <button class="ctrl big play-toggle" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></svg></button>
+        <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
+      </div>
+      <div class="l-channel"><span data-bind="channel"></span><br>BURZH RADIO</div>
     </div>
   </div>
 </section>
 
 <div class="player-status" id="playerStatus" role="status" aria-live="polite"></div>
 
-<div class="overlay" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-  <div class="card auth-card">
-    <div class="auth-kicker">BURZH beats / Yandex OAuth</div><div class="auth-title" id="authTitle">CONNECT</div>
-    <div class="auth-copy">Войди через Яндекс. После подтверждения Яндекс вернёт тебя в BURZH beats, и приложение автоматически завершит подключение через PKCE.</div>
-    <div id="yandexLoginMount" style="margin-top:18px;min-height:56px"></div>
-    <div class="auth-actions"><button class="auth-btn" onclick="closeAuth()">CLOSE</button><button class="auth-btn" onclick="retryYandexLogin()">RETRY</button></div>
-    <div class="auth-error" id="authError" aria-live="polite"></div>
-  </div>
-</div>
-
 <div class="overlay" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="card">
-    <div class="auth-kicker">BURZH beats / player</div><div class="auth-title" id="settingsTitle">SETTINGS</div>
+    <div class="kicker">BURZH beats / radio</div>
+    <div class="card-title" id="settingsTitle">SETTINGS</div>
     <div class="settings-list">
-      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Favorites</div><div class="settings-value" id="favoritesSummary">0 saved tracks</div></div><button class="settings-open" onclick="openFavorites()">OPEN</button></div>
-      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Sound</div><div class="settings-value" id="soundSummary">Web Audio · EQ / Bass / Gain</div></div><button class="settings-open" onclick="openSound()">OPEN</button></div>
-      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape</div><div class="settings-value">Weather · WeatherAPI · auto IP</div></div><button class="settings-open" id="weatherToggleBtn" onclick="toggleWeather()">OFF</button></div><div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Landscape widget</div><div class="settings-value">Locator · live GPS · foreground only</div></div><button class="settings-open" id="locatorToggleBtn" onclick="toggleLocator()">OFF</button></div>
-      <div class="settings-row actionable"><div class="settings-copy"><div class="settings-label">Style</div><div class="settings-value">Player background</div></div><button class="settings-open" id="themeToggleBtn" onclick="toggleTheme()">BLACK</button></div>
-      <div class="settings-row"><div class="settings-label">Music library</div><div class="settings-value" id="accountState">LOCAL · TRANCE · 2 MIXES</div></div>
-      <div class="settings-row"><div class="settings-label">BURZH beats</div><div class="settings-value">v0.17.0-web · local library</div></div>
+      <div class="settings-row">
+        <div><div class="settings-label">Desk screen</div><div class="settings-value">Keep the screen on in landscape</div></div>
+        <button class="pill" id="awakeBtn">ON</button>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Night mode</div><div class="settings-value">Dim red display · auto 23:00–07:00</div></div>
+        <button class="pill" id="nightBtn">AUTO</button>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Style</div><div class="settings-value">Background</div></div>
+        <button class="pill" id="themeBtn">BLACK</button>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Weather · landscape</div><div class="settings-value" data-bind="city-setting">NOT SET</div></div>
+        <button class="pill" id="weatherToggleBtn">OFF</button>
+        <form class="city-form" id="cityForm" autocomplete="off">
+          <input id="cityInput" type="text" inputmode="text" enterkeyhint="done" placeholder="City, e.g. Moscow" aria-label="City for weather">
+          <button class="pill" type="submit">SET</button>
+        </form>
+        <div class="settings-note">Open-Meteo · no account, no location access</div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">Library</div><div class="settings-value" id="libraryState">—</div></div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">BURZH beats</div><div class="settings-value" id="versionState">—</div></div>
+      </div>
     </div>
-    <div class="auth-actions"><button class="auth-btn primary" onclick="closeSettings()">DONE</button></div>
+    <button class="pill primary" data-close="settingsOverlay">DONE</button>
   </div>
 </div>
 
-<div class="overlay" id="favoritesOverlay" role="dialog" aria-modal="true" aria-labelledby="favoritesTitle">
-  <div class="card">
-    <div class="auth-kicker">BURZH beats / library</div><div class="auth-title" id="favoritesTitle">FAVORITES</div>
-    <div class="favorites-list" id="favoritesList"><div class="empty-state">NO FAVORITES YET</div></div>
-    <div class="auth-actions"><button class="auth-btn primary" onclick="closeFavorites()">BACK TO PLAYER</button></div>
-  </div>
-</div>
-
-<div class="overlay" id="soundOverlay" role="dialog" aria-modal="true" aria-labelledby="soundTitle">
-  <div class="card">
-    <div class="auth-kicker">BURZH beats / audio session</div><div class="auth-title" id="soundTitle">SOUND</div>
-    <div class="sound-master"><div><div class="sound-master-label">DSP</div><div class="sound-note" id="soundSupport">WEB AUDIO PROCESSING · MUSIC PLAYBACK</div></div><button class="sound-toggle" id="soundMaster" onclick="toggleSoundMaster()">OFF</button></div>
-    <div class="sound-section" id="eqSection"><div class="sound-section-title">Equalizer</div><div class="preset-grid" id="presetGrid"><button class="preset-btn" data-preset="FLAT" onclick="setPreset('FLAT')">FLAT</button><button class="preset-btn" data-preset="WARM" onclick="setPreset('WARM')">WARM</button><button class="preset-btn" data-preset="DEEP" onclick="setPreset('DEEP')">DEEP</button><button class="preset-btn" data-preset="VOCAL" onclick="setPreset('VOCAL')">VOCAL</button><button class="preset-btn" data-preset="AIR" onclick="setPreset('AIR')">AIR</button><button class="preset-btn" data-preset="CUSTOM" onclick="setPreset('CUSTOM')">CUSTOM</button></div><div class="eq-bands" id="eqBands"></div></div>
-    <div class="sound-section" id="bassSection"><div class="sound-section-title">Bass Boost</div><div class="sound-line"><span class="sound-name">BASS</span><input class="sound-range" id="bassRange" type="range" min="0" max="100" step="1" value="0" oninput="previewBass(this.value)" onchange="commitBass(this.value)"><span class="sound-value" id="bassValue">0</span></div></div>
-    <div class="sound-section" id="gainSection"><div class="sound-section-title">Loudness</div><div class="sound-line"><span class="sound-name">GAIN</span><input class="sound-range" id="gainRange" type="range" min="0" max="30" step="1" value="0" oninput="previewGain(this.value)" onchange="commitGain(this.value)"><span class="sound-value" id="gainValue">0.0 dB</span></div><div class="sound-note">Conservative 0…+3 dB range. Background playback is prioritized on iPhone.</div></div>
-    <div class="auth-actions"><button class="auth-btn primary" onclick="closeSound()">BACK TO PLAYER</button></div>
-  </div>
-</div>
-
-
-<script>
-const $=id=>document.getElementById(id);
-const fmt=ms=>{if(!Number.isFinite(ms)||ms<0)return'--:--';let s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
-let lastTitle='',lastState={},lastFavorites=[],lastSound={},transportBusy=false,busyTimer=0,statusTimer=0,authResetPending=false;
-
-function artworkSvg(s){return `
-<svg viewBox="0 0 220 220" aria-hidden="true" focusable="false">
-  <defs>
-    <radialGradient id="sphere-${s}" cx="34%" cy="27%" r="76%"><stop offset="0" stop-color="#686966"/><stop offset=".19" stop-color="#42433f"/><stop offset=".46" stop-color="#222320"/><stop offset=".72" stop-color="#0f100f"/><stop offset="1" stop-color="#020303"/></radialGradient>
-    <linearGradient id="rim-${s}" x1="18%" y1="12%" x2="84%" y2="90%"><stop offset="0" stop-color="#f2f3ed" stop-opacity=".42"/><stop offset=".4" stop-color="#9b9c96" stop-opacity=".12"/><stop offset=".77" stop-color="#20211f" stop-opacity="0"/></linearGradient>
-    <filter id="grain-${s}" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".78" numOctaves="3" seed="17" result="n"/><feColorMatrix in="n" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .34 0" result="g"/><feComposite in="g" in2="SourceGraphic" operator="in"/></filter>
-  </defs>
-  <g class="art-stars"><circle cx="24" cy="45" r="1"/><circle cx="38" cy="171" r=".8"/><circle cx="64" cy="27" r=".65"/><circle cx="173" cy="36" r=".8"/><circle cx="193" cy="157" r=".65"/><circle cx="157" cy="189" r=".9"/><circle cx="31" cy="111" r=".55"/><circle cx="187" cy="91" r=".6"/><circle cx="82" cy="194" r=".5"/><circle cx="134" cy="22" r=".5"/></g>
-  <ellipse class="orbit-back" cx="110" cy="110" rx="94" ry="35" transform="rotate(-31 110 110)"/>
-  <circle cx="110" cy="110" r="63" fill="url(#sphere-${s})"/>
-  <circle class="sphere-grain" cx="110" cy="110" r="62.4" fill="#fff" filter="url(#grain-${s})"/>
-  <circle class="sphere-rim" cx="110" cy="110" r="63" stroke="url(#rim-${s})"/>
-  <ellipse class="orbit-front" cx="110" cy="110" rx="94" ry="35" transform="rotate(-31 110 110)"/>
-  <g transform="rotate(-31 110 110)"><g transform="translate(110 110) scale(1 .372) translate(-110 -110)"><g class="orbit-spin"><ellipse class="orbit-halo" cx="204" cy="110" rx="8.5" ry="22"/><ellipse class="orbit-dot" cx="204" cy="110" rx="4.1" ry="10.8"/></g></g></g>
-</svg>`}
-$('portraitArt').innerHTML=artworkSvg('p');$('landArt').innerHTML=artworkSvg('l');
-
-let feedbackAt=0;function feedback(k='soft'){const now=Date.now();if(now-feedbackAt<55)return;feedbackAt=now;const ms=k==='play'?30:((k==='next'||k==='previous'||k==='station')?24:16);try{if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function')navigator.vibrate(ms)}catch(e){}try{AndroidBridge.feedback(k)}catch(e){}}
-document.addEventListener('click',e=>{const b=e.target&&e.target.closest?e.target.closest('button'):null;if(b)feedback('soft')});
-function showStatus(message,kind='info',ms=2200){const el=$('playerStatus');if(!message){el.classList.remove('show','error');return}clearTimeout(statusTimer);el.textContent=message;el.classList.toggle('error',kind==='error');el.classList.add('show');if(ms>0)statusTimer=setTimeout(()=>el.classList.remove('show'),ms)}
-function toggleFavorite(){feedback('soft');try{AndroidBridge.toggleFavorite()}catch(e){showStatus('FAVORITES ERROR','error')}}
-function openFavorites(){feedback('soft');closeSettings();$('favoritesOverlay').classList.add('show');try{AndroidBridge.requestFavorites()}catch(e){showStatus('FAVORITES ERROR','error')}}
-function closeFavorites(){$('favoritesOverlay').classList.remove('show')}
-const stationLabels={d:'Deep House',t:'Trance'};
-function stationLabel(name){return stationLabels[name]||name||''}
-function updateModeUI(mode){
-  const repeat=mode==='preview'||mode==='transientPart',shuffle=mode==='playing'||mode==='transientPart';
-  const r=$('repeatMode'),sh=$('shuffleMode');
-  if(r){r.classList.toggle('active',repeat);r.setAttribute('aria-pressed',String(repeat));$('repeatState').textContent=repeat?'ON':'OFF'}
-  if(sh){sh.classList.toggle('active',shuffle);sh.setAttribute('aria-pressed',String(shuffle));$('shuffleState').textContent=shuffle?'ON':'OFF'}
-}
-function toggleMode(kind,el){feedback('soft');el&&el.animate([{transform:'scale(.94)'},{transform:'scale(1)'}],{duration:150,easing:'cubic-bezier(.2,.8,.2,1)'});try{AndroidBridge.selectStation(kind==='repeat'?'reload':'resumePlayback')}catch(e){showStatus('MODE SWITCH ERROR','error')}}
-
-function openAuth(message=''){$('authError').textContent=message;$('authOverlay').classList.add('show');setTimeout(()=>{try{window.BURZHYandexAuth&&window.BURZHYandexAuth.mount('yandexLoginMount')}catch(e){}},80)}
-function closeAuth(){document.activeElement&&document.activeElement.blur();$('authOverlay').classList.remove('show')}
-function retryYandexLogin(){feedback('soft');try{window.BURZHYandexAuth&&window.BURZHYandexAuth.reset()}catch(e){$('authError').textContent='YANDEX LOGIN ERROR'}}
-function saveToken(){showStatus('USE LOGIN WITH YANDEX','error',2500)}
-function changeToken(){closeSettings();openAuth('LOGIN WITH YANDEX')}
-function disconnectYandex(){feedback('soft');closeSettings();try{AndroidBridge.clearYandexToken();showStatus('YANDEX MUSIC DISCONNECTED')}catch(e){showStatus('DISCONNECT ERROR','error')}}
-function openSettings(){feedback('soft');$('accountState').textContent=lastState.error?'Yandex Music connection needs attention.':(lastState.connected?'Connected to Yandex Music.':'Not connected to Yandex Music.');$('settingsOverlay').classList.add('show')}
-function closeSettings(){$('settingsOverlay').classList.remove('show')}
-function openSound(){feedback('soft');closeSettings();$('soundOverlay').classList.add('show');try{AndroidBridge.requestSound()}catch(e){showStatus('SOUND ERROR','error')}}
-function closeSound(){$('soundOverlay').classList.remove('show')}
-function toggleSoundMaster(){const next=!lastSound.enabled;try{AndroidBridge.setSoundEnabled(next)}catch(e){showStatus('SOUND ERROR','error')}}
-function setPreset(preset){try{AndroidBridge.setEqPreset(preset)}catch(e){showStatus('EQ ERROR','error')}}
-function previewBass(v){$('bassValue').textContent=String(v)}
-function commitBass(v){try{AndroidBridge.setBass(Number(v)||0)}catch(e){showStatus('BASS ERROR','error')}}
-function previewGain(v){$('gainValue').textContent=(Number(v)/10).toFixed(1)+' dB'}
-function commitGain(v){try{AndroidBridge.setGainTenthDb(Number(v)||0)}catch(e){showStatus('GAIN ERROR','error')}}
-function fmtHz(hz){hz=Number(hz)||0;return hz>=1000?(hz/1000).toFixed(hz>=10000?0:1)+'k':Math.round(hz)+' Hz'}
-function renderEqBands(sound){const root=$('eqBands');root.textContent='';if(!sound.eqSupported)return;(sound.bands||[]).forEach((b,i)=>{const row=document.createElement('div');row.className='eq-band';const f=document.createElement('span');f.className='eq-freq';f.textContent=fmtHz((Number(b.centerMilliHz)||0)/1000);const input=document.createElement('input');input.className='sound-range';input.type='range';input.min=String(sound.minBandLevelMb||-1500);input.max=String(sound.maxBandLevelMb||1500);input.step='50';input.value=String(b.levelMb||0);const value=document.createElement('span');value.className='sound-value';const update=()=>value.textContent=((Number(input.value)||0)/100).toFixed(1)+' dB';update();input.oninput=update;input.onchange=()=>{try{AndroidBridge.setEqBand(i,Number(input.value)||0)}catch(e){showStatus('EQ ERROR','error')}};row.append(f,input,value);root.appendChild(row)})}
-function renderFavorites(items){lastFavorites=Array.isArray(items)?items:[];const root=$('favoritesList');root.textContent='';$('favoritesSummary').textContent=lastFavorites.length+' saved '+(lastFavorites.length===1?'track':'tracks');if(!lastFavorites.length){const e=document.createElement('div');e.className='empty-state';e.textContent='NO FAVORITES YET';root.appendChild(e);return}lastFavorites.forEach(t=>{const row=document.createElement('div');row.className='favorite-row';const main=document.createElement('button');main.className='favorite-main';main.onclick=()=>{feedback('play');closeFavorites();try{AndroidBridge.playFavorite(String(t.trackId||''))}catch(e){showStatus('FAVORITE PLAYBACK ERROR','error')}};const title=document.createElement('div');title.className='favorite-title';title.textContent=t.title||'Unknown track';const artist=document.createElement('div');artist.className='favorite-artist';artist.textContent=t.artist||'Unknown artist';const station=document.createElement('div');station.className='favorite-station';station.textContent=t.station||'BURZH beats';main.append(title,artist,station);const remove=document.createElement('button');remove.className='favorite-remove';remove.setAttribute('aria-label','Remove from Favorites');remove.textContent='×';remove.onclick=()=>{feedback('soft');try{AndroidBridge.removeFavorite(String(t.trackId||''))}catch(e){showStatus('FAVORITES ERROR','error')}};row.append(main,remove);root.appendChild(row)})}
-function applySoundState(sound){lastSound=sound||{};const master=$('soundMaster');master.textContent=lastSound.enabled?'ON':'OFF';master.classList.toggle('on',!!lastSound.enabled);$('soundSummary').textContent='Real Android DSP · '+(lastSound.enabled?'ON':'OFF')+' · '+(lastSound.preset||'FLAT');$('soundSupport').textContent=lastSound.sessionAttached?'ACTIVE AUDIO SESSION '+String(lastSound.audioSessionId||''):'APPLIES WHEN A TRACK SESSION IS ACTIVE';$('eqSection').classList.toggle('hidden',!lastSound.eqSupported);$('bassSection').classList.toggle('hidden',!lastSound.bassSupported);$('gainSection').classList.toggle('hidden',!lastSound.gainSupported);document.querySelectorAll('.preset-btn').forEach(b=>b.classList.toggle('active',b.dataset.preset===String(lastSound.preset||'FLAT')));$('bassRange').value=String(lastSound.bass||0);$('bassValue').textContent=String(lastSound.bass||0);$('gainRange').value=String(lastSound.gainTenthDb||0);$('gainValue').textContent=(Number(lastSound.gainTenthDb||0)/10).toFixed(1)+' dB';renderEqBands(lastSound)}
-
-function setBusy(on){transportBusy=!!on;clearTimeout(busyTimer);document.querySelectorAll('.transport').forEach(b=>b.classList.toggle('busy',transportBusy));if(on)busyTimer=setTimeout(()=>setBusy(false),6500)}
-function tap(a,el){if(transportBusy&&a!=='play'){showStatus('LOADING TRACK');return}feedback(a);el&&el.animate([{transform:'scale(.92)'},{transform:'scale(1)'}],{duration:150,easing:'cubic-bezier(.2,.8,.2,1)'});if(a==='next'||a==='previous')setBusy(true);try{if(a==='play')AndroidBridge.playPause();else if(a==='next')AndroidBridge.next();else if(a==='previous')AndroidBridge.previous()}catch(e){setBusy(false);showStatus('PLAYER BRIDGE ERROR','error')}}
-function unavailableStation(el,name){el.classList.remove('nudge');void el.offsetWidth;el.classList.add('nudge');showStatus(`${name.toUpperCase()} — COMING SOON`)}
-function stationTap(el,key,available){feedback('station');if(!available){unavailableStation(el,el.dataset.station);return}if(transportBusy){showStatus('WAIT FOR CURRENT TRACK');return}setBusy(true);document.querySelectorAll('.station').forEach(x=>x.classList.remove('active','switching'));el.classList.add('active','switching');setTimeout(()=>el.classList.remove('switching'),520);try{AndroidBridge.selectStation(key)}catch(e){setBusy(false);showStatus('STATION ERROR','error')}}
-function landStationTap(el,key,available){feedback('station');if(!available){unavailableStation(el,el.dataset.station);return}if(transportBusy){showStatus('WAIT FOR CURRENT TRACK');return}setBusy(true);document.querySelectorAll('.l-genre-btn').forEach(x=>x.classList.remove('active'));el.classList.add('active');try{AndroidBridge.selectStation(key)}catch(e){setBusy(false);showStatus('STATION ERROR','error')}}
-
-const WEATHER_ENABLED_KEY='burzh.weather.enabled.weatherapi.v6';
-const WEATHER_CACHE_KEY='burzh.weather.cache.weatherapi.v6';
-const WEATHER_REFRESH_MS=30*60*1000;
-const WEATHER_STALE_MS=6*60*60*1000;
-let weatherEnabled=false,weatherTimer=0,weatherLoading=false;
-function weatherCache(){try{const x=JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY)||'null');return x&&Number.isFinite(Number(x.ts))?x:null}catch(e){return null}}
-function weatherRender(d){if(!d)return;$('weatherTemp').textContent=Math.round(Number(d.temp))+'°';$('weatherCondition').textContent=String(d.condition||'CURRENT WEATHER').toUpperCase();$('weatherCity').textContent=String(d.city||'LOCAL AREA').toUpperCase()}
-function weatherUnavailable(){$('weatherTemp').textContent='--°';$('weatherCondition').textContent='WEATHER UNAVAILABLE';$('weatherCity').textContent='WEATHERAPI'}
-function weatherRequest(url,timeout=15000){return new Promise((resolve,reject)=>{let done=false;const finish=(fn,v)=>{if(done)return;done=true;clearTimeout(timer);fn(v)};const timer=setTimeout(()=>finish(reject,new Error('TIMEOUT')),timeout);try{const x=new XMLHttpRequest();x.open('GET',url,true);x.onreadystatechange=()=>{if(x.readyState!==4)return;if(x.status>=200&&x.status<300){try{finish(resolve,JSON.parse(x.responseText))}catch(e){finish(reject,e)}}else finish(reject,new Error('HTTP '+x.status))};x.onerror=()=>finish(reject,new Error('NETWORK'));x.send(null)}catch(e){finish(reject,e)}})}
-async function weatherApiNow(){const url='https://api.weatherapi.com/v1/current.json?key=1cc52e1852e24aeab9c234536262409&q=auto%3Aip&aqi=no';const j=await weatherRequest(url,15000);if(!j||j.error)throw new Error(j&&j.error&&j.error.message||'WEATHERAPI ERROR');const loc=j.location||{},cur=j.current||{},temp=Number(cur.temp_c),condition=cur.condition&&cur.condition.text;if(!Number.isFinite(temp))throw new Error('NO TEMP');return{ts:Date.now(),temp,condition:condition||'CURRENT WEATHER',city:loc.name||loc.region||loc.country||'LOCAL AREA'}}
-async function refreshWeather(force){if(!weatherEnabled||weatherLoading)return;const cache=weatherCache();if(!force&&cache&&Date.now()-Number(cache.ts)<WEATHER_REFRESH_MS){weatherRender(cache);weatherTimer=setTimeout(()=>refreshWeather(true),WEATHER_REFRESH_MS);return}weatherLoading=true;if(!cache){$('weatherTemp').textContent='--°';$('weatherCondition').textContent='WEATHER';$('weatherCity').textContent='LOADING'}try{const data=await weatherApiNow();try{localStorage.setItem(WEATHER_CACHE_KEY,JSON.stringify(data))}catch(e){}weatherRender(data)}catch(e){if(cache&&Date.now()-Number(cache.ts)<WEATHER_STALE_MS)weatherRender(cache);else weatherUnavailable()}finally{weatherLoading=false;if(weatherEnabled){clearTimeout(weatherTimer);weatherTimer=setTimeout(()=>refreshWeather(true),WEATHER_REFRESH_MS)}}}
-function syncWeatherUI(){const slogan=$('landSlogan'),widget=$('weatherWidget'),btn=$('weatherToggleBtn');if(btn)btn.textContent=weatherEnabled?'ON':'OFF';if(slogan)slogan.classList.toggle('hidden',weatherEnabled);if(widget)widget.classList.toggle('hidden',!weatherEnabled);clearTimeout(weatherTimer);if(weatherEnabled){const c=weatherCache();if(c)weatherRender(c);refreshWeather(false)}}
-function toggleWeather(){feedback('soft');weatherEnabled=!weatherEnabled;try{localStorage.setItem(WEATHER_ENABLED_KEY,weatherEnabled?'1':'0')}catch(e){}syncWeatherUI()}
-try{weatherEnabled=localStorage.getItem(WEATHER_ENABLED_KEY)==='1'}catch(e){weatherEnabled=false}
-syncWeatherUI();
-
-const LOCATOR_ENABLED_KEY='burzh.locator.enabled.stage1';
-const LOCATOR_LAST_KEY='burzh.locator.lastfix';
-const LOCATOR_METERS_PER_UNIT=2.0;
-let locatorEnabled=false,locatorActive=false,locatorWaiting=false,locatorTimer=0;
-let locatorAnchor=null,locatorVisual=null,locatorLastGood=null,locatorTrail=[];
-let webGeoWatch=null;
-function nativeLocatorCommand(cmd){
-  if(!window.BURZH_WEB_BUILD){try{window.location.href='burzh://locator/'+cmd;return true}catch(e){return false}}
-  if(cmd==='off'){if(webGeoWatch!==null&&navigator.geolocation){navigator.geolocation.clearWatch(webGeoWatch);webGeoWatch=null}return true}
-  if(!navigator.geolocation){setTimeout(()=>window.BURZHWidgets&&window.BURZHWidgets.onNativeStatus('LOCATION_UNAVAILABLE'),0);return false}
-  if(webGeoWatch!==null)return true;
-  setTimeout(()=>window.BURZHWidgets&&window.BURZHWidgets.onNativeStatus('ACTIVE'),0);
-  try{
-    webGeoWatch=navigator.geolocation.watchPosition(
-      p=>{const c=p.coords||{};const raw='Location[web '+Number(c.latitude)+', '+Number(c.longitude)+' hAcc='+Number(c.accuracy||999)+']';window.BURZHWidgets&&window.BURZHWidgets.onLocationRaw(raw)},
-      e=>{webGeoWatch=null;window.BURZHWidgets&&window.BURZHWidgets.onNativeStatus((e&&e.code===1)?'PERMISSION_REQUIRED':'LOCATION_UNAVAILABLE')},
-      {enableHighAccuracy:true,maximumAge:1500,timeout:18000}
-    );
-    return true;
-  }catch(e){return false}
-}
-function locatorText(mode,coords,detail){const m=$('locatorMode'),c=$('locatorCoords'),a=$('locatorAccuracy');if(m&&mode)m.textContent=mode;if(c&&coords)c.textContent=coords;if(a&&detail)a.textContent=detail}
-function locatorShouldRun(){return locatorEnabled&&document.visibilityState==='visible'&&window.matchMedia('(orientation: landscape)').matches}
-function metersBetween(a,b){if(!a||!b)return Infinity;const r=6371000,p1=a.lat*Math.PI/180,p2=b.lat*Math.PI/180,dp=(b.lat-a.lat)*Math.PI/180,dl=(b.lon-a.lon)*Math.PI/180;const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*r*Math.asin(Math.min(1,Math.sqrt(h)))}
-function setLocatorMarker(x,y){const dot=$('locatorDot'),pulse=$('locatorPulse');const px=Math.max(16,Math.min(224,Number(x)||120)),py=Math.max(16,Math.min(224,Number(y)||120)),left=(px/240*100)+'%',top=(py/240*100)+'%';if(dot){dot.style.left=left;dot.style.top=top}if(pulse){pulse.style.left=left;pulse.style.top=top}}
-function clearLocatorTrail(){locatorTrail=[];const t=$('locatorTrail');if(t)t.setAttribute('points','')}
-function resetLocatorMap(p){const q=p||locatorVisual||locatorLastGood;if(q)locatorAnchor={lat:q.lat,lon:q.lon};else locatorAnchor=null;clearLocatorTrail();setLocatorMarker(120,120)}
-function renderLocatorPosition(p){if(!locatorVisual){locatorVisual={lat:p.lat,lon:p.lon}}else{const jump=metersBetween(locatorVisual,p),goodAcc=Number.isFinite(p.acc)?p.acc:20;const alpha=jump>80?.72:(goodAcc<=10?.58:goodAcc<=20?.44:.30);locatorVisual.lat+=alpha*(p.lat-locatorVisual.lat);locatorVisual.lon+=alpha*(p.lon-locatorVisual.lon)}if(!locatorAnchor)locatorAnchor={lat:locatorVisual.lat,lon:locatorVisual.lon};const cos=Math.max(.15,Math.cos(locatorAnchor.lat*Math.PI/180));const dx=(locatorVisual.lon-locatorAnchor.lon)*111320*cos,dy=(locatorVisual.lat-locatorAnchor.lat)*111320;let x=120+dx/LOCATOR_METERS_PER_UNIT,y=120-dy/LOCATOR_METERS_PER_UNIT;if(x<28||x>212||y<28||y>212){locatorAnchor={lat:locatorVisual.lat,lon:locatorVisual.lon};clearLocatorTrail();x=120;y=120}setLocatorMarker(x,y);const last=locatorTrail.length?locatorTrail[locatorTrail.length-1]:null;if(!last||Math.hypot(x-last[0],y-last[1])>=1.2)locatorTrail.push([x,y]);if(locatorTrail.length>90)locatorTrail.shift();const t=$('locatorTrail');if(t)t.setAttribute('points',locatorTrail.map(v=>v[0].toFixed(1)+','+v[1].toFixed(1)).join(' '))}
-function stopNativeLocator(showPaused=true){clearTimeout(locatorTimer);locatorTimer=0;if(locatorActive||locatorWaiting){try{nativeLocatorCommand('off')}catch(e){}}locatorActive=false;locatorWaiting=false;if(showPaused&&locatorEnabled&&locatorLastGood){const p=locatorLastGood;locatorText('PAUSED',p.lat.toFixed(5)+' / '+p.lon.toFixed(5),(Number.isFinite(p.acc)?('ACCURACY ±'+Math.round(p.acc)+' M · '):'')+'FOREGROUND ONLY')}}
-function startLocatorLive(silent=false){if(!locatorShouldRun()||locatorActive||locatorWaiting)return;if(!silent)feedback('soft');locatorWaiting=true;const coords=locatorLastGood?locatorLastGood.lat.toFixed(5)+' / '+locatorLastGood.lon.toFixed(5):'--.----- / --.-----';locatorText('STARTING',coords,'STARTING LIVE LOCATION…');if(!nativeLocatorCommand('on')){locatorWaiting=false;locatorText('UNAVAILABLE',coords,'NATIVE LOCATION BRIDGE UNAVAILABLE');return}clearTimeout(locatorTimer);locatorTimer=setTimeout(()=>{if(locatorWaiting&&!locatorLastGood){stopNativeLocator(false);locatorText('NO FIX','--.----- / --.-----','NO LOCATION FIX · TAP TO RETRY')}},20000)}
-function recenterLocator(){if(!locatorEnabled)return;feedback('soft');if(locatorLastGood){locatorVisual={lat:locatorLastGood.lat,lon:locatorLastGood.lon};resetLocatorMap(locatorLastGood)}if(!locatorActive&&!locatorWaiting)startLocatorLive(true)}
-function parseAndroidLocation(raw){const s=String(raw||'');const ll=s.match(/(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);if(!ll)return null;const acc=s.match(/(?:hAcc|acc)=([0-9]+(?:\.[0-9]+)?)/i);const provider=(s.match(/Location\[([^\s]+)/)||[])[1]||'location';return{lat:Number(ll[1]),lon:Number(ll[2]),acc:acc?Number(acc[1]):NaN,provider}}
-window.BURZHWidgets={
- onLocationRaw(raw){if(!locatorEnabled)return;const p=parseAndroidLocation(raw);if(!p||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)){locatorText('LIVE ERROR',locatorLastGood?(locatorLastGood.lat.toFixed(5)+' / '+locatorLastGood.lon.toFixed(5)):'--.----- / --.-----','IGNORED UNREADABLE LOCATION UPDATE');return}clearTimeout(locatorTimer);locatorTimer=0;locatorWaiting=false;locatorActive=true;const now=Date.now(),prev=locatorLastGood;const acc=Number.isFinite(p.acc)?p.acc:999,provider=String(p.provider||'GPS').toUpperCase();const shown=prev?(prev.lat.toFixed(5)+' / '+prev.lon.toFixed(5)):'--.----- / --.-----';if(acc>35){locatorText(prev?'LIVE · HOLD':'SEARCHING',shown,'WEAK FIX ±'+Math.round(acc)+' M · HOLDING POSITION');return}if(prev){const d=metersBetween(prev,p),dt=Math.max(1,(now-Number(prev.ts||now))/1000),dead=acc<=10?3.0:acc<=20?5.0:8.0,maxJump=Math.max(90,dt*65);if(d<dead){locatorLastGood={lat:prev.lat,lon:prev.lon,acc:p.acc,provider:p.provider,ts:now};locatorText('LIVE · STABLE',prev.lat.toFixed(5)+' / '+prev.lon.toFixed(5),'ACCURACY ±'+Math.round(acc)+' M · '+provider+' · NO DRIFT');try{localStorage.setItem(LOCATOR_LAST_KEY,JSON.stringify(locatorLastGood))}catch(e){}return}if(d>maxJump){locatorText('LIVE · HOLD',shown,'REJECTED GPS JUMP '+Math.round(d)+' M · ±'+Math.round(acc)+' M');return}}locatorLastGood={lat:p.lat,lon:p.lon,acc:p.acc,provider:p.provider,ts:now};renderLocatorPosition(p);const coords=p.lat.toFixed(5)+' / '+p.lon.toFixed(5),detail='ACCURACY ±'+Math.round(acc)+' M · '+provider+' · LIVE';locatorText('LIVE',coords,detail);try{localStorage.setItem(LOCATOR_LAST_KEY,JSON.stringify(locatorLastGood))}catch(e){}},
- onNativeStatus(status){const s=String(status||'').toUpperCase();if(!locatorEnabled)return;if(s.indexOf('PERMISSION_REQUIRED')>=0){locatorText('PERMISSION',locatorLastGood?(locatorLastGood.lat.toFixed(5)+' / '+locatorLastGood.lon.toFixed(5)):'--.----- / --.-----','ALLOW PRECISE LOCATION TO START LIVE GPS')}else if(s.indexOf('LOCATION_UNAVAILABLE')>=0){stopNativeLocator(false);locatorText('UNAVAILABLE',locatorLastGood?(locatorLastGood.lat.toFixed(5)+' / '+locatorLastGood.lon.toFixed(5)):'--.----- / --.-----','LOCATION UNAVAILABLE · TAP TO RETRY')}else if(s.indexOf('ACTIVE')>=0){locatorActive=true;locatorWaiting=true;locatorText('LOCATING',locatorLastGood?(locatorLastGood.lat.toFixed(5)+' / '+locatorLastGood.lon.toFixed(5)):'--.----- / --.-----','WAITING FOR LIVE GPS FIX…')}}
-};
-function loadLocatorLast(){try{const x=JSON.parse(localStorage.getItem(LOCATOR_LAST_KEY)||'null');if(x&&Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lon)))return{lat:Number(x.lat),lon:Number(x.lon),acc:Number(x.acc),provider:String(x.provider||'location'),ts:Number(x.ts||0)}}catch(e){}return null}
-function syncLocatorUI(){const art=$('landArtFrame'),widget=$('locatorWidget'),btn=$('locatorToggleBtn');if(btn)btn.textContent=locatorEnabled?'ON':'OFF';if(art)art.classList.toggle('hidden',locatorEnabled);if(widget)widget.classList.toggle('hidden',!locatorEnabled);if(locatorEnabled){if(!locatorLastGood)locatorLastGood=loadLocatorLast();if(locatorLastGood){locatorVisual={lat:locatorLastGood.lat,lon:locatorLastGood.lon};resetLocatorMap(locatorLastGood);const age=Math.max(0,Date.now()-Number(locatorLastGood.ts||0)),mins=Math.floor(age/60000);locatorText('READY',locatorLastGood.lat.toFixed(5)+' / '+locatorLastGood.lon.toFixed(5),(Number.isFinite(locatorLastGood.acc)?('ACCURACY ±'+Math.round(locatorLastGood.acc)+' M · '):'')+(mins<1?'LAST FIX <1 MIN AGO':'LAST FIX '+mins+' MIN AGO'))}else{resetLocatorMap();locatorText('READY','--.----- / --.-----','LIVE GPS · FOREGROUND ONLY')}}}
-function toggleLocator(){feedback('soft');locatorEnabled=!locatorEnabled;try{localStorage.setItem(LOCATOR_ENABLED_KEY,locatorEnabled?'1':'0')}catch(e){}if(!locatorEnabled)stopNativeLocator(false);syncLocatorUI();if(locatorEnabled&&locatorShouldRun())setTimeout(()=>startLocatorLive(true),180)}
-function handleLocatorLifecycle(){if(locatorShouldRun()){if(!locatorActive&&!locatorWaiting)setTimeout(()=>startLocatorLive(true),180)}else stopNativeLocator(false)}
-try{locatorEnabled=localStorage.getItem(LOCATOR_ENABLED_KEY)==='1'}catch(e){locatorEnabled=false}
-locatorLastGood=loadLocatorLast();
-syncLocatorUI();
-if(locatorShouldRun())setTimeout(()=>startLocatorLive(true),260);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&weatherEnabled)refreshWeather(false);handleLocatorLifecycle()});
-window.addEventListener('orientationchange',()=>setTimeout(handleLocatorLifecycle,250));
-
-function tick(){let d=new Date();$('hh').textContent=String(d.getHours()).padStart(2,'0');$('mm').textContent=String(d.getMinutes()).padStart(2,'0')}tick();setInterval(tick,1000);
-function looksAuthError(s){const text=((s.error||'')+' '+(s.status||'')).toLowerCase();return /\b401\b|unauthori[sz]ed|invalid\s+token|token\s+invalid|oauth.*invalid/.test(text)}
-function statusLabel(s){if(s.error)return s.error;const x=String(s.status||'').toUpperCase();const map={'RESOLVING AUDIO':'LOADING TRACK','SWITCHING':'SWITCHING STATION','LOADING':'LOADING TRACK','PLAYBACK ERROR':'PLAYBACK ERROR','AUDIO UNAVAILABLE':'AUDIO UNAVAILABLE','SOURCE ERROR':'SOURCE ERROR','CONNECT YANDEX':'CONNECT YANDEX MUSIC'};return map[x]||''}
-
-window.BURZH={onState(s){s=s||{};lastState=s;
-  const authBad=looksAuthError(s);
-  if(s.authRequired){const msg=s.error||s.status||'CONNECT YANDEX';openAuth(msg)}
-  else if(s.connected){closeAuth();$('authError').textContent=''}
-  if(s.sourceType)updateModeUI(s.sourceType);
-  if(s.station){const station=stationLabel(s.station);$('landStation').textContent=station;document.querySelectorAll('.station').forEach(btn=>btn.classList.toggle('active',btn.dataset.station===station));document.querySelectorAll('.l-genre-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.station===station))}
-  const fading=!!s.switching;['title','artist','landTitle','landArtist'].forEach(id=>{const e=$(id);if(e)e.style.opacity=fading?'.5':''});
-  if(s.title){if(s.title!==lastTitle){lastTitle=s.title;['title','artist','landTitle','landArtist'].forEach(id=>{let e=$(id);if(!e)return;e.classList.remove('swap');void e.offsetWidth;e.classList.add('swap')})}$('title').textContent=s.title;$('landTitle').textContent=s.title}
-  if(s.artist){$('artist').textContent=s.artist;$('landArtist').textContent=s.artist}
-  let d=Number(s.durationMs)||0,p=Math.max(0,Number(s.positionMs)||0),r=d?Math.max(0,Math.min(1,p/d)):0;['fill','landFill'].forEach(id=>$(id).style.width=(r*100)+'%');['knob','landKnob'].forEach(id=>$(id).style.left=(r*100)+'%');$('elapsed').textContent=$('landElapsed').textContent=fmt(p);$('remaining').textContent=$('landRemaining').textContent=d?'-'+fmt(Math.max(0,d-p)):'--:--';
-  $('playBtn').classList.toggle('is-playing',!!s.playing);$('landPlayBtn').classList.toggle('is-playing',!!s.playing);[$('landArt'),$('portraitArt')].forEach(art=>art&&art.classList.toggle('is-playing',!!s.playing));
-  const hearts=[$('heartBtn'),$('landHeartBtn')].filter(Boolean);hearts.forEach(heart=>{heart.classList.toggle('active',!!s.favorite);heart.setAttribute('aria-label',s.favorite?'Remove from Favorites':'Add to Favorites')});if(Number.isFinite(Number(s.favoritesCount)))$('favoritesSummary').textContent=Number(s.favoritesCount)+' saved '+(Number(s.favoritesCount)===1?'track':'tracks');
-  document.querySelectorAll('.track-matrix').forEach(matrix=>{const dots=matrix.querySelectorAll('i');if(!dots.length)return;const idx=Math.max(0,Number(s.index)||0)%dots.length;dots.forEach((x,i)=>{x.classList.toggle('hot',i===idx);x.classList.toggle('past',i<idx)})});
-  const label=statusLabel(s);if(s.error){showStatus(label||'PLAYER ERROR','error',12000);setBusy(false)}else if(/RESOLVING|LOADING|SWITCHING|BUFFERING/.test(String(s.status||'').toUpperCase())||s.switching){if(label)showStatus(label,'info',0);setBusy(true)}else{if(label&&label!=='PLAYING'&&label!=='PAUSED'&&label!=='READY')showStatus(label);else showStatus('');setBusy(false)}
-},onFavorites(items){renderFavorites(items)},onSound(sound){applySoundState(sound)}};
-
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSettings();closeAuth();closeFavorites();closeSound()}if((e.key==='Enter'||e.key===' ')&&document.activeElement===$('locatorWidget')){e.preventDefault();recenterLocator()}});
-</script>
-<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}</script>
-
-
-<script defer src="./local-player.js?v=4"></script>
+<script src="./app.js" defer></script>
 </body>
 </html>
