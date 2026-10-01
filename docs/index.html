@@ -191,7 +191,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 
 /* ---------- Night mode: dim red monochrome, pure black (OLED friendly) ---------- */
 html.night,html.night body{--bg:#000;background:#000}
-html.night .screen{background:#000;filter:url(#night-red)}
+html.night .screen{background:#000;filter:brightness(.42)}
 html.night .art-frame{box-shadow:none}
 
 /* ---------- Graphite theme ---------- */
@@ -227,12 +227,6 @@ html.theme-graphite:not(.night) .screen{background:radial-gradient(120% 120% at 
 </head>
 <body>
 
-<!-- Night mode: maps everything to dim red by luminance (keeps dark adaptation, easy on OLED). -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-  <filter id="night-red" color-interpolation-filters="sRGB">
-    <feColorMatrix type="matrix" values="0.15 0.5 0.05 0 0  0.012 0.04 0.004 0 0  0.008 0.026 0.003 0 0  0 0 0 1 0"/>
-  </filter>
-</svg>
 
 <section class="screen portrait" aria-label="BURZH beats radio">
   <div class="p-logo">BURZH<br>beats</div>
@@ -322,7 +316,7 @@ html.theme-graphite:not(.night) .screen{background:radial-gradient(120% 120% at 
       </div>
       <div class="settings-row">
         <div><div class="settings-label">Night mode</div><div class="settings-value">Dim red display · auto 23:00–07:00</div></div>
-        <button class="pill" id="nightBtn">AUTO</button>
+        <button class="pill" id="nightBtn">OFF</button>
       </div>
       <div class="settings-row">
         <div><div class="settings-label">Style</div><div class="settings-value">Background</div></div>
