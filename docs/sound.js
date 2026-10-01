@@ -24,17 +24,17 @@
     { f: 4000, type: 'peaking', q: 0.9, label: '4k' },
     { f: 10000, type: 'highshelf', q: 0.7, label: '10k' }
   ];
-  const EQ_RANGE = 10; // dB either way
+  const EQ_RANGE = 12; // dB either way
 
   const make = (bands, bass, clarity, width, glue, level) => ({ bands, bass, clarity, width, glue, level });
   const PRESETS = {
-    flat:  { name: 'Flat',  hint: 'Untouched sound',            p: make([0, 0, 0, 0, 0, 0], 0, 0, 100, 0, 0) },
-    club:  { name: 'Club',  hint: 'Punchy low end, bright top', p: make([3.5, 2, -1.5, -0.5, 1.5, 2.5], 35, 25, 115, 35, 0) },
-    deep:  { name: 'Deep',  hint: 'Heavy sub, smooth highs',    p: make([4.5, 2.5, -0.5, -1.5, -0.5, 1], 45, 10, 105, 30, 0) },
-    warm:  { name: 'Warm',  hint: 'Tape-like, soft top',        p: make([2, 2.5, 1.5, -0.5, -2.5, -4], 20, 0, 95, 45, 0) },
-    wide:  { name: 'Wide',  hint: 'Open space, airy top',       p: make([3, 1, -1, 0, 1.5, 3], 40, 30, 135, 25, 0) },
-    clear: { name: 'Clear', hint: 'Forward mids, vocals',       p: make([-1, -1, -1, 1.5, 2.5, 1], 0, 35, 100, 20, 0) },
-    night: { name: 'Night', hint: 'Quiet listening, even level', p: make([3, 2, 0, -1, 0, 2], 25, 0, 100, 70, 1) }
+    flat:  { name: 'Flat',  hint: 'Untouched sound',             p: make([0, 0, 0, 0, 0, 0], 0, 0, 100, 0, 0) },
+    club:  { name: 'Club',  hint: 'Punchy low end, bright top',  p: make([5, 3.5, -2.5, -1, 2.5, 4], 55, 40, 125, 40, 1) },
+    deep:  { name: 'Deep',  hint: 'Heavy sub, smooth highs',     p: make([7, 4.5, -1, -2.5, -1.5, 1.5], 70, 15, 110, 35, 1) },
+    warm:  { name: 'Warm',  hint: 'Tape-like, soft top',         p: make([3, 4, 2.5, -1, -4.5, -7], 30, 0, 90, 55, 1) },
+    wide:  { name: 'Wide',  hint: 'Open space, airy top',        p: make([4.5, 1.5, -2, 0, 2.5, 4.5], 50, 45, 150, 30, 1) },
+    clear: { name: 'Clear', hint: 'Forward mids, vocals',        p: make([-2, -2, -1.5, 3, 4.5, 2.5], 0, 55, 105, 25, 1) },
+    night: { name: 'Night', hint: 'Quiet listening, even level', p: make([5, 3, 0, -1.5, 0, 3], 35, 10, 100, 85, 2) }
   };
   const ORDER = ['auto', 'flat', 'club', 'deep', 'warm', 'wide', 'clear', 'night'];
 
@@ -128,10 +128,10 @@
       g.eq.forEach((f, i) => f.gain.setTargetAtTime(clamp(params.bands[i] || 0, -EQ_RANGE, EQ_RANGE), t, tc));
 
       const boost = Math.max(0, ...params.bands) + params.bass * 0.05 + params.clarity * 0.025;
-      g.trim.gain.setTargetAtTime(Math.pow(10, -boost * 0.85 / 20), t, tc);
+      g.trim.gain.setTargetAtTime(Math.pow(10, -boost * 0.35 / 20), t, tc);
 
-      g.bassAmt.gain.setTargetAtTime(params.bass / 100 * 0.9, t, tc);
-      g.airAmt.gain.setTargetAtTime(params.clarity / 100 * 0.32, t, tc);
+      g.bassAmt.gain.setTargetAtTime(params.bass / 100 * 1.5, t, tc);
+      g.airAmt.gain.setTargetAtTime(params.clarity / 100 * 0.6, t, tc);
 
       const w = clamp(params.width, 0, 160) / 100;
       g.sideDelta.gain.setTargetAtTime(w - 1, t, tc);

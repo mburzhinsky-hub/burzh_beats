@@ -5,7 +5,7 @@
  * - Audio and range requests: never touched, Safari streams them natively
  *   (needed for seeking, background audio and the lock screen).
  */
-const CACHE = 'burzh-radio-v23';
+const CACHE = 'burzh-radio-v24';
 const SHELL = [
   './',
   './index.html',
