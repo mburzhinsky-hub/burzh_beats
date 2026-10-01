@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.21.4';
+  const VERSION = '0.22.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -163,6 +163,7 @@
   let stallTimer = 0;
   let stallRetried = false;
   let lastMetaKey = '';
+  let shifted = false;      // the listener moved inside the mix, so playback is off the live clock
 
   function configureAudioSession() {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
@@ -178,11 +179,12 @@
     updateWakeLock();
   }
 
-  function tune({ autoplay = true, after = null } = {}) {
+  function tune({ autoplay = true, after = null, follow = false } = {}) {
     const st = station;
     clearTimeout(retryTimer);
-    if (!available(st)) { wantPlaying = false; setPhase('stopped'); render(); return; }
+    if (!available(st)) { wantPlaying = false; shifted = false; setPhase('stopped'); render(); return; }
     configureAudioSession();
+    ensureEngine();
     if (fxActive()) sound.resume();
     lastTuneAt = Date.now();
     pauseRetries = 0;
@@ -191,11 +193,19 @@
     let offset = 0;
     let item = null;
     if (st.stream) {
+      shifted = false;
       url = st.stream;
     } else {
-      let live = liveAt(st);
-      // Clock and audio can disagree by a second; never restart a mix that just ended.
-      if (after && live.item === after && live.remaining < 5) live = { item: live.next, offset: 0 };
+      let live;
+      if (follow && after) {
+        // Time-shifted listener: carry on with the next mix from its start instead of jumping to the clock.
+        live = { item: followingItem(st, after), offset: 0 };
+      } else {
+        shifted = false;
+        live = liveAt(st);
+        // Clock and audio can disagree by a second; never restart a mix that just ended.
+        if (after && live.item === after && live.remaining < 5) live = { item: live.next, offset: 0 };
+      }
       item = live.item;
       offset = live.offset;
       url = mediaUrl(item);
@@ -219,6 +229,12 @@
 
     if (!autoplay) { done(); return; }
     wantPlaying = true;
+    if (sameSource && !audio.paused) {
+      // Already playing this mix (e.g. back to live): the position moved, nothing to reload.
+      clearTimeout(stallTimer);
+      setPhase(audio.readyState >= 3 && !audio.seeking ? 'live' : 'buffering');
+      return;
+    }
     setPhase('tuning');
     armStall();
     const p = audio.play();
@@ -248,6 +264,7 @@
   }
   function stop() {
     wantPlaying = false;
+    shifted = false;
     clearTimeout(retryTimer);
     clearTimeout(stallTimer);
     audio.pause();
@@ -296,6 +313,7 @@
     loadedmetadata() {
       if (!current || audio.dataset.sync !== '1' || !current.item) return;
       audio.dataset.sync = '';
+      if (shifted) return;
       const live = liveAt(current.st);
       if (!live) return;
       if (live.item !== current.item) { if (wantPlaying) tune({ autoplay: true }); return; }
@@ -312,6 +330,8 @@
       toast('');
     },
     waiting() { if (wantPlaying && phase !== 'tuning') setPhase('buffering'); },
+    seeked() { if (wantPlaying && phase === 'buffering' && !audio.paused && audio.readyState >= 3) setPhase('live'); },
+    canplay() { if (wantPlaying && phase === 'buffering' && !audio.paused && audio.readyState >= 3) setPhase('live'); },
     pause() {
       if (audio.ended || !wantPlaying) return;
       // Right after (re)tuning, a pause is the audio session reconfiguring, not the listener
@@ -344,11 +364,11 @@
     },
     ended() {
       const finished = current && current.item;
-      if (wantPlaying) tune({ autoplay: true, after: finished });
+      if (wantPlaying) tune({ autoplay: true, after: finished, follow: shifted });
     },
     error() {
       if (!wantPlaying) return;
-      if (audio === audioFx && !fxEverPlayed) {
+      if (audio === audioFx && !fxEverPlayed && current && current.st.stream) {
         // The chain needs CORS-enabled audio; fall back to the plain player instead of staying silent.
         fxFailed('SOUND SHAPING OFF · AUDIO SOURCE BLOCKS IT');
         return;
@@ -388,16 +408,21 @@
     if (was) tune({ autoplay: true }); else render();
   }
 
-  function selectOutput() {
-    if (settings.sound.on && sound && !fxBroken && audio !== audioFx) {
-      try { switchTo(ensureFx()); } catch (e) {
-        console.warn('BURZH sound chain unavailable:', e);
-        fxFailed('SOUND SHAPING IS NOT AVAILABLE HERE');
-        return;
-      }
+  /* The chain is attached when playback first starts (inside the tap on play), so shaping on/off and
+   * preset changes afterwards never touch the player. Plain <audio> is only the fallback. */
+  function ensureEngine() {
+    if (!sound || fxBroken || audio === audioFx || !audioPlain.paused) return;
+    try {
+      audio = ensureFx();
+      current = null;
+      fxEverPlayed = false;
+    } catch (e) {
+      console.warn('BURZH sound chain unavailable:', e);
+      fxFailed('SOUND SHAPING IS NOT AVAILABLE HERE');
     }
-    applySound();
   }
+
+  function selectOutput() { applySound(); }
 
   // Never leave the listener in silence: give the chain up and play the plain way.
   function fxFailed(message) {
@@ -428,7 +453,7 @@
         return;
       }
       if (sound.hasSignal()) { clearInterval(fxWatchTimer); return; }
-      if (ticks > 12 && !audio.paused && audio.currentTime - t0 > 3) fxFailed('SOUND SHAPING WAS SILENT · PLAYING THE ORIGINAL SOUND');
+      if (ticks > 16 && !audio.paused && audio.currentTime - t0 > 3) fxFailed('SOUND SHAPING WAS SILENT · PLAYING THE ORIGINAL SOUND');
     }, 500);
   }
 
@@ -520,10 +545,120 @@
     set('stop', () => stop());
     set('nexttrack', () => stepStation(1));
     set('previoustrack', () => stepStation(-1));
-    // Radio has no rewind: remove scrubbing from the lock screen and StandBy.
-    set('seekto', null);
+    // Scrubbing from the lock screen and StandBy moves inside the current mix.
+    set('seekto', d => { if (d && Number.isFinite(d.seekTime)) seekTo(d.seekTime); });
     set('seekforward', null);
     set('seekbackward', null);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Seek: drag the rail to move inside the current mix (time-shift)     */
+  /* ------------------------------------------------------------------ */
+
+  const scrub = { active: false, time: 0 };
+
+  // The mix that follows `item` in the current cycle (used while time-shifted).
+  function followingItem(st, item) {
+    const t = Math.max(0, (Date.now() - epochMs) / 1000);
+    const cycle = Math.floor(t / st.total);
+    const order = cycleOrder(st, cycle).map(i => st.items[i]);
+    const k = order.indexOf(item);
+    if (k >= 0 && k + 1 < order.length) return order[k + 1];
+    return st.items[cycleOrder(st, cycle + 1)[0]];
+  }
+
+  const canSeek = () => !!(wantPlaying && current && current.item && !current.st.stream && audio.readyState >= 1);
+
+  function seekTo(time) {
+    if (!canSeek()) return;
+    const item = current.item;
+    const length = Number.isFinite(audio.duration) && audio.duration > 0 ? Math.min(audio.duration, item.duration) : item.duration;
+    const t = Math.max(0, Math.min(Math.max(0, length - 1), time));
+    audio.dataset.sync = '';
+    try { audio.currentTime = t; } catch (e) { return; }
+    const live = liveAt(current.st);
+    shifted = !(live && live.item === item && Math.abs(live.offset - t) < 4);
+    snapProgress = true;
+    renderStatus();
+    render();
+    updateMediaSession(true);
+  }
+
+  function goLive() {
+    if (!wantPlaying) return;
+    feedback('play');
+    shifted = false;
+    snapProgress = true;
+    tune({ autoplay: true });
+  }
+
+  // Back from a lock/sleep: keep the listener's own position when time-shifted.
+  function revive() {
+    if (shifted && current && audio.readyState >= 1) {
+      const r = audio.play();
+      if (r && r.catch) r.catch(() => { /* the stall watchdog handles it */ });
+    } else {
+      tune({ autoplay: true });
+    }
+  }
+
+  function bindSeek(el) {
+    const rail = el.querySelector('.live-rail');
+    let pid = null;
+    let lastMagnet = null;
+
+    const timeAt = clientX => {
+      const r = rail.getBoundingClientRect();
+      const dur = current.item.duration;
+      const ratio = clamp01((clientX - r.left) / (r.width || 1));
+      let t = ratio * dur;
+      let magnet = null;
+      // Track starts attract the thumb a little, with a tick of feedback.
+      (current.item.cues || []).forEach(c => { if (Math.abs(c.at / dur - ratio) * r.width < 7) { t = c.at; magnet = c.at; } });
+      if (magnet !== lastMagnet) { lastMagnet = magnet; if (magnet !== null) feedback('soft'); }
+      return t;
+    };
+    const move = e => { scrub.time = timeAt(e.clientX); renderProgress(); };
+
+    el.addEventListener('pointerdown', e => {
+      if (e.button > 0 || pid !== null || !canSeek()) return;
+      if (document.documentElement.classList.contains('idle')) return;   // the first touch only wakes the screen
+      e.preventDefault();
+      e.stopPropagation();
+      pid = e.pointerId;
+      try { el.setPointerCapture(pid); } catch (err) { /* ignore */ }
+      scrub.active = true;
+      el.classList.add('dragging');
+      lastMagnet = null;
+      feedback('play');
+      move(e);
+    });
+    el.addEventListener('pointermove', e => { if (e.pointerId === pid) move(e); });
+    const finish = (e, commit) => {
+      if (e.pointerId !== pid) return;
+      pid = null;
+      scrub.active = false;
+      el.classList.remove('dragging');
+      if (commit) { feedback('play'); seekTo(scrub.time); }
+      renderProgress();
+    };
+    el.addEventListener('pointerup', e => finish(e, true));
+    el.addEventListener('pointercancel', e => finish(e, false));
+
+    el.addEventListener('keydown', e => {
+      if (!canSeek()) return;
+      const big = e.shiftKey || e.key === 'PageUp' || e.key === 'PageDown';
+      const step = big ? 60 : 10;
+      let target = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'PageUp') target = audio.currentTime + step;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'PageDown') target = audio.currentTime - step;
+      else if (e.key === 'Home') target = 0;
+      else if (e.key === 'End') target = current.item.duration;
+      if (target === null) return;
+      e.preventDefault();
+      e.stopPropagation();
+      seekTo(target);
+    });
   }
 
   /* ------------------------------------------------------------------ */
@@ -570,7 +705,7 @@
     const label = {
       stopped: available(station) ? 'ON AIR NOW' : 'OFF AIR',
       tuning: 'TUNING…',
-      live: 'LIVE',
+      live: shifted ? 'TIMESHIFT' : 'LIVE',
       buffering: 'BUFFERING…',
       lost: 'SIGNAL LOST'
     }[phase] || '';
@@ -580,6 +715,7 @@
       b.classList.toggle('is-playing', playing);
       b.setAttribute('aria-label', playing ? 'Stop' : 'Play');
     });
+    document.documentElement.classList.toggle('shifted', shifted && playing);
     document.documentElement.classList.toggle('is-playing', playing && phase === 'live');
     document.documentElement.classList.toggle('is-on', playing);
     planets.forEach(pl => pl.setPlaying(playing && phase === 'live'));
@@ -600,18 +736,79 @@
   }
 
   let lastRatio = 0;
+  let snapProgress = false;
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+
   function renderProgress(np = nowPlaying()) {
     if (!np) return;
-    const ratio = np.duration ? Math.max(0, Math.min(1, np.offset / np.duration)) : 0;
-    // Jumps back (new mix, other station) snap instantly instead of sliding backwards.
-    const snap = ratio < lastRatio - 0.005;
+    const seekable = canSeek() && !!np.duration;
+    const offset = scrub.active ? scrub.time : np.offset;
+    const ratio = np.duration ? clamp01(offset / np.duration) : 0;
+    // Jumps (new mix, other station, a seek) snap instantly instead of sliding.
+    const snap = snapProgress || ratio < lastRatio - 0.005;
+    snapProgress = false;
     lastRatio = ratio;
-    document.querySelectorAll('.live-fill').forEach(el => {
-      if (snap) { el.style.transition = 'none'; el.style.transform = 'scaleX(' + ratio.toFixed(4) + ')'; void el.offsetWidth; el.style.transition = ''; }
-      else el.style.transform = 'scaleX(' + ratio.toFixed(4) + ')';
+    document.querySelectorAll('.seek').forEach(el => {
+      const fill = el.querySelector('.live-fill'), thumb = el.querySelector('.seek-thumb');
+      const pct = ratio.toFixed(4);
+      if (snap) {
+        fill.style.transition = 'none'; thumb.style.transition = 'none';
+        fill.style.transform = 'scaleX(' + pct + ')'; thumb.style.left = (ratio * 100).toFixed(3) + '%';
+        void el.offsetWidth;
+        fill.style.transition = ''; thumb.style.transition = '';
+      } else {
+        fill.style.transform = 'scaleX(' + pct + ')';
+        thumb.style.left = (ratio * 100).toFixed(3) + '%';
+      }
+      el.classList.toggle('can-seek', seekable);
+      el.setAttribute('aria-disabled', String(!seekable));
+      if (seekable) {
+        el.setAttribute('aria-valuemax', String(Math.round(np.duration)));
+        el.setAttribute('aria-valuenow', String(Math.round(offset)));
+        el.setAttribute('aria-valuetext', fmt(offset) + ' of ' + fmt(np.duration));
+      }
+      renderTicks(el, np);
+      if (el.classList.contains('dragging')) placeTip(el, np, ratio, offset);
     });
-    bind('elapsed', np.duration ? fmt(np.offset) : '');
-    bind('remaining', np.duration ? 'NEXT −' + fmt(np.duration - np.offset) : (available(station) ? '∞' : ''));
+    bind('elapsed', np.duration ? fmt(offset) : '');
+    bind('remaining', np.duration ? 'NEXT −' + fmt(np.duration - offset) : (available(station) ? '∞' : ''));
+  }
+
+  // Track starts inside the mix, if the station lists them (cues in stations.json).
+  function renderTicks(el, np) {
+    const box = el.querySelector('.seek-ticks');
+    const cues = (np.item && np.item.cues) || [];
+    const key = np.item ? np.item.file + '|' + cues.length : '';
+    if (box.dataset.key === key) return;
+    box.dataset.key = key;
+    box.textContent = '';
+    cues.forEach(c => {
+      if (!c.at || !np.duration) return;
+      const i = document.createElement('i');
+      i.style.left = (c.at / np.duration * 100).toFixed(3) + '%';
+      box.appendChild(i);
+    });
+  }
+
+  function placeTip(el, np, ratio, offset) {
+    const tip = el.querySelector('.seek-tip');
+    const rail = el.querySelector('.live-rail');
+    const w = rail.getBoundingClientRect().width;
+    if (!w) return;
+    tip.querySelector('b').textContent = fmt(offset);
+    const cue = cueAt(np.item, offset);
+    let info = cue && cue.title ? cue.title : '';
+    if (!info) {
+      const live = liveAt(np.st);
+      if (live && live.item === np.item) {
+        const d = offset - live.offset;
+        info = Math.abs(d) < 4 ? 'Live position' : (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + (d > 0 ? ' ahead of live' : ' behind live');
+      }
+    }
+    tip.querySelector('span').textContent = info;
+    tip.querySelector('span').hidden = !info;
+    const half = tip.offsetWidth / 2;
+    tip.style.left = Math.max(half, Math.min(w - half, ratio * w)) + 'px';
   }
 
   function renderClock() {
@@ -723,7 +920,7 @@
       applyNight();
       render();
       refreshWeather(false);
-      if (fxActive() && wantPlaying) sound.resume().then(() => { if (wantPlaying && audio.paused) tune({ autoplay: true }); });
+      if (fxActive() && wantPlaying) sound.resume().then(() => { if (wantPlaying && audio.paused) revive(); });
     }
     updateWakeLock();
   });
@@ -1040,6 +1237,8 @@
     document.querySelectorAll('.play-toggle').forEach(btn => btn.addEventListener('click', () => { feedback('play'); press(btn); togglePlay(); }));
     document.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => { press(btn); stepStation(Number(btn.dataset.step)); }));
     document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { feedback(); renderSettings(); openOverlay(btn.dataset.open); }));
+    document.querySelectorAll('.seek').forEach(bindSeek);
+    document.querySelectorAll('.golive').forEach(b => b.addEventListener('click', goLive));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => { feedback(); closeOverlay(btn.dataset.close); }));
     document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) closeOverlay(o.id); }));
     document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { feedback(); showTab(b.dataset.tab); }));
@@ -1094,6 +1293,7 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') { document.querySelectorAll('.overlay.show').forEach(o => closeOverlay(o.id)); return; }
       if (e.target && /INPUT|TEXTAREA|BUTTON/.test(e.target.tagName)) return;
+      if (e.target && e.target.closest && e.target.closest('.seek')) return;
       if (e.key === ' ' || e.key === 'k') { e.preventDefault(); togglePlay(); }
       else if (e.key === 'ArrowRight') stepStation(1);
       else if (e.key === 'ArrowLeft') stepStation(-1);
@@ -1161,7 +1361,8 @@
     liveAt: (id, t) => liveAt(stations.find(s => s.id === id), t),
     stations: () => stations,
     audioEl: () => audio,
-    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused }),
+    seekTo: t => seekTo(t),
+    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek() }),
     spectrum: () => { const a = new Uint8Array(64); return sound && sound.spectrum(a) ? Array.from(a) : Array(64).fill(0); }
   };
 
