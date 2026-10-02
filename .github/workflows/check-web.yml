@@ -11,6 +11,7 @@ on:
     paths:
       - 'docs/**'
       - 'tools/**'
+      - 'tests/**'
       - '.github/workflows/check-web.yml'
   workflow_dispatch:
 
@@ -33,3 +34,19 @@ jobs:
 
       - name: Station list, icons and artwork
         run: python3 tools/radio.py validate
+
+  browser-tests:
+    # On pull requests (pushes to main run the same tests as the gate of the deploy workflow).
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Browser tests
+        working-directory: tests
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright-core install --with-deps chromium
+          node run.js

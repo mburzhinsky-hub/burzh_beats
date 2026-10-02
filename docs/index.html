@@ -263,6 +263,7 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
 .list-row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid #1b1c1a;font:400 14px/1.3 var(--mono)}
 .list-row span:last-child{color:#7d7e78;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 .list-row .live{color:var(--accent)}
+#problemState{max-width:62%;text-align:right;word-break:break-word;text-transform:none!important;letter-spacing:.02em!important}
 
 @media(orientation:landscape) and (min-width:760px){
   .sheet{width:min(940px,100%)}
@@ -454,6 +455,7 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
         <div class="list-row"><span>Version</span><span id="versionState">-</span></div>
         <div class="list-row"><span>Library</span><span id="libraryState">-</span></div>
         <div class="list-row"><span>Sound engine</span><span id="engineState">-</span></div>
+        <div class="list-row"><span>Last playback problem</span><span id="problemState">None</span></div>
       </div>
     </div>
   </section>

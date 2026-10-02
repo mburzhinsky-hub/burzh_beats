@@ -1,0 +1,7 @@
+{
+  "name": "burzh-beats-tests",
+  "private": true,
+  "description": "Browser regression tests for the BURZH beats web player",
+  "scripts": { "test": "node run.js" },
+  "dependencies": { "playwright-core": "^1.50.0" }
+}
