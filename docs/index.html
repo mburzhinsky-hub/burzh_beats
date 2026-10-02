@@ -310,6 +310,11 @@ html.night .screen{background:#000;filter:brightness(.42)}
 .chip{min-height:42px;padding:0 16px;border:1px solid var(--line);border-radius:21px;font:400 13px/1 var(--mono);color:var(--quiet);transition:border-color .2s,color .2s,background .2s}
 .chip[aria-pressed="true"]{border-color:var(--fg);color:var(--fg);background:var(--chip-on)}
 
+.fx-smart #smartBox[hidden]{display:none}
+.live{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.live-i{display:flex;flex-direction:column;gap:5px;padding:10px 12px;border:1px solid var(--row-line);border-radius:12px;min-width:0}
+.live-i .l-k{font:500 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.live-i b{font:400 14px/1.25 var(--mono);color:var(--fg);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fx{transition:opacity .25s}
 .fx.is-off{opacity:.5}
 .eq{position:relative;margin-top:10px;height:clamp(150px,34vh,210px);border:1px solid var(--eq-line);border-radius:14px;background:var(--eq-bg);overflow:hidden;touch-action:none}
@@ -347,8 +352,8 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
 
 @media(orientation:landscape) and (min-width:760px){
   .sheet{width:min(940px,100%)}
-  #fxControls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);column-gap:32px;grid-template-areas:"presets eq" "enh eq";align-items:start}
-  .fx-presets{grid-area:presets}.fx-eq{grid-area:eq}.fx-enh{grid-area:enh}
+  #fxControls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);column-gap:32px;grid-template-areas:"smart eq" "presets eq" "enh eq";align-items:start}
+  .fx-smart{grid-area:smart}.fx-presets{grid-area:presets}.fx-eq{grid-area:eq}.fx-enh{grid-area:enh}
   .fx-eq .group-title{margin-top:22px}
   .eq{height:clamp(190px,52vh,300px)}
 }
@@ -458,10 +463,10 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
       <div class="pane" id="pane-sound" role="tabpanel" aria-labelledby="tab-sound" data-pane="sound">
         <div class="row">
           <div>
-            <div class="row-title">Sound shaping</div>
-            <div class="row-hint" id="soundHint">Equalizer, bass and clarity, tuned for each station.</div>
+            <div class="row-title">Sound enhancer</div>
+            <div class="row-hint" id="soundHint">Smart tone, level and space for any music, plus your equalizer.</div>
           </div>
-          <button class="switch" role="switch" aria-checked="false" aria-label="Sound shaping" data-switch="sound.on"></button>
+          <button class="switch" role="switch" aria-checked="false" aria-label="Sound enhancer" data-switch="sound.on"></button>
         </div>
 
         <div class="row" id="abRow" hidden>
@@ -470,8 +475,26 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
         </div>
 
         <div class="fx is-off" id="fxControls">
+          <div class="fx-smart">
+            <div class="group-title">Mode</div>
+            <div class="seg" data-sseg="mode" role="group" aria-label="Sound mode"><button data-value="smart">Smart</button><button data-value="manual">Manual</button></div>
+            <div class="row-hint" id="modeHint" style="margin-top:10px"></div>
+            <div id="smartBox">
+              <div class="group-title">Strength</div>
+              <div class="seg" data-sseg="strength" role="group" aria-label="Smart sound strength"><button data-value="40">Light</button><button data-value="70">Balanced</button><button data-value="100">Strong</button></div>
+              <div class="group-title">Doing now</div>
+              <div class="live" id="smartLive">
+                <div class="live-i"><span class="l-k">Tone</span><b id="liveTone">—</b></div>
+                <div class="live-i"><span class="l-k">Level</span><b id="liveLevel">—</b></div>
+                <div class="live-i"><span class="l-k">Punch</span><b id="livePunch">—</b></div>
+                <div class="live-i"><span class="l-k">Space</span><b id="liveSpace">—</b></div>
+              </div>
+              <div class="row-hint" id="liveHint" style="margin-top:10px"></div>
+            </div>
+          </div>
+
           <div class="fx-presets">
-          <div class="group-title">Preset</div>
+          <div class="group-title">Style</div>
           <div class="chips" id="presetChips" role="group" aria-label="Sound presets"></div>
           <div class="row-hint" id="presetHint" style="margin-top:10px"></div>
           </div>
@@ -482,7 +505,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
           </div>
 
           <div class="fx-enh">
-          <div class="group-title">Enhancer</div>
+          <div class="group-title">Fine tune</div>
           <label class="slider"><span class="s-name">Bass punch</span><output></output><input type="range" min="0" max="100" step="1" data-param="bass" aria-label="Bass punch"></label>
           <label class="slider"><span class="s-name">Clarity</span><output></output><input type="range" min="0" max="100" step="1" data-param="clarity" aria-label="Clarity"></label>
           <label class="slider"><span class="s-name">Stereo width</span><output></output><input type="range" min="0" max="160" step="1" data-param="width" aria-label="Stereo width"></label>
@@ -492,7 +515,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
           <div style="margin-top:18px"><button class="btn" id="soundReset">Reset to preset</button></div>
           </div>
         </div>
-        <p class="note" id="soundNote">Heads up for iPhone: with sound shaping on, playback may pause when the screen locks. If it does, switch it off.</p>
+        <p class="note" id="soundNote">Heads up for iPhone: with the enhancer on, playback may pause when the screen locks. If it does, switch it off.</p>
       </div>
 
       <div class="pane" id="pane-screen" role="tabpanel" aria-labelledby="tab-screen" data-pane="screen" hidden>
@@ -552,6 +575,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
 
 <script src="./theme.js" defer></script>
 <script src="./planet.js" defer></script>
+<script src="./smart.js" defer></script>
 <script src="./sound.js" defer></script>
 <script src="./sound-ui.js" defer></script>
 <script src="./app.js" defer></script>

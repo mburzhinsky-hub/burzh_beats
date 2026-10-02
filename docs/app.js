@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.28.2';
+  const VERSION = '0.29.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -44,7 +44,9 @@
   );
   settings.theme = 'black';                 // v0.28: one dark design (the White background was retired)
   if (!['auto', 'on', 'off'].includes(settings.motion)) settings.motion = 'auto';
-  settings.sound = Object.assign({ on: false, preset: 'auto', custom: null }, settings.sound || {});
+  settings.sound = Object.assign({ on: false, preset: 'auto', custom: null, mode: 'smart', strength: 70 }, settings.sound || {});
+  if (!['smart', 'manual'].includes(settings.sound.mode)) settings.sound.mode = 'smart';
+  settings.sound.strength = Math.max(0, Math.min(100, Number(settings.sound.strength) || 70));
   const saveSettings = () => store.set(KEYS.settings, settings);
 
   /* ------------------------------------------------------------------ */
@@ -238,6 +240,7 @@
   let fxEverPlayed = false;
   const fxActive = () => !!sound && audio === audioFx;
   if (sound) {
+    sound.onerror = e => rec('smart sound stopped: ' + (e && e.message));
     // iOS interrupts audio contexts (calls, Siri, route changes); bring the chain back when the app is visible.
     sound.onstate = state => {
       rec('audio engine ' + state);
@@ -342,6 +345,9 @@
 
     const sameSource = current && current.url === url && audio.readyState >= 1;
     rec('tune ' + st.id + ' ' + (item ? (item.file || item.url) : 'stream') + (st.stream ? '' : ' @' + Math.round(offset) + 's') + ' · ' + (fxActive() ? 'engine' : 'plain') + (useFragment ? '' : ' · no #t') + (retry ? ' · retry' : '') + (sameSource ? ' · same source' : ''));
+    // A new station or a new mix: smart sound forgets the old music quickly (a part of the same mix is not new).
+    const mixKey = x => x && (x.st.id + '/' + (x.item ? (x.item.group || x.item.file || x.item.url) : ''));
+    if (sound && mixKey(current) !== mixKey({ st, item })) sound.smartReset();
     current = { st, item, url };
     // While the source is being swapped the element fires "pause"; that must not count as a stop.
     const swapping = !sameSource;
@@ -880,11 +886,15 @@
     if (settings.sound.preset === 'custom' && settings.sound.custom) return P.clone(settings.sound.custom);
     return P.clone((P.PRESETS[presetKey()] || P.PRESETS.flat).p);
   }
+  // Smart mode works while the enhancer is on and in Smart mode. Holding Compare mutes what it adds but lets it keep listening.
+  const smartWanted = () => !!sound && sound.smartAvailable && settings.sound.on && settings.sound.mode === 'smart';
   function applySound() {
     if (!sound) return;
     // Off keeps the chain in the signal path but neutral (flat EQ, no enhancement).
     const p = settings.sound.on && !abHold ? effectiveParams() : window.BurzhSound.clone(window.BurzhSound.PRESETS.flat.p);
     sound.apply(p, false);
+    // The smart target follows the kind of music: the station's sound preset says which (club → bright, warm → dark).
+    sound.setSmart({ on: smartWanted(), bypass: abHold, strength: settings.sound.strength / 100, profile: window.BurzhSmart ? window.BurzhSmart.profileFor(station && station.sound) : 'neutral' });
     renderSound();
   }
 
@@ -1582,7 +1592,7 @@
   function closeOverlay(id) {
     const o = $(id);
     if (o) o.classList.remove('show');
-    if (id === 'settingsOverlay' && eqView) eqView.stop();
+    if (id === 'settingsOverlay') { if (eqView) eqView.stop(); setLive(false); }
     scheduleIdle();
     applyUpdate();
   }
@@ -1591,6 +1601,7 @@
     document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
     document.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== name; });
     if (eqView) { if (name === 'sound' && overlayOpen()) eqView.start(); else eqView.stop(); }
+    setLive(name === 'sound' && overlayOpen());
     const body = document.querySelector('.sheet-body');
     if (body) body.scrollTop = 0;
   }
@@ -1622,13 +1633,25 @@
     if (sh) {
       sh.textContent = fxUnsupported ? 'Not supported on this device. Playing the original sound.'
         : !settings.sound.on ? 'Off. Plays the original sound; you can still set things up.'
-        : fxActive() ? 'On · engine ' + sound.info().split(' ·')[0] + '. The equalizer and enhancer shape every station.'
+        : fxActive() ? 'On · engine ' + sound.info().split(' ·')[0] + (settings.sound.mode === 'smart' ? '. Smart sound is listening; your equalizer works on top.' : '. Your equalizer and sliders shape every station.')
         : fxHeld ? 'Paused while the audio system was busy (call, Siri, lock). Tap the screen to restore.'
         : fxFails ? (fxParked() ? 'Paused: the engine did not start. Switch off and on to try again.' : 'The engine did not start. It tries again when you press play; switch off and on to try now.')
         : 'On. Press play to start the engine.';
     }
     const params = effectiveParams();
     const current = settings.sound.preset;
+
+    document.querySelectorAll('[data-sseg]').forEach(seg => {
+      const key = seg.dataset.sseg, v = settings.sound[key];
+      const best = key === 'strength' ? [40, 70, 100].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a)) : v;
+      seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(String(best) === b.dataset.value)));
+    });
+    const sbox = $('smartBox');
+    if (sbox) sbox.hidden = settings.sound.mode !== 'smart';
+    const mh = $('modeHint');
+    if (mh) mh.textContent = settings.sound.mode === 'smart'
+      ? 'Listens to the music and keeps tone, level, bass and space right, whatever plays. Your equalizer works on top.'
+      : 'Only what you set below. Nothing changes by itself.';
 
     const chips = $('presetChips');
     const keys = P.ORDER.slice();
@@ -1674,6 +1697,39 @@
     if (sound) sound.apply(p, false);
     renderSound();
   }
+
+  /* Smart sound, in words: what it is doing right now (Settings → Sound). */
+  const BAND_NAMES = ['Sub bass', 'Bass', 'Low mids', 'Mids', 'Upper mids', 'Presence', 'Treble', 'Brilliance', 'Air'];
+  const dbText = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB';
+  let liveTimer = 0;
+  function renderLive() {
+    const box = $('smartBox');
+    if (!box || box.hidden || !sound) return;
+    const set = (id, v) => { const el = $(id); if (el && el.textContent !== v) el.textContent = v; };
+    const st = sound.smart();
+    let tone = '—', level = '—', punch = '—', space = '—', hint = '';
+    if (!settings.sound.on) hint = 'Switch the enhancer on, then press play.';
+    else if (!fxActive() || sound.state !== 'running' || !wantPlaying) hint = 'Press play: it learns the music in a few seconds.';
+    else if (abHold) hint = 'Paused while you compare with the original.';
+    else if (st.seconds < 2.5) { tone = level = punch = space = 'Listening…'; }
+    else {
+      let k = 0;
+      st.gains.forEach((g, i) => { if (Math.abs(g) > Math.abs(st.gains[k])) k = i; });
+      tone = Math.abs(st.gains[k]) < 0.5 ? 'Balanced' : BAND_NAMES[k] + ' ' + dbText(st.gains[k]);
+      level = Math.abs(st.lev) < 0.4 ? 'Even' : dbText(st.lev);
+      const pp = [];
+      if (st.bass > 2) pp.push('Bass +' + Math.round(st.bass) + '%');
+      if (st.clarity > 2) pp.push('Air +' + Math.round(st.clarity) + '%');
+      punch = pp.length ? pp.join(' · ') : 'Natural';
+      const sp = [];
+      if (st.width > 2) sp.push('Wider +' + Math.round(st.width) + '%');
+      if (st.glue > 2) sp.push('Glue +' + Math.round(st.glue) + '%');
+      space = sp.length ? sp.join(' · ') : 'Natural';
+      hint = 'Small corrections on well-made music, bigger ones on thin, dull or quiet recordings.';
+    }
+    set('liveTone', tone); set('liveLevel', level); set('livePunch', punch); set('liveSpace', space); set('liveHint', hint);
+  }
+  function setLive(on) { clearInterval(liveTimer); liveTimer = on ? setInterval(renderLive, 300) : 0; if (on) renderLive(); }
 
   let eqView = null;
   function renderStationList() {
@@ -1734,7 +1790,7 @@
       'mode: ' + (nav.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? 'home-screen app' : 'browser tab') + ' · online ' + nav.onLine + (c.effectiveType ? ' · ' + c.effectiveType + (c.downlink ? ' ' + c.downlink + ' Mbit/s' : '') + (c.rtt ? ' rtt ' + c.rtt + ' ms' : '') : ''),
       'saved copy: ' + (nav.serviceWorker && nav.serviceWorker.controller ? 'active' : 'none') + (cacheNames ? ' (' + cacheNames + ')' : ''),
       'launch: ' + (launchInfo || '-') + ' · last start: ' + (lastStart || '-'),
-      'sound: shaping ' + (settings.sound.on ? 'on' : 'off') + ' · preset ' + settings.sound.preset + ' · engine ' + (sound ? sound.info() : 'none') + ' · strikes ' + fxFails + (fxHeld ? ' · held' : '') + (fxUnsupported ? ' · unsupported' : ''),
+      'sound: enhancer ' + (settings.sound.on ? 'on' : 'off') + ' · ' + settings.sound.mode + (smartWanted() ? ' ' + settings.sound.strength + '%' : '') + ' · preset ' + settings.sound.preset + ' · engine ' + (sound ? sound.info() : 'none') + ' · strikes ' + fxFails + (fxHeld ? ' · held' : '') + (fxUnsupported ? ' · unsupported' : ''),
       'last problem: ' + (lastProblem || 'none'),
       '--- events (newest last) ---'
     ];
@@ -1873,6 +1929,13 @@
       settings[b.parentElement.dataset.seg] = b.dataset.value;
       saveSettings(); syncControls(); applyTheme(); applyMotion();
     }));
+    document.querySelectorAll('[data-sseg] button').forEach(b => b.addEventListener('click', () => {
+      feedback();
+      const key = b.parentElement.dataset.sseg;
+      settings.sound[key] = key === 'strength' ? Number(b.dataset.value) : b.dataset.value;
+      rec('sound ' + key + ' ' + settings.sound[key]);
+      saveSettings(); applySound(); renderLive();
+    }));
     $('locationBtn').addEventListener('click', () => { feedback(); updateLocation(); });
     if ($('netBtn')) $('netBtn').addEventListener('click', () => { feedback(); testConnection(); });
     if ($('refreshBtn')) $('refreshBtn').addEventListener('click', () => { feedback(); refreshApp(); });
@@ -1891,6 +1954,7 @@
       eqView = window.BurzhEqView.create($('eqCanvas'), {
         engine: sound,
         getParams: effectiveParams,
+        autoOn: smartWanted,
         onBand: (i, db) => editParams(p => { p.bands[i] = db; }),
         onCommit: saveSettings
       });
@@ -2034,9 +2098,10 @@
     stations: () => stations,
     audioEl: () => audio,
     seekTo: t => seekTo(t),
-    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken: fxUnsupported || fxFails > 0, fxFails, fxUnsupported, fxHeld, ctx: sound ? sound.state : 'none', lastStart, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek(), problem: lastProblem, useFragment }),
+    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, mode: settings.sound.mode, strength: settings.sound.strength, smart: sound ? sound.smart() : null, fxBroken: fxUnsupported || fxFails > 0, fxFails, fxUnsupported, fxHeld, ctx: sound ? sound.state : 'none', lastStart, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek(), problem: lastProblem, useFragment }),
     planets: () => planets.map(p => p.state()),
     calm: () => calmOn(),
+    autoCurve: freqs => (sound ? Array.from(sound.autoCurve(freqs)) : []),
     spectrum: () => { const a = new Uint8Array(64); return sound && sound.spectrum(a) ? Array.from(a) : Array(64).fill(0); }
   };
 

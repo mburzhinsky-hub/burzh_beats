@@ -20,6 +20,7 @@ const SHELL = [
   './app.js',
   './theme.js',
   './planet.js',
+  './smart.js',
   './sound.js',
   './sound-ui.js',
   './stations.json',

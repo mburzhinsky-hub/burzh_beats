@@ -83,6 +83,7 @@ test('sound switch and presets never touch playback (seamless)', async t => {
 test('A/B compare button changes the sound while held', async t => {
   await t.play(); await t.live();
   await t.openSettings(); await t.p.click('[data-switch="sound.on"]'); await sleep(500);
+  await t.p.click('[data-sseg="mode"] button[data-value="manual"]');     // the mock "music" is a bare tone: smart mode would (rightly) retune it
   await t.p.click('.chip[data-preset="deep"]'); await sleep(700);
   const low = () => t.p.evaluate(async () => { let s = 0, n = 0; for (let k = 0; k < 12; k++) { await new Promise(r => setTimeout(r, 60)); const a = window.BURZH.spectrum(); for (let i = 0; i < 16; i++) { s += a[i]; n++; } } return s / n; });
   const shaped = await low();
@@ -94,6 +95,228 @@ test('A/B compare button changes the sound while held', async t => {
   assert.ok(shaped - held > 12, `holding should reduce the low end (shaped ${shaped.toFixed(0)}, held ${held.toFixed(0)})`);
   assert.ok(released - held > 12, 'releasing should restore the shaped sound');
 });
+
+/* ---------------------------------------------------- smart sound (docs/smart.js, sound.js) */
+
+// The brain is plain arithmetic: it is tested against numbers, the way a mastering engineer would check it.
+test('smart sound (the brain): balanced music is left alone, thin / dull / muddy music is corrected within limits', async () => {
+  const Smart = require('../docs/smart.js');
+  const N = Smart.N, T = Smart.normalise(Smart.PROFILES.neutral);
+  const powers = db => Float64Array.from(db, v => Math.pow(10, v / 10));
+  const run = (bandsDb, { secs = 40, strength = 0.7, profile = 'neutral', rms = -14, peak = -6, crest = 7, sideMid = -9 } = {}) => {
+    const b = Smart.createBrain(), p = powers(bandsDb);
+    let plan, G = 0;
+    for (let t = 0; t < secs; t += 0.125) {
+      b.feed({ powers: p, crestDb: crest, sideMidDb: sideMid }, 0.125);
+      plan = b.plan(strength, profile, 0.125);
+      G = b.level({ rmsDb: rms + G, peakDb: peak + G }, strength, 0.125);
+    }
+    return { plan, G, b };
+  };
+  const all = (a, f) => a.every(f);
+
+  const ref = run(T);
+  assert.ok(all(ref.plan.gains, g => Math.abs(g) < 0.3), 'balanced music: no tone correction ' + ref.plan.gains.map(g => g.toFixed(1)));
+  assert.ok(Math.abs(ref.G) < 0.5, 'balanced music at the target level: no level change ' + ref.G.toFixed(2));
+  assert.ok(ref.plan.bass < 3 && ref.plan.clarity < 3 && ref.plan.width === 0 && ref.plan.glue === 0, 'nothing extra added');
+
+  const dull = run(T.map((v, i) => (i >= 5 ? v - 4 * (i - 4) : v)));
+  assert.ok(dull.plan.gains[7] >= 2.5 && dull.plan.gains[6] >= 2 && dull.plan.clarity >= 8, 'dull: the top is lifted ' + dull.plan.gains.map(g => g.toFixed(1)));
+  assert.ok(Math.abs(dull.plan.gains[1]) < 0.8 && Math.abs(dull.plan.gains[2]) < 0.8, 'dull: the middle is left alone');
+
+  const thin = run(T.map((v, i) => (i === 0 ? v - 14 : i === 1 ? v - 7 : v)));
+  assert.ok(thin.plan.gains[0] >= 3.5 && thin.plan.bass >= 10, 'thin: the bass is lifted and its harmonics added ' + thin.plan.gains.map(g => g.toFixed(1)));
+
+  const muddy = run(T.map((v, i) => (i === 2 || i === 3 ? v + 7 : v)));
+  assert.ok(muddy.plan.gains[2] <= -1.5 && muddy.plan.gains[3] <= -1.5, 'muddy: the low mids are lowered ' + muddy.plan.gains.map(g => g.toFixed(1)));
+  assert.ok(Math.abs(muddy.plan.gains[5]) < 0.8, 'muddy: the rest is left alone');
+
+  // Limits, whatever the music: never more than the caps, strength 0 does nothing, a bare tone is not judged.
+  const extreme = run(T.map((v, i) => (i < 4 ? v + 25 : v - 25)), { strength: 1 });
+  extreme.plan.gains.forEach((g, i) => assert.ok(g <= Smart.CAP_UP[i] + 1e-6 && g >= -Smart.CAP_DOWN[i] - 1e-6, `band ${i} within its cap: ${g}`));
+  assert.ok(all(run(T.map((v, i) => (i >= 5 ? v - 12 : v)), { strength: 0 }).plan.gains, g => g === 0), 'strength 0 changes nothing');
+  const tone = run(T.map((v, i) => (i === 1 ? 0 : -90)));
+  assert.ok(all(tone.plan.gains, g => Math.abs(g) < 1e-9) && tone.plan.bass === 0, 'a bare tone is not judged');
+
+  // Quiet, it listens to nothing: silence teaches it nothing and moves nothing.
+  const b = Smart.createBrain();
+  for (let t = 0; t < 10; t += 0.125) { b.plan(0.7, 'neutral', 0.125); b.level({ rmsDb: -80, peakDb: -70 }, 0.7, 0.125); }
+  assert.ok(all(b.last.gains, g => g === 0) && b.gain === 0, 'silence: nothing moves');
+
+  // Slow: once it has learned, a sudden change of music moves a band by well under a decibel per second.
+  const steady = run(T, { secs: 40 });
+  const before = steady.plan.gains.slice();
+  const dullPow = powers(T.map((v, i) => (i >= 5 ? v - 4 * (i - 4) : v)));
+  for (let t = 0; t < 1; t += 0.125) { steady.b.feed({ powers: dullPow, crestDb: 7, sideMidDb: -9 }, 0.125); steady.plan = steady.b.plan(0.7, 'neutral', 0.125); }
+  steady.plan.gains.forEach((g, i) => assert.ok(Math.abs(g - before[i]) <= 0.7 + 1e-6, `band ${i} moved ${(g - before[i]).toFixed(2)} dB in a second`));
+
+  // Level: a quiet source is lifted, a hot one is lowered, both by no more than the limits; peaks leave room.
+  const quiet = run(T, { rms: -30, peak: -22, secs: 90 });
+  assert.ok(quiet.G > 2 && quiet.G <= 4 * 0.7 + 1e-6, 'quiet source lifted, within the limit: ' + quiet.G.toFixed(1));
+  const intro = run(T, { rms: -30, peak: -22, secs: 12 });
+  assert.ok(intro.G <= 2.5, 'a quiet intro earns only a small lift before the music shows itself: ' + intro.G.toFixed(1));
+  const hot = run(T, { rms: -6, peak: 1, secs: 90 });
+  assert.ok(hot.G < -4 && hot.G >= -10 * 0.7 - 1e-6, 'hot source lowered, within the limit: ' + hot.G.toFixed(1));
+  const peaky = run(T, { rms: -26, peak: -2, secs: 90 });
+  assert.ok(peaky.G <= 4.01, 'a peaky quiet source is not lifted into the limiter: ' + peaky.G.toFixed(1));
+  // A quiet intro followed by a drop: the intro earns a small lift, and the drop is pulled back within seconds.
+  const drop = Smart.createBrain(); let Gd = 0, at6 = null, maxUp = 0;
+  for (let t = 0; t < 50; t += 0.125) {
+    const inRms = t < 25 ? -26 : -12;
+    drop.feed({ powers: powers(T) }, 0.125); drop.plan(0.7, 'neutral', 0.125);
+    Gd = drop.level({ rmsDb: inRms + Gd, peakDb: inRms + 9 + Gd }, 0.7, 0.125);
+    if (t < 25) maxUp = Math.max(maxUp, Gd);
+    if (t >= 31 && at6 === null) at6 = inRms + Gd;
+  }
+  assert.ok(maxUp <= 4 * 0.7 + 1e-6, 'the intro is lifted by no more than the cap: ' + maxUp.toFixed(1));
+  assert.ok(at6 <= -12 + 0.5, 'six seconds after the drop it is not louder than the music itself: ' + at6.toFixed(1) + ' dB');
+  const settle = Smart.createBrain(); let G = 0, last = 0;
+  for (let t = 0; t < 120; t += 0.125) { settle.feed({ powers: powers(T) }, 0.125); G = settle.level({ rmsDb: -18 + G, peakDb: -9 + G }, 1, 0.125); if (t > 100) last = Math.max(last, Math.abs(G - settle.gain)); }
+  assert.ok(Math.abs(-18 + G - Smart.LEVEL_TARGET) < 0.6, 'the level settles on the target: ' + (-18 + G).toFixed(2));
+
+  // Targets follow the kind of music (the station's sound preset).
+  assert.deepStrictEqual(['club', 'warm', 'deep', 'wide', 'whatever'].map(Smart.profileFor), ['bright', 'dark', 'neutral', 'neutral', 'neutral']);
+  const sum = db => db.reduce((s, v) => s + Math.pow(10, v / 10), 0);
+  Object.values(Smart.PROFILES).forEach(pr => assert.ok(Math.abs(sum(Smart.normalise(pr)) - 1) < 1e-9, 'a target adds up to the whole signal'));
+});
+
+// The engine, with real audio: noise with a chosen spectrum goes through the real Web Audio chain.
+test('smart sound (the engine): dull, thin and loud music is corrected through the real chain; silence and strength 0 do nothing', async t => {
+  const Smart = require('../docs/smart.js');
+  const res = await t.p.evaluate(async profiles => {
+    const EDGES = [20, 99, 198, 396, 792, 1585, 3170, 6340, 11200, 20000];
+    const fft = (re, im) => {
+      const n = re.length;
+      for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+      for (let len = 2; len <= n; len <<= 1) {
+        const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+        for (let i = 0; i < n; i += len) { let cr = 1, ci = 0; for (let k = 0; k < len / 2; k++) {
+          const a = i + k, b = i + k + len / 2, vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - vr; im[b] = im[a] - vi; re[a] += vr; im[a] += vi;
+          const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } }
+      }
+      for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+    };
+    // Stereo noise whose band energies (dB, relative) are `bandDb`, scaled to a mid-channel RMS of `rmsDb`.
+    const noise = (sr, bandDb, rmsDb) => {
+      const n = 1 << Math.ceil(Math.log2(sr * 6)), chans = [];
+      for (let c = 0; c < 2; c++) {
+        const re = new Float64Array(n), im = new Float64Array(n);
+        let seed = 7919 * 3 + c * 104729;
+        const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+        for (let k = 1; k < n / 2; k++) {
+          const f = k * sr / n; let b = -1;
+          for (let i = 0; i < 9; i++) if (f >= EDGES[i] && f < EDGES[i + 1]) b = i;
+          if (b < 0) continue;
+          const amp = Math.sqrt(Math.pow(10, bandDb[b] / 10) / (EDGES[b + 1] - EDGES[b])), ph = rnd() * 2 * Math.PI;
+          re[k] = amp * Math.cos(ph); im[k] = amp * Math.sin(ph); re[n - k] = re[k]; im[n - k] = -im[k];
+        }
+        fft(re, im); chans.push(re);
+      }
+      let sq = 0; for (let i = 0; i < n; i++) { const m = (chans[0][i] + chans[1][i]) / 2; sq += m * m; }
+      const k = rmsDb <= -120 ? 0 : Math.pow(10, rmsDb / 20) / Math.sqrt(sq / n);
+      const buf = new AudioBuffer({ length: n, numberOfChannels: 2, sampleRate: sr });
+      for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) d[i] = chans[c][i] * k; }
+      return buf;
+    };
+    const N = profiles.neutral;
+    const scenarios = {
+      reference: { b: N, rms: -14 },
+      dull: { b: N.map((v, i) => (i >= 5 ? v - 4 * (i - 4) : v)), rms: -14 },
+      thin: { b: N.map((v, i) => (i === 0 ? v - 14 : i === 1 ? v - 7 : v)), rms: -14 },
+      hot: { b: N, rms: -5 },
+      silence: { b: N, rms: -150 },
+      dullOff: { b: N.map((v, i) => (i >= 5 ? v - 4 * (i - 4) : v)), rms: -14, strength: 0 }
+    };
+    const out = {};
+    for (const [name, sc] of Object.entries(scenarios)) {
+      const eng = window.BurzhSound.create();
+      const { ctx, node } = eng.input();
+      await ctx.resume();
+      eng.timeScale = 8;
+      eng.apply(window.BurzhSound.clone(window.BurzhSound.PRESETS.flat.p), true);
+      eng.setSmart({ on: true, strength: sc.strength == null ? 0.7 : sc.strength, profile: 'neutral' });
+      const src = ctx.createBufferSource(); src.buffer = noise(ctx.sampleRate, sc.b, sc.rms); src.loop = true; src.connect(node); src.start();
+      await new Promise(r => setTimeout(r, 4200));
+      out[name] = { st: eng.smart(), outBands: eng.outputBands() };
+      eng.setSmart({ on: false }); try { src.stop(); } catch (e) { /* stopped */ } await ctx.close();
+    }
+    return out;
+  }, Smart.PROFILES);
+
+  const finite = v => v == null || (Array.isArray(v) ? v.every(finite) : typeof v !== 'number' || Number.isFinite(v) || Number.isNaN(v));
+  for (const [k, r] of Object.entries(res)) assert.ok(r.st.gains.every(Number.isFinite) && Number.isFinite(r.st.lev) && finite(r.outBands), `${k}: no NaN or infinity anywhere`);
+  const g = x => res[x].st.gains;
+  assert.ok(g('reference').every(v => Math.abs(v) < 0.7) && Math.abs(res.reference.st.lev) < 1.5, 'balanced noise is left alone: ' + g('reference').map(v => v.toFixed(1)) + ' lev ' + res.reference.st.lev.toFixed(1));
+  assert.ok(g('dull')[7] >= 2 && g('dull')[6] >= 1.5 && res.dull.st.clarity >= 8, 'dull: the top is lifted ' + g('dull').map(v => v.toFixed(1)) + ' clarity ' + res.dull.st.clarity.toFixed(0));
+  assert.ok(res.dull.outBands[7] - res.dull.st.measured[7] >= 1.5, `dull: the top really comes out stronger (${res.dull.st.measured[7].toFixed(1)} → ${res.dull.outBands[7].toFixed(1)} dB)`);
+  assert.ok(g('thin')[0] >= 3 && res.thin.st.bass >= 10, 'thin: bass lifted ' + g('thin').map(v => v.toFixed(1)) + ' bass ' + res.thin.st.bass.toFixed(0));
+  assert.ok(res.hot.st.lev <= -5, 'a hot source is lowered: ' + res.hot.st.lev.toFixed(1));
+  assert.ok(g('silence').every(v => v === 0) && res.silence.st.lev === 0 && res.silence.st.seconds === 0, 'silence teaches it nothing and moves nothing');
+  assert.ok(g('dullOff').every(v => v === 0) && res.dullOff.st.lev === 0 && res.dullOff.st.bass === 0, 'strength 0 does nothing');
+});
+
+test('smart sound (settings): Smart / Manual, strength, what it is doing, a new station, and the Compare button', async t => {
+  await t.play(); await t.live(); await t.openSettings();
+  await t.p.click('[data-switch="sound.on"]'); await sleep(500);
+  const pressed = sel => t.p.evaluate(s => [...document.querySelectorAll(s + ' button')].filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.value), sel);
+  assert.deepStrictEqual(await pressed('[data-sseg="mode"]'), ['smart'], 'Smart is the default mode');
+  assert.deepStrictEqual(await pressed('[data-sseg="strength"]'), ['70'], 'Balanced is the default strength');
+  assert.strictEqual(await t.p.locator('#smartBox').isVisible(), true);
+  const stored = () => t.p.evaluate(() => JSON.parse(localStorage.getItem('burzh.radio.settings.v1')).sound);
+  const st = () => t.p.evaluate(() => window.BURZH.debug().smart);
+  assert.ok(await waitFor(async () => (await st()).on, 3000), 'smart sound is on once the enhancer is');
+
+  // What it is doing: after a few seconds the four tiles say something (the mock "music" is a bare tone, so the words are not judged).
+  assert.ok(await waitFor(async () => (await st()).seconds > 3, 8000, 250), 'it listens: ' + JSON.stringify(await st()).slice(0, 200));
+  await sleep(500);
+  const tiles = await t.p.evaluate(() => ['liveTone', 'liveLevel', 'livePunch', 'liveSpace'].map(id => document.getElementById(id).textContent));
+  assert.ok(tiles.every(v => v && v !== '—' && v !== 'Listening…'), 'the tiles describe what it does: ' + tiles.join(' | '));
+
+  // Strength and mode are saved and reach the engine.
+  await t.p.click('[data-sseg="strength"] button[data-value="100"]'); await sleep(200);
+  assert.strictEqual((await stored()).strength, 100); assert.strictEqual((await st()).strength, 1);
+  await t.p.click('[data-sseg="strength"] button[data-value="40"]'); await sleep(200);
+  assert.strictEqual((await st()).strength, 0.4);
+  await t.p.click('[data-sseg="mode"] button[data-value="manual"]'); await sleep(300);
+  assert.strictEqual((await stored()).mode, 'manual'); assert.strictEqual((await st()).on, false, 'Manual: nothing is added by itself');
+  assert.strictEqual(await t.p.locator('#smartBox').isVisible(), false, 'the smart controls hide in Manual');
+  assert.ok((await t.dbg()).phase === 'live', 'music kept playing');
+  await t.p.click('[data-sseg="mode"] button[data-value="smart"]'); await sleep(300);
+  assert.strictEqual((await st()).on, true);
+
+  // Compare mutes what smart sound adds, but it keeps listening: nothing is forgotten.
+  await sleep(1500);
+  const s0 = await st();
+  const added = () => t.p.evaluate(() => Math.max(...window.BURZH.autoCurve([60, 140, 280, 560, 1120, 2240, 4480, 8400, 14000]).map(Math.abs)));
+  assert.ok(await added() > 0.3, 'smart sound is adding something to the tone (' + (await added()).toFixed(2) + ' dB)');
+  await t.p.locator('#abBtn').scrollIntoViewIfNeeded(); await sleep(200);
+  const b = await t.p.locator('#abBtn').boundingBox();
+  await t.p.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await t.p.mouse.down(); await sleep(500);
+  const held = await st();
+  assert.strictEqual(held.bypass, true, 'while held, what smart sound adds is muted');
+  assert.ok(await added() < 1e-6, 'and the tone curve it draws is flat');
+  assert.ok(held.seconds >= s0.seconds, 'it keeps listening while held (' + held.seconds.toFixed(1) + ' ≥ ' + s0.seconds.toFixed(1) + ')');
+  await t.p.mouse.up(); await sleep(500);
+  const back = await st();
+  assert.strictEqual(back.bypass, false); assert.ok(back.seconds >= held.seconds, 'released: it picks up where it was');
+  assert.ok(await added() > 0.3, 'released: it is adding the same again');
+
+  // A new station: it starts learning the new music again (the average is fresh), the sound it had does not snap to zero.
+  await t.p.evaluate(() => document.querySelector('button[data-station="deep-house"]').click());
+  await sleep(1200);
+  const after = await st();
+  assert.ok(after.seconds < 3 && after.seconds < back.seconds, 'a new station: it learns again (' + after.seconds.toFixed(1) + ' s)');
+  assert.ok((await t.dbg()).phase !== 'stopped', 'the new station plays');
+}, { viewport: LAND });
+
+test('smart sound (settings): an older saved setup opens in Smart / Balanced', async t => {
+  await t.play(); await t.live();
+  const d = await t.dbg();
+  assert.strictEqual(d.mode, 'smart'); assert.strictEqual(d.strength, 70);
+  assert.strictEqual(d.fxOn, true, 'the saved choice to have the enhancer on is kept');
+  assert.strictEqual(d.preset, 'club', 'and so is the saved preset');
+}, { viewport: LAND, settings: { sound: { on: true, preset: 'club', custom: null } } });
 
 test('iOS-style pause right after starting is recovered', async t => {
   await t.play(); await t.live(); await t.openSettings();

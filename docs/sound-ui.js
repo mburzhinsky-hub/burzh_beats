@@ -88,6 +88,19 @@
       ctx.lineTo(fx(FMAX), dy(0)); ctx.lineTo(fx(FMIN), dy(0)); ctx.closePath();
       ctx.fillStyle = rgba(ink, .06); ctx.fill();
 
+      // What smart mode adds on top (dashed): it moves slowly, by itself.
+      if (opts.autoOn && opts.autoOn() && opts.engine.autoCurve) {
+        const ac = opts.engine.autoCurve(curveFreqs);
+        ctx.save();
+        ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(acc, .7);
+        ctx.beginPath();
+        curveFreqs.forEach((f, i) => { const x = fx(f), y = dy(clamp(ac[i], -EQ_RANGE * 1.4, EQ_RANGE * 1.4)); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+        ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = rgba(mute, .9); ctx.textAlign = 'right';
+        ctx.fillText('dashed: smart', W - 8, dy(EQ_RANGE) - 3);
+      }
+
       // Handles.
       BANDS.forEach((b, i) => {
         const x = fx(b.f), y = dy(params.bands[i] || 0), on = i === drag;
