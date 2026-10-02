@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.22.0';
+  const VERSION = '0.22.1';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -163,6 +163,10 @@
   let stallTimer = 0;
   let stallRetried = false;
   let lastMetaKey = '';
+  let tuneToken = 0;             // a late answer to an older tune() must not trigger recovery of the new one
+  let playedSinceTune = false;   // did this tune ever reach "playing"? (decides between recovering and retrying)
+  let useFragment = true;        // #t=offset in the URL; dropped as a last resort for picky players
+  let lastProblem = '';          // shown in Settings → About so a screenshot is enough to diagnose
   let shifted = false;      // the listener moved inside the mix, so playback is off the live clock
 
   function configureAudioSession() {
@@ -179,9 +183,13 @@
     updateWakeLock();
   }
 
-  function tune({ autoplay = true, after = null, follow = false } = {}) {
+  function tune({ autoplay = true, after = null, follow = false, retry = false } = {}) {
     const st = station;
     clearTimeout(retryTimer);
+    retryTimer = 0;
+    playedSinceTune = false;
+    const token = ++tuneToken;
+    if (!retry) useFragment = true;
     if (!available(st)) { wantPlaying = false; shifted = false; setPhase('stopped'); render(); return; }
     configureAudioSession();
     ensureEngine();
@@ -220,7 +228,7 @@
       if (!st.stream) { try { audio.currentTime = offset; } catch (e) { /* not seekable yet */ } }
     } else {
       switching++;
-      audio.src = st.stream ? url : url + '#t=' + offset.toFixed(1);
+      audio.src = st.stream || !useFragment ? url : url + '#t=' + offset.toFixed(1);
       audio.dataset.sync = st.stream ? '' : '1';
     }
 
@@ -241,20 +249,63 @@
     if (!p || !p.then) { done(); return; }
     p.then(done).catch(err => {
       done();
+      if (token !== tuneToken) return;
       if (err && err.name === 'AbortError') return;
       if (err && err.name === 'NotAllowedError') { wantPlaying = false; setPhase('stopped'); toast('TAP PLAY TO TUNE IN'); return; }
-      signalLost();
+      noteProblem('play() ' + (err && err.name ? err.name : 'rejected'));
+      if (!recover()) signalLost();
     });
   }
 
-  // If tuning never reaches "live", retry once, then give up on the chain (or report lost signal).
+  /* ------------------------------------------------------------------ */
+  /* Never stay silent: a ladder of fallbacks, and a readable reason     */
+  /* ------------------------------------------------------------------ */
+
+  const MEDIA_ERRORS = { 1: 'ABORTED', 2: 'NETWORK', 3: 'DECODE', 4: 'SRC_NOT_SUPPORTED' };
+
+  // Remember what went wrong (and, asynchronously, what the server said) for Settings → About.
+  function noteProblem(what) {
+    const url = current && current.url;
+    const engine = audio === audioFx ? 'engine' : 'plain';
+    lastProblem = new Date().toTimeString().slice(0, 5) + ' ' + what + ' · ' + engine + (useFragment ? '' : ' · no #t');
+    refreshProblem();
+    if (!url || !window.fetch) return;
+    const stamp = lastProblem;
+    fetch(url, { headers: { Range: 'bytes=0-1' }, cache: 'no-store' }).then(r => {
+      const info = 'HTTP ' + r.status + (r.headers.get('content-range') ? ' ' + r.headers.get('content-range') : '') + ' ' + (r.headers.get('content-type') || '');
+      if (lastProblem === stamp) { lastProblem = stamp + ' · ' + info; refreshProblem(); }
+    }).catch(err => {
+      if (lastProblem === stamp) { lastProblem = stamp + ' · fetch failed: ' + (err && err.message ? err.message : err); refreshProblem(); }
+    });
+  }
+  function refreshProblem() {
+    const el = document.getElementById('problemState');
+    if (el) el.textContent = lastProblem || 'None';
+  }
+
+  /* When tuning fails before anything played: 1) drop the sound engine and use the plain player,
+   * 2) drop the #t=offset fragment (seek after the metadata loads instead). Returns true if it acted. */
+  function recover() {
+    if (!wantPlaying || playedSinceTune) return false;
+    if (fxActive()) {
+      fxFailed('SOUND SHAPING OFF · COULD NOT START IT, PLAYING THE ORIGINAL SOUND');
+      return true;
+    }
+    if (useFragment && current && !current.st.stream) {
+      useFragment = false;
+      tune({ autoplay: true, retry: true });
+      return true;
+    }
+    return false;
+  }
+
+  // If tuning never reaches "live": walk down the fallback ladder, then report a lost signal.
   function armStall() {
     clearTimeout(stallTimer);
     stallTimer = setTimeout(() => {
       if (!wantPlaying || phase === 'live') return;
-      if (fxActive() && !stallRetried) { stallRetried = true; sound.resume(); tune({ autoplay: true }); return; }
-      if (fxActive()) { fxFailed('SOUND SHAPING DID NOT START · PLAYING THE ORIGINAL SOUND'); return; }
-      signalLost();
+      noteProblem('no sound after 8 s (ready ' + audio.readyState + ', net ' + audio.networkState + ')');
+      if (!recover()) signalLost();
     }, 8000);
   }
 
@@ -266,6 +317,7 @@
     wantPlaying = false;
     shifted = false;
     clearTimeout(retryTimer);
+    retryTimer = 0;
     clearTimeout(stallTimer);
     audio.pause();
     setPhase('stopped');
@@ -303,10 +355,15 @@
   function signalLost() {
     if (!wantPlaying) return;
     setPhase('lost');
-    toast('SIGNAL LOST · RETUNING', 'error', 3000);
-    clearTimeout(retryTimer);
-    retryTimer = setTimeout(() => { if (wantPlaying) tune({ autoplay: true }); }, retryDelay);
-    retryDelay = Math.min(30000, retryDelay * 2);
+    if (!lastProblem) noteProblem('signal lost');
+    const code = (lastProblem.match(/E\d/) || [''])[0];
+    toast('SIGNAL LOST' + (code ? ' · ' + code : '') + ' · RETUNING', 'error', 3000);
+    if (retryTimer) return;      // a retry is already scheduled (the element reports one failure twice)
+    retryTimer = setTimeout(() => {
+      retryTimer = 0;
+      retryDelay = Math.min(30000, retryDelay * 2);
+      if (wantPlaying) tune({ autoplay: true });
+    }, retryDelay);
   }
 
   const handlers = {
@@ -323,6 +380,7 @@
     },
     playing() {
       retryDelay = 4000;
+      playedSinceTune = true;
       stallRetried = false;
       clearTimeout(stallTimer);
       if (audio === audioFx) { fxEverPlayed = true; watchFx(); }
@@ -368,11 +426,9 @@
     },
     error() {
       if (!wantPlaying) return;
-      if (audio === audioFx && !fxEverPlayed && current && current.st.stream) {
-        // The chain needs CORS-enabled audio; fall back to the plain player instead of staying silent.
-        fxFailed('SOUND SHAPING OFF · AUDIO SOURCE BLOCKS IT');
-        return;
-      }
+      const code = audio.error ? audio.error.code : 0;
+      noteProblem('E' + code + ' ' + (MEDIA_ERRORS[code] || 'MEDIA_ERROR') + (audio.error && audio.error.message ? ' (' + audio.error.message + ')' : ''));
+      if (recover()) return;
       signalLost();
     },
     timeupdate() { checkCue(); }
@@ -428,8 +484,7 @@
   function fxFailed(message) {
     fxBroken = true;
     clearInterval(fxWatchTimer);
-    settings.sound.on = false;
-    saveSettings();
+    noteProblem(message.toLowerCase());
     toast(message, 'error', 4800);
     if (audio !== audioPlain) switchTo(audioPlain);
     applySound();
@@ -1194,6 +1249,7 @@
     const sw = document.querySelector('[data-switch="sound.on"]');
     if (sw) sw.disabled = !sound || fxBroken;
     set('engineState', engineLabel());
+    set('problemState', lastProblem || 'None');
   }
 
   function buildStationButtons() {
@@ -1362,7 +1418,7 @@
     stations: () => stations,
     audioEl: () => audio,
     seekTo: t => seekTo(t),
-    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek() }),
+    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek(), problem: lastProblem, useFragment }),
     spectrum: () => { const a = new Uint8Array(64); return sound && sound.spectrum(a) ? Array.from(a) : Array(64).fill(0); }
   };
 

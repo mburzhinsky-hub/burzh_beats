@@ -6,7 +6,8 @@ on:
     paths:
       - 'docs/**'
       - '.github/workflows/deploy-web.yml'
-      - 'tools/live_check.py'
+      - 'tools/**'
+      - 'tests/**'
   workflow_dispatch:
 
 permissions:
@@ -19,7 +20,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Gate: a release that fails these checks is never published.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: for f in docs/app.js docs/planet.js docs/sound.js docs/sound-ui.js docs/sw.js; do node --check "$f"; done
+      - name: Station list, artwork and audio files
+        run: python3 tools/radio.py validate
+      - name: Browser tests
+        working-directory: tests
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright-core install --with-deps chromium
+          node run.js
+
   deploy:
+    needs: test
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

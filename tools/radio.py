@@ -266,8 +266,106 @@ def png_info(path: Path) -> tuple[int, int]:
     return size
 
 
+def mp4_info(path: Path) -> dict:
+    """Read the structure of an .m4a with the standard library only (no ffprobe needed in CI)."""
+    import struct
+    size = path.stat().st_size
+    top: list[str] = []
+    moov = b""
+    with open(path, "rb") as f:
+        pos = 0
+        while pos < size:
+            f.seek(pos)
+            head = f.read(8)
+            if len(head) < 8:
+                break
+            sz, kind = struct.unpack(">I4s", head)
+            hdr = 8
+            if sz == 1:
+                sz = struct.unpack(">Q", f.read(8))[0]
+                hdr = 16
+            elif sz == 0:
+                sz = size - pos
+            if sz < hdr:
+                raise ValueError("corrupt MP4 atom")
+            top.append(kind.decode("latin1"))
+            if kind == b"moov":
+                f.seek(pos + hdr)
+                moov = f.read(min(sz - hdr, 16_000_000))
+            pos += sz
+
+    def children(buf: bytes, start: int, end: int):
+        i = start
+        while i + 8 <= end:
+            sz, kind = struct.unpack(">I4s", buf[i:i + 8])
+            if sz < 8:
+                break
+            yield kind, i + 8, min(i + sz, end)
+            i += sz
+
+    def find(buf, start, end, name):
+        for kind, a, b in children(buf, start, end):
+            if kind == name:
+                return a, b
+        return None
+
+    info = {"size": size, "top": top, "tracks": [], "duration": None}
+    m = find(moov, 0, len(moov), b"mvhd") if moov else None
+    if m:
+        ver = moov[m[0]]
+        if ver == 1:
+            scale, dur = struct.unpack(">IQ", moov[m[0] + 20:m[0] + 32])
+        else:
+            scale, dur = struct.unpack(">II", moov[m[0] + 12:m[0] + 20])
+        info["duration"] = dur / scale if scale else None
+    for kind, a, b in children(moov, 0, len(moov)):
+        if kind != b"trak":
+            continue
+        track = {"handler": None, "format": None}
+        mdia = find(moov, a, b, b"mdia")
+        if mdia:
+            hdlr = find(moov, mdia[0], mdia[1], b"hdlr")
+            if hdlr:
+                track["handler"] = moov[hdlr[0] + 8:hdlr[0] + 12].decode("latin1")
+            minf = find(moov, mdia[0], mdia[1], b"minf")
+            stbl = find(moov, minf[0], minf[1], b"stbl") if minf else None
+            stsd = find(moov, stbl[0], stbl[1], b"stsd") if stbl else None
+            if stsd:
+                track["format"] = moov[stsd[0] + 12:stsd[0] + 16].decode("latin1")
+        info["tracks"].append(track)
+    return info
+
+
+def check_audio_file(path: Path, expected_seconds: float | None) -> tuple[list[str], list[str]]:
+    """Problems that would make a phone refuse or stall on a mix. Returns (errors, notes)."""
+    errors: list[str] = []
+    notes: list[str] = []
+    try:
+        info = mp4_info(path)
+    except Exception as e:  # noqa: BLE001
+        return [f"not a readable MP4/M4A ({e})"], notes
+    top = info["top"]
+    if "moov" not in top or "mdat" not in top:
+        errors.append("missing moov/mdat atoms")
+    elif top.index("moov") > top.index("mdat"):
+        errors.append("not faststart (moov after mdat): phones must download the whole file before playing; re-encode with -movflags +faststart")
+    if any(t["handler"] == "vide" for t in info["tracks"]):
+        errors.append("contains a video/cover track; rebuild it with `tools/radio.py build` (it strips it)")
+    if not any(t["handler"] == "soun" and t["format"] == "mp4a" for t in info["tracks"]):
+        errors.append("no AAC (mp4a) audio track")
+    if expected_seconds and info["duration"] and abs(info["duration"] - expected_seconds) > 1.5:
+        errors.append(f"duration in stations.json is {expected_seconds:.1f}s but the file is {info['duration']:.1f}s")
+    mb = info["size"] / 1_000_000
+    if info["size"] >= 95_000_000:
+        errors.append(f"{mb:.0f} MB is too close to GitHub's 100 MB file limit; split the mix or host audio elsewhere")
+    elif info["size"] >= 50_000_000:
+        notes.append(f"{mb:.0f} MB (GitHub warns above 50 MB; fine for Pages, but consider external hosting for lots of music)")
+    return errors, notes
+
+
 def validate(_args: argparse.Namespace) -> None:
     errors: list[str] = []
+    notes: list[str] = []
     try:
         data = load()
     except Exception as e:  # noqa: BLE001
@@ -306,6 +404,10 @@ def validate(_args: argparse.Namespace) -> None:
                 errors.append(f"{sid}: {it.get('file')}: duration must be > 0 seconds")
             if local_media and it.get("file") and not (media_dir / it["file"]).exists():
                 errors.append(f"{sid}: missing media file {media_base}{it['file']}")
+            elif local_media and it.get("file"):
+                file_errors, file_notes = check_audio_file(media_dir / it["file"], it.get("duration"))
+                errors.extend(f"{sid}: {it['file']}: {e}" for e in file_errors)
+                notes.extend(f"{sid}: {it['file']}: {n}" for n in file_notes)
             last = -1.0
             for c in it.get("cues", []):
                 if c.get("at", -1) < last or not c.get("title"):
@@ -323,6 +425,8 @@ def validate(_args: argparse.Namespace) -> None:
         except Exception as e:  # noqa: BLE001
             errors.append(f"{name}: {e}")
 
+    if notes:
+        print("\n".join("· " + n for n in notes))
     if errors:
         print("\n".join("✗ " + e for e in errors))
         sys.exit(1)
