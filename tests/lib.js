@@ -122,6 +122,7 @@ async function open(server, opts = {}) {
   await p.route('**/stations.json', guarded(async r => {
     if (net.stationsDelay) await sleep(net.stationsDelay);
     const j = await (await r.fetch()).json();
+    if (opts.mutate) opts.mutate(j);                                                   // a test's own station list
     j.stations.forEach(st => st.items.forEach(it => { it.duration = opts.duration || 60; }));
     // Deterministic clock: every station starts a few seconds into its mix, far from the end of the 60 s fixture.
     j.epoch = new Date(Math.floor(Date.now() / 1000) * 1000 - 120 * 10000 * 1000 - (opts.startOffset || 5) * 1000).toISOString();

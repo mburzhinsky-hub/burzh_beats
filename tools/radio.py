@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import shutil
 import struct
@@ -49,6 +50,10 @@ LOOK_LIMITS = {
     "rain": (0, 1), "comets": (1, 2),
 }
 BG_BLACK, BG_PAPER = "#050606", "#f1f1ee"      # the two app backgrounds (docs/index.html)
+# GitHub refuses files over 100 MB. A mix whose encoded size would pass MAX_PART_BYTES is cut into equal parts at the
+# quietest moment near each cut; the player keeps the parts of one mix together, in order (item "group").
+MAX_PART_BYTES = 80_000_000
+AAC_BYTES_PER_SECOND = 16_000 * 1.02            # 128 kbps plus container overhead
 
 
 def luminance(hex_colour: str) -> float:
@@ -207,23 +212,90 @@ def read_cues(source: Path) -> list[dict]:
 # build
 # ---------------------------------------------------------------------------
 
-def loudnorm_encode(src: Path, dst: Path) -> None:
+def loudnorm_filter(src: Path) -> str:
+    """Two-pass EBU R128: measure the whole file, then return a constant-gain filter (the same gain for every part)."""
     measure = subprocess.run(
         ["ffmpeg", "-hide_banner", "-nostats", "-i", str(src), "-vn",
          "-af", f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA={TARGET_LRA}:print_format=json",
          "-f", "null", "-"],
         capture_output=True, text=True)
     stats = json.loads(measure.stderr[measure.stderr.rindex("{"):measure.stderr.rindex("}") + 1])
-    filt = (f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA={TARGET_LRA}"
+    return (f"loudnorm=I={TARGET_LUFS}:TP={TARGET_TP}:LRA={TARGET_LRA}"
             f":measured_I={stats['input_i']}:measured_TP={stats['input_tp']}"
             f":measured_LRA={stats['input_lra']}:measured_thresh={stats['input_thresh']}"
             f":offset={stats['target_offset']}:linear=true")
+
+
+def encode_aac(src: Path, dst: Path, filt: str, start: float | None = None, length: float | None = None) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     tmp = dst.with_suffix(".tmp.m4a")
-    run(["ffmpeg", "-hide_banner", "-y", "-i", str(src), "-vn", "-af", filt,
-         "-ar", "44100", "-ac", "2", "-c:a", "aac", "-b:a", "128k",
-         "-map_metadata", "-1", "-movflags", "+faststart", str(tmp)])
+    cmd = ["ffmpeg", "-hide_banner", "-y"]
+    if start:
+        cmd += ["-ss", f"{start:.3f}"]
+    cmd += ["-i", str(src)]
+    if length:
+        cmd += ["-t", f"{length:.3f}"]
+    cmd += ["-vn", "-af", filt, "-ar", "44100", "-ac", "2", "-c:a", "aac", "-b:a", "128k",
+            "-map_metadata", "-1", "-movflags", "+faststart", str(tmp)]
+    run(cmd)
     tmp.replace(dst)
+
+
+def quiet_point(src: Path, target: float, window: float = 90.0) -> float:
+    """The quietest 400 ms within +-window seconds of `target`: a breakdown, not the middle of a drop."""
+    from array import array
+    start = max(0.0, target - window)
+    raw = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-ss", f"{start:.3f}", "-t", f"{2 * window:.3f}",
+         "-i", str(src), "-vn", "-ac", "1", "-ar", "8000", "-f", "s16le", "-"],
+        capture_output=True, check=True).stdout
+    samples = array("h")
+    samples.frombytes(raw[:len(raw) // 2 * 2])
+    frame, span = 400, 8                                   # 50 ms frames, 8 of them = 400 ms
+    energy = [sum(v * v for v in samples[i:i + frame]) for i in range(0, len(samples) - frame + 1, frame)]
+    if len(energy) <= span:
+        return target
+    sums = [sum(energy[:span])]
+    for i in range(span, len(energy)):
+        sums.append(sums[-1] + energy[i] - energy[i - span])
+    best = min(range(len(sums)), key=sums.__getitem__)
+    return start + (best + span / 2) * frame / 8000
+
+
+def encode_source(src: Path, out: Path, sid: str) -> list[str]:
+    """Encode one library file to docs/media; a very long one becomes several parts. Returns the files made, in order."""
+    base = f"{sid}/{slug(src.stem)}"
+    seconds = probe(src)["duration"]
+    parts = max(1, math.ceil(seconds * AAC_BYTES_PER_SECOND / MAX_PART_BYTES))
+    filt = loudnorm_filter(src)
+    if parts == 1:
+        encode_aac(src, out / f"{base}.m4a", filt)
+        return [f"{base}.m4a"]
+    cuts = [0.0]
+    for k in range(1, parts):
+        cuts.append(max(cuts[-1] + 60, quiet_point(src, seconds * k / parts)))
+    cuts.append(seconds)
+    files = []
+    for k in range(parts):
+        rel = f"{base}-part{k + 1}.m4a"
+        print(f"  part {k + 1}/{parts}: {cuts[k] / 60:.1f}–{cuts[k + 1] / 60:.1f} min")
+        encode_aac(src, out / rel, filt, start=cuts[k], length=None if k == parts - 1 else cuts[k + 1] - cuts[k])
+        files.append(rel)
+    return files
+
+
+def cues_between(cues: list[dict], start: float, end: float) -> list[dict]:
+    """The tracklist of one part: times counted from the start of the part; the track already playing at the cut comes first."""
+    inside = [dict(c, at=round(c["at"] - start, 2)) for c in cues if start <= c["at"] < end]
+    before = [c for c in cues if c["at"] < start]
+    if before and (not inside or inside[0]["at"] > 0.5):
+        inside.insert(0, dict(before[-1], at=0.0))
+    return inside
+
+
+def mix_count(items: list[dict]) -> int:
+    """Mixes on a station: the parts of one cut mix (same group) count once."""
+    return len({it.get("group") or it.get("file") or it.get("url") for it in items})
 
 
 def build(args: argparse.Namespace) -> None:
@@ -255,31 +327,43 @@ def build(args: argparse.Namespace) -> None:
             continue
         built = []
         for src in sources:
-            rel = f"{st['id']}/{slug(src.stem)}.m4a"
-            dst = out / rel
+            key = str(src.relative_to(library))
             digest = file_hash(src)
-            if cache.get(str(src.relative_to(library))) != digest or not dst.exists():
-                print(f"encode {src.relative_to(ROOT) if src.is_relative_to(ROOT) else src} -> {rel}")
-                loudnorm_encode(src, dst)
-                cache[str(src.relative_to(library))] = digest
+            entry = cache.get(key)
+            if isinstance(entry, str):                     # older cache: one file per source
+                entry = {"hash": entry, "files": [f"{st['id']}/{slug(src.stem)}.m4a"]}
+            if entry and entry.get("hash") == digest and all((out / f).exists() for f in entry["files"]):
+                files = entry["files"]
+                print(f"ok     {', '.join(files)}")
             else:
-                print(f"ok     {rel}")
-            info = probe(dst)
+                print(f"encode {src.relative_to(ROOT) if src.is_relative_to(ROOT) else src}")
+                files = encode_source(src, out, st["id"])
+                cache[key] = {"hash": digest, "files": files}
             meta = probe(src)
-            item = {
-                "file": rel,
-                "title": meta["title"] or pretty_title(src.stem),
-                "duration": round(info["duration"], 3),
-                "cues": read_cues(src),
-            }
-            if meta["artist"]:
-                item["artist"] = meta["artist"]
-            built.append(item)
+            title = meta["title"] or pretty_title(src.stem)
+            cues = read_cues(src)
+            start = 0.0
+            for k, rel in enumerate(files):
+                length = round(probe(out / rel)["duration"], 3)
+                item = {
+                    "file": rel,
+                    "title": title if len(files) == 1 else f"{title} · {k + 1}/{len(files)}",
+                    "duration": length,
+                    "cues": cues_between(cues, start, start + length) if len(files) > 1 else cues,
+                }
+                if len(files) > 1:
+                    item["group"] = slug(src.stem)
+                if meta["artist"]:
+                    item["artist"] = meta["artist"]
+                built.append(item)
+                start += length
 
         new_files = {b["file"] for b in built}
-        kept = [] if args.prune else [it for it in st.get("items", []) if it.get("file") not in new_files]
+        new_groups = {b["group"] for b in built if b.get("group")}
+        kept = [] if args.prune else [it for it in st.get("items", [])
+                                      if it.get("file") not in new_files and it.get("group") not in new_groups]
         st["items"] = kept + built
-        print(f"{st['name']}: {len(st['items'])} mixes, {sum(i['duration'] for i in st['items']) / 3600:.1f} h on air")
+        print(f"{st['name']}: {mix_count(st['items'])} mixes, {sum(i['duration'] for i in st['items']) / 3600:.1f} h on air")
 
     cache_path.write_text(json.dumps(cache, indent=2))
     save(data)
@@ -465,7 +549,17 @@ def validate(_args: argparse.Namespace) -> None:
                     errors.append(f"{sid}: artwork should be 1024x1024, got {w}x{h}")
             except Exception as e:  # noqa: BLE001
                 errors.append(f"{sid}: artwork {art}: {e}")
+        closed, prev_group = set(), None
         for it in st.get("items", []):
+            group = it.get("group")
+            if group is not None and (not isinstance(group, str) or not group):
+                errors.append(f"{sid}: {it.get('file')}: group must be a non-empty text")
+            elif group != prev_group:
+                if group in closed:
+                    errors.append(f"{sid}: {it.get('file')}: the parts of group '{group}' must be listed one after another")
+                if prev_group:
+                    closed.add(prev_group)
+                prev_group = group
             if not (it.get("file") or it.get("url")):
                 errors.append(f"{sid}: item without file/url")
                 continue
@@ -520,7 +614,7 @@ def list_cmd(_args: argparse.Namespace) -> None:
     for st in data["stations"]:
         items = st.get("items", [])
         hours = sum(i.get("duration", 0) for i in items) / 3600
-        state = "stream" if st.get("stream") else (f"{len(items)} mixes · {hours:.1f} h" if items else "off air")
+        state = "stream" if st.get("stream") else (f"{mix_count(items)} mixes · {hours:.1f} h" if items else "off air")
         print(f"{st['id']:<16} {st['name']:<16} {state}")
         for it in items:
             cues = f" · {len(it.get('cues', []))} cues" if it.get("cues") else ""

@@ -28,7 +28,22 @@
         "SUBBASS"
       ],
       "art": "./art/future-garage.png",
-      "items": [],
+      "items": [
+        {
+          "file": "future-garage/mix-01-part1.m4a",
+          "title": "Mix 01 · 1/2",
+          "duration": 3888.571,
+          "cues": [],
+          "group": "mix-01"
+        },
+        {
+          "file": "future-garage/mix-01-part2.m4a",
+          "title": "Mix 01 · 2/2",
+          "duration": 3767.1,
+          "cues": [],
+          "group": "mix-01"
+        }
+      ],
       "sound": "wide"
     },
     {

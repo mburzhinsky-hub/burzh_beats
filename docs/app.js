@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.26.1';
+  const VERSION = '0.26.2';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -104,8 +104,27 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
+  // A long mix that was cut into parts (items that share a `group`) always plays back to back, in file order:
+  // the shuffle below moves whole groups, so part 2 can never come before part 1. A station without groups
+  // gets exactly the schedule it always had (a group is then a single item).
+  const groupCache = new WeakMap();
+  function groupsOf(st) {
+    let groups = groupCache.get(st);
+    if (groups) return groups;
+    groups = [];
+    const open = new Map();
+    st.items.forEach((it, i) => {
+      const key = it.group ? String(it.group) : '';
+      if (key && open.has(key)) { open.get(key).push(i); return; }
+      const run = [i];
+      groups.push(run);
+      if (key) open.set(key, run);
+    });
+    groupCache.set(st, groups);
+    return groups;
+  }
   function rawOrder(st, cycle) {
-    const idx = st.items.map((_, i) => i);
+    const idx = groupsOf(st).map((_, i) => i);
     if (idx.length < 3) return idx; // with 1–2 mixes a fixed order never repeats a mix back to back
     const rnd = seededRandom(hashString(st.id + ':' + cycle));
     for (let i = idx.length - 1; i > 0; i--) {
@@ -122,7 +141,8 @@
       const prev = rawOrder(st, cycle - 1);
       if (order[0] === prev[prev.length - 1]) [order[0], order[1]] = [order[1], order[0]];
     }
-    return order;
+    const groups = groupsOf(st);
+    return order.reduce((all, g) => all.concat(groups[g]), []);
   }
 
   function liveAt(st, now = Date.now()) {
@@ -856,8 +876,9 @@
       offset = live.offset;
     }
     const cue = cueAt(item, offset);
-    const position = st.items.indexOf(item) + 1;
-    const counter = String(position).padStart(2, '0') + ' / ' + String(st.items.length).padStart(2, '0');
+    const groups = groupsOf(st);
+    const position = groups.findIndex(g => g.includes(st.items.indexOf(item))) + 1;
+    const counter = String(position).padStart(2, '0') + ' / ' + String(groups.length).padStart(2, '0');
     return {
       st, item, offset, cue,
       duration: item.duration,
@@ -1582,7 +1603,7 @@
       row.className = 'list-row';
       const a = document.createElement('span'); a.textContent = st.name;
       const b = document.createElement('span');
-      b.textContent = available(st) ? (st.stream ? 'Live stream' : st.items.length + (st.items.length === 1 ? ' mix' : ' mixes')) : 'Off air';
+      b.textContent = available(st) ? (st.stream ? 'Live stream' : groupsOf(st).length + (groupsOf(st).length === 1 ? ' mix' : ' mixes')) : 'Off air';
       if (available(st)) b.className = 'live';
       row.append(a, b);
       box.appendChild(row);
@@ -1683,7 +1704,7 @@
     const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
     set('startState', lastStart || '-');
     set('launchState', launchInfo || '-');
-    const mixes = stations.reduce((n, s) => n + (s.items ? s.items.length : 0), 0);
+    const mixes = stations.reduce((n, s) => n + (s.items ? groupsOf(s).length : 0), 0);
     set('libraryState', mixes + (mixes === 1 ? ' mix' : ' mixes') + ' · ' + availableStations().length + ' of ' + stations.length + ' on air');
     set('versionState', 'v' + VERSION);
     syncControls();

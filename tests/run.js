@@ -585,16 +585,19 @@ const paintStats = (page, selector) => page.evaluate(sel => {
   const cv = [...document.querySelectorAll(sel)].find(c => c.offsetParent !== null && c.width > 20);
   if (!cv) return null;
   const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-  let dark = 0, bright = 0, red = 0;
+  let dark = 0, bright = 0, tint = 0;
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] < 150) continue;
     const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
-    if (d[i] > 150 && d[i + 1] < 110 && d[i + 2] < 110) red++;
+    if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 60) tint++;      // the station's colour (grey is ink or light)
     else if (l < 70) dark++;
     else if (l > 190) bright++;
   }
-  return { dark, bright, red };
+  return { dark, bright, tint };
 }, selector);
+
+// The station the app opens with (the first one with music) and its two accents.
+const firstStation = () => { const s = stationsFile().stations.find(x => x.items.length); return { id: s.id, black: s.accent.toLowerCase(), paper: s.accentPaper.toLowerCase() }; };
 
 const themeState = t => t.p.evaluate(() => {
   const root = document.documentElement;
@@ -609,7 +612,7 @@ const themeState = t => t.p.evaluate(() => {
 test('white theme: paper palette, every text readable (settings tabs included)', async t => {
   const st = await themeState(t);
   assert.deepStrictEqual([st.white, st.night, st.bg, st.meta], [true, false, 'rgb(241, 241, 238)', '#F1F1EE'], 'paper background');
-  assert.strictEqual(st.accent, '#cc2f26', 'the accent is a touch deeper on paper');
+  assert.strictEqual(st.accent, firstStation().paper, 'the accent is a touch deeper on paper');
   let bad = await contrastReport(t.p, 4.0);
   assert.deepStrictEqual(bad, [], 'low contrast on the main screen:\n' + bad.join('\n'));
   await t.openSettings();
@@ -634,7 +637,7 @@ test('black theme keeps readable text (guard against regressions from the token 
     assert.deepStrictEqual(b, [], `low contrast in Settings / ${tab}:\n` + b.join('\n'));
   }
   const st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', '#ff3b30'], 'black palette untouched');
+  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', firstStation().black], 'black palette untouched');
 }, { viewport: PORT, touch: true, scale: 2 });
 
 test('background switch: applies live, persists, night mode wins, old Graphite maps to White', async t => {
@@ -646,13 +649,13 @@ test('background switch: applies live, persists, night mode wins, old Graphite m
   assert.strictEqual(await t.p.getAttribute('.seg[data-seg="theme"] button[data-value="white"]', 'aria-pressed'), 'true');
 
   await pick('black'); await sleep(150); st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', '#ff3b30'], 'black applied live');
+  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', firstStation().black], 'black applied live');
   await pick('white'); await sleep(150); st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [true, 'rgb(241, 241, 238)', '#F1F1EE', '#cc2f26'], 'white applied live');
+  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [true, 'rgb(241, 241, 238)', '#F1F1EE', firstStation().paper], 'white applied live');
   assert.strictEqual(await t.p.evaluate(() => JSON.parse(localStorage.getItem('burzh.radio.settings.v1')).theme), 'white', 'saved');
 
   await night('on'); await sleep(150); st = await themeState(t);
-  assert.deepStrictEqual([st.night, st.bg, st.meta, st.accent], [true, 'rgb(0, 0, 0)', '#000000', '#ff3b30'], 'night mode is black even on the White background');
+  assert.deepStrictEqual([st.night, st.bg, st.meta, st.accent], [true, 'rgb(0, 0, 0)', '#000000', firstStation().black], 'night mode is black even on the White background');
   await night('off'); await sleep(150); st = await themeState(t);
   assert.deepStrictEqual([st.night, st.white, st.meta], [false, true, '#F1F1EE'], 'back to paper');
 
@@ -675,7 +678,7 @@ test('canvases follow the theme: planet and equalizer are drawn in ink on white,
   let w = await paintStats(t.p, '[data-planet] canvas');
   assert.ok(w && w.dark > 300, 'on White the planet is drawn with dark dots: ' + JSON.stringify(w));
   assert.ok(w.bright < w.dark / 10, 'and no longer with light ones: ' + JSON.stringify(w));
-  assert.ok(w.red > 5, 'the comet stays red: ' + JSON.stringify(w));
+  assert.ok(w.tint > 5, 'the comet keeps the station colour: ' + JSON.stringify(w));
   await t.openSettings(); await t.p.click('[data-switch="sound.on"]'); await sleep(900);
   await t.p.locator('#eqCanvas').scrollIntoViewIfNeeded(); await sleep(300);
   let e = await paintStats(t.p, '#eqCanvas');
@@ -991,6 +994,124 @@ for (const [theme, w, h] of [['black', 932, 430], ['black', 667, 375], ['black',
     await t.shot(`layout-${theme === 'white' ? 'white-' : ''}${w}x${h}.png`);
   }, { viewport: { width: w, height: h }, settings: { theme } });
 }
+
+/* ------------------------------------------------- long mixes cut in parts */
+
+// A station with three single mixes and one mix cut into three parts (what tools/radio.py makes of a very long mix).
+const partsFixture = j => {
+  const st = j.stations.find(x => x.id === 'trance');
+  const one = (file, title, group) => Object.assign({ file, title, duration: 60, cues: [] }, group ? { group } : {});
+  st.items = [one('trance/mix-01.m4a', 'A'), one('trance/mix-02.m4a', 'B'), one('trance/mix-01.m4a', 'Long · 1/3', 'long'),
+    one('trance/mix-02.m4a', 'Long · 2/3', 'long'), one('trance/mix-01.m4a', 'Long · 3/3', 'long'), one('trance/mix-02.m4a', 'C')];
+};
+
+test('the parts of one cut mix play back to back and in order, count as one mix, and the other mixes keep their schedule', async t => {
+  const r = await t.p.evaluate(() => {
+    const st = window.BURZH.stations().find(x => x.id === 'trance');
+    const titles = [];
+    const now = Date.now();
+    for (let i = 0; i < 1500; i++) {                                    // 1500 half-minutes: about 125 cycles of six minutes
+      const l = window.BURZH.liveAt('trance', now + i * 30000);
+      if (titles[titles.length - 1] !== l.item.title) titles.push(l.item.title);
+    }
+    return { titles, total: st.total, items: st.items.length };
+  });
+  assert.strictEqual(r.items, 6);
+  const starts = r.titles.map((x, i) => x === 'Long · 1/3' ? i : -1).filter(i => i >= 0);
+  assert.ok(starts.length >= 100, 'the long mix came round many times: ' + starts.length);
+  starts.forEach(i => { if (i + 2 < r.titles.length) assert.deepStrictEqual(r.titles.slice(i, i + 3), ['Long · 1/3', 'Long · 2/3', 'Long · 3/3'], 'parts in order at ' + i); });
+  assert.strictEqual(r.titles.filter(x => x.startsWith('Long')).length >= starts.length * 3 - 2, true, 'no part is ever played alone');
+  // every group still turns up once per cycle, and no mix is repeated back to back at a seam
+  const groups = r.titles.map(x => x.startsWith('Long') ? 'Long' : x).filter((x, i, a) => x !== 'Long' || a[i - 1] !== 'Long');
+  groups.forEach((g, i) => { if (i) assert.notStrictEqual(g, groups[i - 1], 'a mix repeated straight away at ' + i); });
+  assert.ok(groups.length >= 4 * 100, 'many cycles were checked: ' + groups.length);
+  const counts = ['A', 'B', 'Long', 'C'].map(g => groups.filter(x => x === g).length);
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 2, 'every mix comes once per cycle: ' + counts);
+
+  // The settings list says "4 mixes" (the three parts count once), and the count in About agrees.
+  await t.openSettings();
+  const rows = await t.p.evaluate(() => [...document.querySelectorAll('.list-row')].map(e => e.textContent.trim()));
+  assert.ok(rows.some(x => /Trance.*4 mixes/.test(x)), 'station list: ' + JSON.stringify(rows));
+  const lib = await t.p.evaluate(() => document.getElementById('libraryState').textContent);
+  assert.match(lib, /^\d+ mixes · 3 of 4 on air|^\d+ mixes · \d of 4 on air/, lib);
+}, { mutate: partsFixture });
+
+test('the schedule of a station without parts is exactly what it always was', async t => {
+  // A frozen copy of the original schedule (shuffle of whole mixes, seeded by station and cycle). If this ever differs
+  // from the app, every listener would suddenly hear a different mix: change it only on purpose.
+  const bad = await t.p.evaluate(async () => {
+    const j = await (await fetch('./stations.json')).json();
+    const epoch = Date.parse(j.epoch);
+    const st = j.stations.find(x => x.id === 'trance');
+    const n = st.items.length, total = n * 60;
+    const hash = s => { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+    const seeded = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+    const raw = c => { const idx = [...Array(n).keys()]; const r = seeded(hash(st.id + ':' + c)); for (let i = n - 1; i > 0; i--) { const k = Math.floor(r() * (i + 1)); [idx[i], idx[k]] = [idx[k], idx[i]]; } return idx; };
+    const order = c => { const o = raw(c); const prev = raw(c - 1); if (o[0] === prev[n - 1]) [o[0], o[1]] = [o[1], o[0]]; return o; };
+    const bad = [];
+    const shuffled = new Set();
+    // The fixture's clock moves a little between fetches: look in the middle of each slot, where that cannot matter.
+    const base = Date.now() + (30 - window.BURZH.liveAt('trance', Date.now()).offset) * 1000;
+    for (let i = 0; i < 1500; i++) {
+      const now = base + i * 60000, tt = (now - epoch) / 1000;
+      const cycle = Math.floor(tt / total), slot = Math.floor((tt - cycle * total) / 60);
+      const want = st.items[order(cycle)[slot]].title, got = window.BURZH.liveAt('trance', now).item.title;
+      shuffled.add(order(cycle).join());
+      if (want !== got) bad.push({ i, want, got });
+    }
+    return { bad: bad.slice(0, 3), orders: shuffled.size };
+  });
+  assert.deepStrictEqual(bad.bad, [], 'the schedule moved');
+  assert.ok(bad.orders > 20, 'the shuffle was really exercised: ' + bad.orders + ' different orders');
+}, { mutate: j => { const st = j.stations.find(x => x.id === 'trance'); st.items = [0, 1, 2, 3, 4].map(i => ({ file: `trance/mix-0${1 + i % 2}.m4a`, title: 'T' + i, duration: 60, cues: [] })); } });
+
+test('tools/radio.py cuts a very long mix at its quietest moment, keeps the loudness, and writes parts the player keeps together', async () => {
+  const cp = require('child_process');
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'burzh-split-'));
+  const src = path.join(work, 'long.m4a');
+  // 3 minutes of tone with one second of silence at 71 s (inside the window around the half-way point at 90 s)
+  cp.execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=330:duration=180:sample_rate=44100',
+    '-af', "volume=enable='between(t,70.5,71.5)':volume=0", '-c:a', 'aac', '-b:a', '128k', src]);
+  const script = `
+import json, sys, pathlib, io, contextlib
+sys.path.insert(0, "tools")
+import radio
+radio.MAX_PART_BYTES = 1_500_000          # 3 min of 128 kbps is 2.9 MB: two parts
+out = pathlib.Path(sys.argv[2])
+files = radio.encode_source(pathlib.Path(sys.argv[1]), out, "demo")
+res = {"files": files, "durations": [radio.probe(out / f)["duration"] for f in files]}
+cues = [{"at": 0, "title": "A", "artist": ""}, {"at": 50, "title": "B", "artist": ""}, {"at": 120, "title": "C", "artist": ""}]
+res["cues"] = [radio.cues_between(cues, 0, 71.0), radio.cues_between(cues, 71.0, 180.0)]
+res["count"] = radio.mix_count([{"file": "a", "group": "g"}, {"file": "b", "group": "g"}, {"file": "c"}])
+# the validator insists that the parts of one mix are listed together
+data = radio.load()
+fake = lambda g1, g2, g3: [{"file": "deep-house/mix-01.m4a", "duration": 4302.866, "title": "x", "group": g1}, {"file": "deep-house/mix-02.m4a", "duration": 5442.432, "title": "y", "group": g2}, {"file": "deep-house/mix-01.m4a", "duration": 4302.866, "title": "z", "group": g3}]
+def run(items):
+    d = json.loads(json.dumps(data)); d["stations"][0]["items"] = items
+    radio.load = lambda: d
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf): radio.validate(None)
+        return "ok"
+    except SystemExit: return buf.getvalue()
+res["apart"] = run(fake("g", "h", "g"))
+res["together"] = run(fake("g", "g", "h"))
+print(json.dumps(res))
+`;
+  const res = JSON.parse(cp.execFileSync('python3', ['-c', script, src, path.join(work, 'media')], { cwd: path.join(DOCS, '..') }).toString().trim().split('\n').pop());
+  assert.deepStrictEqual(res.files, ['demo/long-part1.m4a', 'demo/long-part2.m4a']);
+  near(res.durations[0], 71, 0.7, 'the cut is in the silence');
+  near(res.durations[0] + res.durations[1], 180, 0.3, 'nothing is lost');
+  assert.deepStrictEqual(res.cues[0], [{ at: 0, title: 'A', artist: '' }, { at: 50, title: 'B', artist: '' }]);
+  assert.deepStrictEqual(res.cues[1], [{ at: 0, title: 'B', artist: '' }, { at: 49, title: 'C', artist: '' }], 'the track playing at the cut starts the second part');
+  assert.strictEqual(res.count, 2);
+  assert.match(res.apart, /must be listed one after another/);
+  assert.ok(!/one after another/.test(res.together), 'parts listed together are fine: ' + res.together);
+  // the parts have the same loudness (one constant gain for the whole mix)
+  const level = f => { const o = cp.spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', path.join(work, 'media', f), '-af', 'volumedetect', '-f', 'null', '-'], { encoding: 'utf8' }).stderr; return +/mean_volume: (-?[\d.]+) dB/.exec(o)[1]; };
+  near(level(res.files[0]), level(res.files[1]), 1.5, 'part loudness');
+  fs.rmSync(work, { recursive: true, force: true });
+});
 
 /* ---------------------------------------------------------------- runner */
 

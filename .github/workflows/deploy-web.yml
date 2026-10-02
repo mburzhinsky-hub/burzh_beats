@@ -30,6 +30,8 @@ jobs:
           node-version: '22'
       - name: JavaScript syntax
         run: for f in docs/*.js; do node --check "$f"; done
+      - name: Audio tools (ffmpeg, used by the library tool's own check)
+        run: which ffmpeg ffprobe || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
       - name: Station list, artwork and audio files
         run: python3 tools/radio.py validate
       - name: Browser tests
