@@ -24,15 +24,15 @@
   // A station's character. Keep LIMITS equal to LOOK_LIMITS in tools/radio.py (a browser check compares them).
   const LOOK = {
     spin: 1,       // rotation speed, 1 = normal (one turn in about four minutes)
-    tilt: 0.14,    // axis tilt towards the viewer (radians; small, so the pole stays out of sight)
+    tilt: 0.06,    // axis tilt towards the viewer (radians; small, so the pole stays out of sight)
     face: 0,       // which side of the planet faces you when you tune in (0..1 of a turn)
     halo: 1,       // rim light and glow
     pulse: 1,      // how much the music moves the light
     orbit: 1       // speed of the light on the orbit ring
   };
-  const LIMITS = { spin: [0.2, 2.5], tilt: [0.05, 0.35], face: [0, 1], halo: [0.5, 2], pulse: [0, 2], orbit: [0.2, 3] };
+  const LIMITS = { spin: [0.2, 2.5], tilt: [0, 0.2], face: [0, 1], halo: [0.5, 2], pulse: [0, 2], orbit: [0.2, 3] };
   const KICK_MS = 650, KICK_GAP_MS = 240;
-  const BUMP = 0.016;          // relief height, in planet radii
+  const BUMP = 0.075;          // relief height, in planet radii
 
   function normaliseLook(raw) {
     const out = {};
@@ -58,7 +58,9 @@ uniform vec3 geo;        // centre x, centre y (pixels, y up), radius (pixels)
 uniform vec4 rot;        // cos/sin tilt, cos/sin spin
 uniform vec4 lite;       // rim, halo, exposure, bump
 uniform vec2 texel;      // 1 / texture size
-const vec3 L = vec3(-0.6080, 0.6853, 0.4643);
+const vec3 L1 = vec3(0.6005, 0.5205, -0.6070);   // behind, upper right
+const vec3 L2 = vec3(-0.8137, 0.2325, -0.5328);  // behind, left
+const vec3 LF = vec3(-0.3015, 0.6030, 0.7385);   // a faint fill from the front
 const float PI = 3.14159265;
 
 vec3 toPlanet(vec3 v){
@@ -98,18 +100,30 @@ void main(){
     vec3 north = cross(q, east);
     float ge = hx / (4.0 * PI * texel.x * cl);            // slope per unit of arc, east and north
     float gn = hy / (2.0 * PI * texel.y);
-    vec3 qb = normalize(q - (east * ge + north * gn) * lite.w);
+    float polar = 1.0 - smoothstep(0.82, 0.97, abs(q.y));   // the map pinches at the poles: no relief there
+    vec3 qb = normalize(q - (east * ge + north * gn) * lite.w * polar);
     vec3 nb = toView(qb);
-    float diff = max(dot(nb, L), 0.0);
-    vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
-    float spec = pow(max(dot(nb, H), 0.0), 46.0);
-    float albedo = 0.06 + 0.5 * pow(hc, 1.4);
+    // micro relief: the same map, four times finer, for the crisp "lace" near the limb
+    vec2 duv = uv * vec2(4.0, 4.0) + vec2(0.37, 0.11);
+    float hd = mix(0.45, h(duv), polar);
+    float hdx = h(duv + vec2(texel.x, 0.0)) - h(duv - vec2(texel.x, 0.0));
+    float hdy = h(duv - vec2(0.0, texel.y)) - h(duv + vec2(0.0, texel.y));
+    vec3 qd = normalize(qb - (east * hdx / cl + north * hdy) * lite.w * 0.7 * polar / (4.0 * PI * texel.x));
+    vec3 nd = toView(qd);
+    // back light: two lights behind the planet (upper right, left) wrap round the limb; the face stays dark
     float fres = 1.0 - z;
-    float side = clamp(0.3 + 0.75*(d.y*0.75 - d.x*0.35), 0.12, 1.15);
-    float rim = (pow(fres, 8.0)*1.9 + pow(fres, 3.0)*0.42) * side * lite.x;
-    float edgeW = 0.36 + 0.64 * pow(fres, 1.1);              // the face is dark (the name sits there), light skims the limb
-    float c = albedo * (0.03 + 1.45 * pow(diff, 1.5) * edgeW) + rim * (0.35 + 1.1*pow(hc, 1.3))
-            + spec * (0.1 + 1.6*hc*hc) * (0.3 + 0.7*fres) * 0.9;
+    float k1 = max(dot(nd, L1), 0.0), k2 = max(dot(nd, L2), 0.0), kf = max(dot(nd, LF), 0.0);
+    float band = smoothstep(0.1, 0.72, fres);                 // detail shows towards the edge
+    float slope = clamp(length(vec2(ge, gn)) * 0.9 + abs(hdx + hdy) * 40.0, 0.0, 1.0);
+    float crust = smoothstep(0.2, 0.8, k1) * 1.35 + smoothstep(0.2, 0.8, k2) * 1.3;   // crust facing the lights, crisp
+    float glint = (pow(max(dot(nd, normalize(L1 + vec3(0.0, 0.0, 1.0))), 0.0), 60.0) + 0.7 * pow(max(dot(nd, normalize(L2 + vec3(0.0, 0.0, 1.0))), 0.0), 60.0)) * (0.4 + 2.4 * slope);
+    float albedo = 0.018 + 0.05 * hd + 0.03 * hc;
+    float side = clamp(0.62 + 0.5 * dot(normalize(d + 1e-4), normalize(vec2(0.62, 0.45))), 0.45, 1.15);
+    float limb = (pow(fres, 10.0) * 1.3 + pow(fres, 4.0) * 0.22) * side * lite.x * (0.25 + 1.5 * hd * hd);
+    float c = albedo * (0.2 + 0.9 * kf)
+            + band * (crust * (0.1 + 1.25 * hd * hd) * (0.5 + 0.8 * slope) + glint * 2.2) * side
+            + smoothstep(8.0, 34.0, length(vec2(ge, gn)) * polar) * (0.015 + 0.3 * band) * (0.5 + hd) * side   // bright coasts and crack lips
+            + limb;
     c *= lite.z;
     col = vec3(pow(clamp(c, 0.0, 1.0), 1.0/1.1)) * vec3(0.985, 0.99, 1.0);
     alpha = aa;
@@ -202,7 +216,7 @@ void main(){
       H = Math.max(1, Math.round(r.height * dpr));
       for (const c of [glCanvas, fx]) { if (c.width !== W) c.width = W; if (c.height !== H) c.height = H; }
       cx = W / 2; cy = H / 2;
-      R = Math.min(W * 0.34, H * 0.37) * (opts.scale || 1);
+      R = Math.min(W * 0.34 * (opts.scale || 1), H * 0.37);      // the height limit keeps the glow off the top and bottom edges
       if (wave) { const wr = wave.getBoundingClientRect(); wave.width = Math.max(1, Math.round(wr.width * dpr)); wave.height = Math.max(1, Math.round(wr.height * dpr)); }
       frameOnce();
     }
@@ -302,14 +316,14 @@ void main(){
         let v;
         if (haveSpec) {
           const bin = Math.min(spec.length - 1, Math.floor(Math.abs(i - mid) / mid * 40) + 1);
-          v = 0.22 + 0.78 * (spec[bin] / 255);
+          v = 0.35 + 0.65 * (spec[bin] / 255);
         } else {
           const breathe = playing && !isCalm() ? 0.12 * Math.sin(now / 420 + i * 0.7) : 0;
-          v = 0.35 + 0.3 * Math.cos(i * 1.7) * Math.cos(i * 0.6) + breathe;
+          v = 0.62 + 0.3 * Math.cos(i * 1.7) * Math.cos(i * 0.6) + breathe;
         }
-        const hh = Math.max(2, h * (i === mid ? 1 : clamp(v, 0.1, 1) * (1 - dist * 0.35) * 0.72));
-        wctx.fillStyle = 'rgba(255,255,255,' + (i === mid ? 0.95 : 0.55 - dist * 0.25).toFixed(3) + ')';
-        const bw = Math.max(1, dpr * (i === mid ? 1.6 : 1.1));
+        const hh = Math.max(2, h * (i === mid ? 1 : clamp(v, 0.1, 1) * (1 - dist * 0.2) * 0.74));
+        wctx.fillStyle = 'rgba(255,255,255,' + (i === mid ? 0.95 : 0.78 - dist * 0.22).toFixed(3) + ')';
+        const bw = Math.max(1, dpr * (i === mid ? 1.8 : 1.4));
         wctx.fillRect(Math.round(i * gap + gap / 2 - bw / 2), Math.round((h - hh) / 2), bw, Math.round(hh));
       }
     }

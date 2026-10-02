@@ -128,9 +128,12 @@ def surface(width: int = 2048, seed: int = 7) -> np.ndarray:
 
     rough = ridged(p * 3.2 + warp * 4, 6, seed + 90)
     bubbles = np.abs(fbm(p * 14 + warp * 8, 4, seed + 100) - 0.5)
-    h = (0.42 * base + 0.30 * rough + 0.12 * fbm(p * 5 + warp * 3, 5, seed + 80)
-         - 0.16 * big_crack - 0.10 * small_crack - 0.10 * hair
-         + 0.06 * crater + 0.08 * grain - 0.10 * bubbles + 0.03 * fine)
+    # "land": rough, cracked crust with sharp coasts; "sea": smooth dark basins (the face of the planet looks calm)
+    land = smoothstep(0.40, 0.46, base + 0.08 * (fbm(p * 7 + warp * 5, 4, seed + 110) - 0.5))
+    crust = (0.30 * rough + 0.12 * fbm(p * 5 + warp * 3, 5, seed + 80) - 0.16 * big_crack - 0.12 * small_crack
+             - 0.12 * hair + 0.10 * grain - 0.12 * bubbles + 0.04 * fine)
+    basin = 0.06 * fbm(p * 3 + warp, 4, seed + 120) + 0.02 * grain - 0.05 * hair
+    h = 0.30 * land + land * crust + (1 - land) * basin + 0.06 * crater
     h = (h - np.percentile(h, 0.5)) / (np.percentile(h, 99.5) - np.percentile(h, 0.5))
     return np.clip(h, 0, 1).reshape(width // 2, width)
 

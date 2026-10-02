@@ -45,7 +45,7 @@ GLYPHS = {"grid", "wave", "rings", "tri"}
 
 # A station's planet character ("look"). Same table as LIMITS in docs/planet.js (a browser check keeps them equal).
 LOOK_LIMITS = {
-    "spin": (0.2, 2.5), "tilt": (0.05, 0.35), "face": (0, 1), "halo": (0.5, 2), "pulse": (0, 2), "orbit": (0.2, 3),
+    "spin": (0.2, 2.5), "tilt": (0, 0.2), "face": (0, 1), "halo": (0.5, 2), "pulse": (0, 2), "orbit": (0.2, 3),
 }
 BG_BLACK, BG_PAPER = "#0a0a0a", "#f1f1ee"      # the app background (docs/index.html) and paper (kept for the accent check)
 # GitHub refuses files over 100 MB. A mix whose encoded size would pass MAX_PART_BYTES is cut into equal parts at the

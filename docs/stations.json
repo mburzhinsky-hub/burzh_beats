@@ -11,7 +11,7 @@
       "accentPaper": "#0a6c9c",
       "look": {
         "spin": 0.7,
-        "tilt": 0.14,
+        "tilt": 0.06,
         "face": 0.05,
         "halo": 1.1,
         "pulse": 1.1,
@@ -50,7 +50,7 @@
       "accentPaper": "#955600",
       "look": {
         "spin": 0.45,
-        "tilt": 0.1,
+        "tilt": 0.04,
         "face": 0.3,
         "halo": 0.9,
         "pulse": 0.7,
@@ -89,7 +89,7 @@
       "accentPaper": "#cc2f26",
       "look": {
         "spin": 0.9,
-        "tilt": 0.18,
+        "tilt": 0.08,
         "face": 0.55,
         "halo": 1,
         "pulse": 1.2,
@@ -126,7 +126,7 @@
       "accentPaper": "#7430c9",
       "look": {
         "spin": 1.4,
-        "tilt": 0.22,
+        "tilt": 0.1,
         "face": 0.8,
         "halo": 1.25,
         "pulse": 1.4,

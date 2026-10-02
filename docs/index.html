@@ -130,7 +130,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .w-text b{font:500 22px/1 var(--sans);letter-spacing:-.01em}
 .w-text small{margin-top:4px;font:400 10px/1 var(--sans);color:var(--soft);max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .icon-btn{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;color:var(--fg);transition:transform .14s var(--ease),background .14s;flex:0 0 auto}
-.icon-btn svg{width:26px;height:26px;display:block}
+.icon-btn svg{width:24px;height:24px;display:block}
 .icon-btn:active{transform:scale(.92);background:var(--wash)}
 .icon-btn.pill{width:56px;height:56px;border-radius:18px;background:var(--pill);border:1px solid rgba(255,255,255,.04)}
 
@@ -146,18 +146,18 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 
 /* ---------- Now playing ---------- */
 .np{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;min-width:0}
-.np-title{font:500 clamp(20px,6.6cqw,28px)/1.15 var(--sans);letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.np-sub{margin-top:6px;font:400 clamp(15px,4.6cqw,19px)/1.2 var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-title{font:400 clamp(20px,6.6cqw,28px)/1.15 var(--sans);letter-spacing:-.01em;word-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-sub{margin-top:5px;font:400 clamp(15px,4.6cqw,19px)/1.2 var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ---------- Seek bar ---------- */
-.live-rail{position:relative;height:3px;background:var(--rail);overflow:hidden;border-radius:3px}
+.live-rail{position:relative;height:2px;background:var(--rail);overflow:hidden;border-radius:3px}
 .live-fill{position:absolute;inset:0;background:#fff;transform-origin:0 50%;transform:scaleX(0);transition:transform 1s linear}
 .seek{position:relative;height:28px;margin:-12px 0;display:flex;align-items:center;touch-action:none;outline:none;-webkit-user-select:none;user-select:none}
 .seek.can-seek{cursor:pointer}
 .seek .live-rail{flex:1;transition:height .2s var(--ease)}
 .seek-ticks{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none}
 .seek-ticks i{position:absolute;top:-4px;width:1px;height:8px;background:var(--tick)}
-.seek-thumb{position:absolute;top:50%;left:0;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.08),0 0 14px rgba(255,255,255,.55);opacity:0;transform:scale(.4);transition:left 1s linear,transform .22s var(--ease),opacity .3s;pointer-events:none}
+.seek-thumb{position:absolute;top:50%;left:0;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;background:#fff;box-shadow:0 0 10px rgba(255,255,255,.45);opacity:0;transform:scale(.4);transition:left 1s linear,transform .22s var(--ease),opacity .3s;pointer-events:none}
 .seek.can-seek .seek-thumb{opacity:1;transform:scale(1)}
 .seek.dragging .seek-thumb{transform:scale(1.5);transition:transform .22s var(--ease)}
 .seek.dragging .live-rail{height:5px}
@@ -167,21 +167,21 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .seek.dragging .seek-tip{opacity:1}
 .seek-tip b{display:block;font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
 .seek-tip span{display:block;margin-top:3px;font-size:11px;color:var(--pop-soft);max-width:60vw;overflow:hidden;text-overflow:ellipsis}
-.times{position:relative;z-index:1;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:12px;font:400 13px/1 var(--sans);color:var(--muted);font-variant-numeric:tabular-nums}
+.times{position:relative;z-index:1;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:11px;font:400 12.5px/1 var(--sans);color:var(--muted);font-variant-numeric:tabular-nums}
 .times span:last-child{text-align:right}
 .golive{visibility:hidden;height:24px;padding:0 12px;border:1px solid rgba(255,255,255,.35);border-radius:12px;font:600 10px/22px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:#fff;transition:transform .14s var(--ease),background .2s}
 .golive:active{transform:scale(.94);background:var(--wash)}
 .shifted .golive{visibility:visible}
 
 /* ---------- Transport ---------- */
-.controls{display:flex;align-items:center;justify-content:space-evenly}
+.controls{display:flex;align-items:center;justify-content:center;gap:clamp(10px,4.6cqw,26px)}
 .ctrl{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;color:#fff;transition:transform .14s var(--ease),background .14s}
 .ctrl:active{transform:scale(.9);background:var(--wash)}
 .ctrl svg{width:30px;height:30px;fill:currentColor}
-.ctrl.big{position:relative;width:96px;height:96px;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.06),rgba(255,255,255,0) 70%)}
-.ctrl.big svg:not(.arc){width:38px;height:38px;position:relative}
+.ctrl.big{position:relative;width:78px;height:78px;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.06),rgba(255,255,255,0) 70%)}
+.ctrl.big svg:not(.arc){width:32px;height:32px;position:relative}
 .ctrl.big .arc{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible;fill:none}
-.arc .arc-bg{stroke:rgba(255,255,255,.2);stroke-width:1.2}
+.arc .arc-bg{stroke:rgba(255,255,255,.22);stroke-width:1.3}
 .arc .arc-fg{stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-dasharray:301.6;stroke-dashoffset:calc(301.6 * (1 - var(--p,0)));filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 0 8px rgba(255,255,255,.45));transition:stroke-dashoffset 1s linear;opacity:0}
 .is-on .arc .arc-fg{opacity:1}
 .play-toggle .i-pause{display:none}.play-toggle.is-playing .i-play{display:none}.play-toggle.is-playing .i-pause{display:block}
@@ -197,7 +197,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .tile.active .thumb img{opacity:1}
 .tile.active .thumb:after{box-shadow:inset 0 0 0 2px #fff,0 0 18px rgba(255,255,255,.25)}
 .tile.active .thumb{box-shadow:0 0 22px rgba(255,255,255,.14)}
-.tlabel{font:400 clamp(12px,3.6cqw,15px)/1.18 var(--sans);color:var(--soft);text-align:center;max-width:100%;overflow-wrap:break-word}
+.tlabel{font:400 clamp(11.5px,3.4cqw,14px)/1.18 var(--sans);letter-spacing:-.01em;color:var(--soft);text-align:center;white-space:nowrap}
 .tile.active .tlabel{color:#fff}
 .tile.off .thumb img{opacity:.38}
 .tile.off .tlabel:after{content:" · soon";color:var(--dim)}
@@ -208,8 +208,9 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 @media(orientation:portrait){.portrait{display:grid}}
 .portrait{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto auto auto;padding:0 6cqw clamp(12px,2.6cqh,26px)}
 .p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-top:clamp(12px,3cqh,30px)}
-.p-head .brand{font-size:clamp(19px,5.7cqw,30px);padding-top:10px}
-.p-head .weather{height:50px;border-radius:16px;padding:0 13px 0 10px}.p-head .w-icon{width:27px;height:27px}.p-head .w-text b{font-size:19px}
+.p-head .brand{font-size:clamp(21px,6.6cqw,32px);padding-top:10px}
+.p-head .weather{height:44px;border-radius:15px;padding:0 12px 0 10px;gap:7px}.p-head .w-icon{width:23px;height:23px}.p-head .w-text b{font-size:16px}.p-head .w-text small{font-size:8.5px;margin-top:3px}
+.p-head .gear svg{width:23px;height:23px}.p-head .gear{width:42px;height:42px}
 .p-head .tools{gap:6px}
 .p-stage{margin:clamp(4px,1cqh,12px) -6cqw 0}
 .p-np{margin-top:clamp(4px,1cqh,12px)}
@@ -217,7 +218,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .p-controls{margin:clamp(14px,2.8cqh,28px) 2cqw 0}
 .p-tiles{margin-top:clamp(16px,3.4cqh,34px)}
 @media(orientation:portrait) and (max-height:700px){
-  .ctrl.big{width:80px;height:80px}.ctrl{width:56px;height:56px}
+  .ctrl.big{width:70px;height:70px}.ctrl{width:56px;height:56px}
   .weather{height:48px;border-radius:15px}.w-text b{font-size:19px}
   .thumb{border-radius:12px}
 }
@@ -227,7 +228,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .l-shell{position:absolute;inset:0;container-type:size;display:grid;grid-template-columns:minmax(0,46fr) minmax(0,54fr);grid-template-rows:auto minmax(0,1fr);column-gap:clamp(16px,3cqw,40px);padding:max(10px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
 .l-brand{grid-column:1;grid-row:1;font-size:clamp(22px,7.2cqh,38px);padding-top:clamp(4px,2.4cqh,22px)}
 .l-tools{grid-column:2;grid-row:1;justify-self:end;align-self:start;padding-top:clamp(4px,2cqh,18px)}
-.l-stage{grid-column:1;grid-row:1/3;margin:clamp(40px,14cqh,96px) 0 0 0}
+.l-stage{grid-column:1;grid-row:1/3;margin:clamp(24px,7cqh,64px) 0 0 0}
 .l-panel{grid-column:2;grid-row:2;display:flex;flex-direction:column;justify-content:center;min-height:0;container-type:inline-size;padding:1cqh 0 1cqh}
 .l-panel .np{grid-template-columns:minmax(0,1fr)}
 .l-panel .np-title{font-size:clamp(18px,6.8cqh,36px)}
@@ -368,7 +369,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
     <div class="tools"><button class="weather" type="button" data-open="settingsOverlay" data-tab-open="screen" hidden aria-live="polite"><span class="w-icon" aria-hidden="true"></span><span class="w-text"><b data-bind="w-temp">--°</b><small data-bind="w-city"></small></span><span class="sr" data-bind="w-cond"></span></button><button class="icon-btn gear" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
   </header>
   <div class="stage p-stage">
-    <div class="planet swipe" data-planet data-scale="1">
+    <div class="planet swipe" data-planet data-scale="1.04">
       <div class="on-planet">
         <div class="op-top" data-bind="onair">ON AIR NOW</div>
         <div class="op-name" data-bind="station" data-swap>BURZH beats</div>
@@ -403,7 +404,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
     <div class="brand l-brand"><div class="wordmark"><b>BURZH</b><span>beats</span></div><div class="tagline">BURZH RADIO · 24/7</div></div>
     <div class="tools l-tools chrome"><button class="weather" type="button" data-open="settingsOverlay" data-tab-open="screen" hidden aria-live="polite"><span class="w-icon" aria-hidden="true"></span><span class="w-text"><b data-bind="w-temp">--°</b><small data-bind="w-city"></small></span><span class="sr" data-bind="w-cond"></span></button><button class="icon-btn gear pill" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
     <div class="stage l-stage">
-    <div class="planet swipe" data-planet data-scale="0.86">
+    <div class="planet swipe" data-planet data-scale="1">
       <div class="on-planet">
         <div class="op-top" data-bind="onair">ON AIR NOW</div>
         <div class="op-name" data-bind="station" data-swap>BURZH beats</div>
