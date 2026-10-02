@@ -252,10 +252,145 @@ test('settings: sound controls, EQ drag, weather by geolocation', async t => {
   assert.ok((await t.dbg()).phase === 'live', 'music kept playing while changing settings');
 }, { geolocation: { latitude: 55.7558, longitude: 37.6173 }, scale: 2 });
 
+/* ----------------------------------------------------------------- theme */
+
+// Every visible piece of text must be readable on the colour it actually sits on, in every state of the
+// screen. Catches a hard-coded colour that was left over from the other palette.
+const contrastReport = (page, min) => page.evaluate(min => {
+  const chan = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const lum = c => 0.2126 * chan(c[0]) + 0.7152 * chan(c[1]) + 0.0722 * chan(c[2]);
+  const parse = css => { const m = css.match(/[\d.]+/g) || [0, 0, 0]; return { c: m.slice(0, 3).map(Number), a: m.length > 3 ? Number(m[3]) : 1 }; };
+  const bgOf = el => {
+    for (let e = el; e; e = e.parentElement) { const b = parse(getComputedStyle(e).backgroundColor); if (b.a > 0.9) return b.c; }
+    return [255, 255, 255];
+  };
+  const faded = el => { let o = 1; for (let e = el; e; e = e.parentElement) o *= Number(getComputedStyle(e).opacity); return o < 0.9; };
+  const bad = [];
+  document.querySelectorAll('body *').forEach(el => {
+    if (!el.getClientRects().length || faded(el) || /^(SCRIPT|STYLE|CANVAS|svg|path)$/i.test(el.tagName)) return;
+    const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+    if (!own) return;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || Number(cs.fontSize.replace('px', '')) < 6) return;
+    const fg = parse(cs.color).c, bg = bgOf(el);
+    const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    const ratio = (a + 0.05) / (b + 0.05);
+    if (ratio < min) bad.push(`${el.tagName.toLowerCase()}.${el.className} "${el.textContent.trim().slice(0, 24)}" ${ratio.toFixed(2)}`);
+  });
+  return bad;
+}, min);
+
+const paintStats = (page, selector) => page.evaluate(sel => {
+  const cv = [...document.querySelectorAll(sel)].find(c => c.offsetParent !== null && c.width > 20);
+  if (!cv) return null;
+  const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+  let dark = 0, bright = 0, red = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 150) continue;
+    const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    if (d[i] > 150 && d[i + 1] < 110 && d[i + 2] < 110) red++;
+    else if (l < 70) dark++;
+    else if (l > 190) bright++;
+  }
+  return { dark, bright, red };
+}, selector);
+
+const themeState = t => t.p.evaluate(() => {
+  const root = document.documentElement;
+  return {
+    white: root.classList.contains('theme-white'), night: root.classList.contains('night'),
+    bg: getComputedStyle(document.body).backgroundColor,
+    meta: document.querySelector('meta[name="theme-color"]').content,
+    accent: root.style.getPropertyValue('--accent').trim().toLowerCase()
+  };
+});
+
+test('white theme: paper palette, every text readable (settings tabs included)', async t => {
+  const st = await themeState(t);
+  assert.deepStrictEqual([st.white, st.night, st.bg, st.meta], [true, false, 'rgb(241, 241, 238)', '#F1F1EE'], 'paper background');
+  assert.strictEqual(st.accent, '#cc2f26', 'the accent is a touch deeper on paper');
+  let bad = await contrastReport(t.p, 4.0);
+  assert.deepStrictEqual(bad, [], 'low contrast on the main screen:\n' + bad.join('\n'));
+  await t.openSettings();
+  for (const tab of ['sound', 'screen', 'about']) {
+    await t.p.click('#tab-' + tab); await sleep(200);
+    if (tab === 'sound') { await t.p.click('[data-switch="sound.on"]'); await sleep(900); }
+    bad = await contrastReport(t.p, 4.0);
+    assert.deepStrictEqual(bad, [], `low contrast in Settings / ${tab}:\n` + bad.join('\n'));
+    await t.shot(`white-settings-${tab}.png`);
+  }
+  const seg = await t.p.locator('.seg[data-seg="theme"] button').allTextContents();
+  assert.deepStrictEqual(seg, ['Black', 'White'], 'the Graphite option is gone');
+}, { viewport: PORT, touch: true, scale: 2, settings: { theme: 'white' } });
+
+test('black theme keeps readable text (guard against regressions from the token refactor)', async t => {
+  const bad = await contrastReport(t.p, 3.0);
+  assert.deepStrictEqual(bad, [], 'low contrast:\n' + bad.join('\n'));
+  await t.openSettings();
+  for (const tab of ['sound', 'screen', 'about']) {
+    await t.p.click('#tab-' + tab); await sleep(150);
+    const b = await contrastReport(t.p, 3.0);
+    assert.deepStrictEqual(b, [], `low contrast in Settings / ${tab}:\n` + b.join('\n'));
+  }
+  const st = await themeState(t);
+  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', '#ff3b30'], 'black palette untouched');
+}, { viewport: PORT, touch: true, scale: 2 });
+
+test('background switch: applies live, persists, night mode wins, old Graphite maps to White', async t => {
+  await t.openSettings(); await t.p.click('#tab-screen');
+  const pick = v => t.p.click(`.seg[data-seg="theme"] button[data-value="${v}"]`);
+  const night = v => t.p.click(`.seg[data-seg="night"] button[data-value="${v}"]`);
+  let st = await themeState(t);
+  assert.deepStrictEqual([st.white, st.bg, st.meta], [true, 'rgb(241, 241, 238)', '#F1F1EE'], 'Graphite is shown as White');
+  assert.strictEqual(await t.p.getAttribute('.seg[data-seg="theme"] button[data-value="white"]', 'aria-pressed'), 'true');
+
+  await pick('black'); await sleep(150); st = await themeState(t);
+  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', '#ff3b30'], 'black applied live');
+  await pick('white'); await sleep(150); st = await themeState(t);
+  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [true, 'rgb(241, 241, 238)', '#F1F1EE', '#cc2f26'], 'white applied live');
+  assert.strictEqual(await t.p.evaluate(() => JSON.parse(localStorage.getItem('burzh.radio.settings.v1')).theme), 'white', 'saved');
+
+  await night('on'); await sleep(150); st = await themeState(t);
+  assert.deepStrictEqual([st.night, st.bg, st.meta, st.accent], [true, 'rgb(0, 0, 0)', '#000000', '#ff3b30'], 'night mode is black even on the White background');
+  await night('off'); await sleep(150); st = await themeState(t);
+  assert.deepStrictEqual([st.night, st.white, st.meta], [false, true, '#F1F1EE'], 'back to paper');
+
+  await t.p.reload(); await waitFor(() => t.p.evaluate(() => !!window.BURZH), 6000);
+  st = await themeState(t);
+  assert.deepStrictEqual([st.white, st.bg], [true, 'rgb(241, 241, 238)'], 'White survives a reload');
+}, { viewport: PORT, touch: true, scale: 2, settings: { theme: 'graphite' } });
+
+test('white theme is applied before the app script runs (no black flash)', async t => {
+  const p2 = await t.ctx.newPage();
+  await p2.route('**/app.js', r => r.abort());
+  await p2.goto(t.p.url(), { waitUntil: 'domcontentloaded' });
+  const r = await p2.evaluate(() => ({ white: document.documentElement.classList.contains('theme-white'), bg: getComputedStyle(document.body).backgroundColor, meta: document.querySelector('meta[name="theme-color"]').content }));
+  assert.deepStrictEqual(r, { white: true, bg: 'rgb(241, 241, 238)', meta: '#F1F1EE' });
+  await p2.close();
+}, { viewport: PORT, settings: { theme: 'white' } });
+
+test('canvases follow the theme: planet and equalizer are drawn in ink on white, in light on black', async t => {
+  await t.play(); await t.live(); await sleep(1500);
+  let w = await paintStats(t.p, '[data-planet] canvas');
+  assert.ok(w && w.dark > 300, 'on White the planet is drawn with dark dots: ' + JSON.stringify(w));
+  assert.ok(w.bright < w.dark / 10, 'and no longer with light ones: ' + JSON.stringify(w));
+  assert.ok(w.red > 5, 'the comet stays red: ' + JSON.stringify(w));
+  await t.openSettings(); await t.p.click('[data-switch="sound.on"]'); await sleep(900);
+  await t.p.locator('#eqCanvas').scrollIntoViewIfNeeded(); await sleep(300);
+  let e = await paintStats(t.p, '#eqCanvas');
+  assert.ok(e && e.dark > 100, 'EQ curve and handles are ink on White: ' + JSON.stringify(e));
+  await t.p.click('#tab-screen'); await t.p.click('.seg[data-seg="theme"] button[data-value="black"]'); await sleep(600);
+  await t.p.click('[data-close]'); await sleep(500);
+  w = await paintStats(t.p, '[data-planet] canvas');
+  assert.ok(w && w.bright > 300, 'switching to Black repaints the planet in light dots: ' + JSON.stringify(w));
+  assert.ok(w.dark < w.bright / 10, 'without ink left over: ' + JSON.stringify(w));
+}, { viewport: PORT, touch: true, scale: 2, settings: { theme: 'white' } });
+
 /* --------------------------------------------------------------- layouts */
 
-for (const [w, h] of [[932, 430], [667, 375], [844, 390], [1180, 820], [390, 844], [375, 667]]) {
-  test(`layout ${w}x${h}: fits the screen, controls visible`, async t => {
+for (const [theme, w, h] of [['black', 932, 430], ['black', 667, 375], ['black', 844, 390], ['black', 1180, 820], ['black', 390, 844], ['black', 375, 667],
+                              ['white', 932, 430], ['white', 667, 375], ['white', 390, 844], ['white', 375, 667]]) {
+  test(`layout ${w}x${h} (${theme}): fits the screen, controls visible`, async t => {
     await t.play(); await t.live(); await sleep(400);
     const m = await t.p.evaluate(() => {
       const vis = sel => { const e = [...document.querySelectorAll(sel)].find(x => x.offsetParent !== null || getComputedStyle(x).position === 'fixed'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom }; };
@@ -266,8 +401,8 @@ for (const [w, h] of [[932, 430], [667, 375], [844, 390], [1180, 820], [390, 844
       assert.ok(m[k], k + ' is missing');
       assert.ok(m[k].x >= -1 && m[k].r <= m.iw + 1 && m[k].y >= -1 && m[k].b <= m.ih + 1, `${k} is outside the screen: ${JSON.stringify(m[k])}`);
     }
-    await t.shot(`layout-${w}x${h}.png`);
-  }, { viewport: { width: w, height: h } });
+    await t.shot(`layout-${theme === 'white' ? 'white-' : ''}${w}x${h}.png`);
+  }, { viewport: { width: w, height: h }, settings: { theme } });
 }
 
 /* ---------------------------------------------------------------- runner */
