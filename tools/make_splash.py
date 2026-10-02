@@ -2,9 +2,9 @@
 """Render the launch screens ("splash") of the iPhone home-screen app.
 
 While the app opens, iOS shows a startup image instead of a white page. Without one, every
-launch starts with a white flash, even in the Black theme. This draws one image per iPhone
-screen size, in both orientations and both system appearances (dark: the Black theme, light:
-the White paper theme), and writes the <link> tags into docs/index.html:
+launch starts with a white flash. This draws one image per iPhone screen size, in both orientations
+and both system appearances (the same dark screen for both: the app has one dark design), and writes
+the <link> tags into docs/index.html:
 
     python3 tools/make_splash.py
 
@@ -19,14 +19,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
-from make_art import B_MATRIX, BG, DOCS, FG, RED, hex_rgb, mix
+from make_art import BG, DOCS
 
-PAPER = hex_rgb("#F1F1EE")
-INK = hex_rgb("#111111")
-RED_PAPER = hex_rgb("#CC2F26")
-SS = 3
+PLANET = DOCS / "planet" / "fallback.png"     # drawn by tools/make_art.py
 
 # (CSS width, CSS height, pixel ratio) of the iPhones that can run the app, portrait.
 DEVICES = [
@@ -45,37 +42,12 @@ DEVICES = [
 ]
 
 
-def mark(scheme: str, step: float) -> Image.Image:
-    """The app icon's dot-matrix B and the beat dot, on a transparent patch."""
-    pad = step * 2.2
-    cols, rows = 6, 7
-    w, h = (cols - 1) * step + 2 * pad, (rows - 1) * step + 2 * pad
-    big = Image.new("RGBA", (int(w * SS), int(h * SS)), (0, 0, 0, 0))
-    r = step * 0.4 * SS
-    dark = scheme == "dark"
-    ink, accent = (FG, RED) if dark else (INK, RED_PAPER)
-    ox, oy = pad * SS, pad * SS
-    st = step * SS
-    bx, by = ox + 5 * st, oy + 6 * st
-    if dark:   # soft glow under the beat dot, like the icon
-        glow = Image.new("L", big.size, 0)
-        ImageDraw.Draw(glow).ellipse((bx - r * 2.2, by - r * 2.2, bx + r * 2.2, by + r * 2.2), fill=105)
-        glow = glow.filter(ImageFilter.GaussianBlur(r * 1.1))
-        big.paste(Image.new("RGBA", big.size, accent + (255,)), (0, 0), glow)
-    d = ImageDraw.Draw(big)
-    d.ellipse((bx - r * 1.08, by - r * 1.08, bx + r * 1.08, by + r * 1.08), fill=accent + (255,))
-    for row, line in enumerate(B_MATRIX):
-        for col, bit in enumerate(line):
-            if bit == "1":
-                x, y = ox + col * st, oy + row * st
-                d.ellipse((x - r, y - r, x + r, y + r), fill=ink + (255,))
-    return big.resize((int(w), int(h)), Image.LANCZOS)
-
-
 def render(width: int, height: int, scheme: str) -> Image.Image:
-    img = Image.new("RGB", (width, height), BG if scheme == "dark" else PAPER)
-    m = mark(scheme, min(width, height) * 0.05)
-    img.paste(m, ((width - m.width) // 2, int(height * 0.46 - m.height / 2)), m)
+    """The dark screen of the app with its planet in the middle (both appearances: the app has one dark design)."""
+    img = Image.new("RGB", (width, height), BG)
+    size = int(min(width, height) * 0.32)
+    planet = Image.open(PLANET).convert("RGBA").resize((size, size), Image.LANCZOS)
+    img.paste(planet, ((width - size) // 2, int(height * 0.47 - size / 2)), planet)
     return img
 
 
@@ -98,7 +70,7 @@ def main() -> None:
             for scheme in ("dark", "light"):
                 name = f"{orient[0]}-{iw}x{ih}-{scheme}.png"
                 # A flat colour with one small mark: a palette keeps each file to a few KB.
-                img = render(iw, ih, scheme).quantize(colors=96, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+                img = render(iw, ih, scheme).quantize(colors=40, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
                 img.save(out / name, "PNG", optimize=True)
                 with Image.open(out / name) as check:
                     check.load()

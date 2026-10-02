@@ -42,7 +42,7 @@
       const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
       const inkSolid = rgba(ink, 1);
       ctx.clearRect(0, 0, W, H);
-      ctx.font = '10px "IBM Plex Mono", monospace';
+      ctx.font = '10px Inter, -apple-system, sans-serif';
       ctx.textBaseline = 'alphabetic';
 
       // Grid.

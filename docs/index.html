@@ -5,23 +5,22 @@
 <title>BURZH beats</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="BURZH beats — minimal genre radio.">
-<meta name="theme-color" content="#050606">
-<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="color-scheme" content="dark">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BURZH beats">
 <script>
-/* Apply the saved background before first paint. Mirrors applyTheme() in app.js. */
+/* Apply night mode and reduce motion before first paint. Mirrors applyTheme() in app.js. */
 (function(){try{
   var s=JSON.parse(localStorage.getItem('burzh.radio.settings.v1')||'{}'),h=new Date().getHours(),d=document.documentElement;
-  var night=s.night==='on'||(s.night==='auto'&&(h>=23||h<7)),white=s.theme==='white'||s.theme==='graphite';
+  var night=s.night==='on'||(s.night==='auto'&&(h>=23||h<7));
   var calm=s.motion==='on'||(s.motion!=='off'&&window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
-  if(white)d.classList.add('theme-white');
   if(night)d.classList.add('night');
   if(calm)d.classList.add('calm');
   var m=document.querySelector('meta[name="theme-color"]');
-  if(m)m.content=night?'#000000':(white?'#F1F1EE':'#050606');
+  if(m)m.content=night?'#000000':'#0a0a0a';
 }catch(e){}})();
 </script>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -78,266 +77,196 @@
 <!-- splash:end -->
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-<link rel="preload" href="./fonts/doto.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="./fonts/plex-mono-latin-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/archivo-wdth.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./planet/surface.jpg" as="image">
 <style>
-@font-face{font-family:'Doto';src:url('./fonts/doto.woff2') format('woff2');font-weight:100 900;font-display:swap}
-@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-latin-400.woff2') format('woff2');font-weight:400;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-cyrillic-400.woff2') format('woff2');font-weight:400;font-display:swap;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
-@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-latin-500.woff2') format('woff2');font-weight:500;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'IBM Plex Mono';src:url('./fonts/plex-mono-cyrillic-500.woff2') format('woff2');font-weight:500;font-display:swap;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'Inter';src:url('./fonts/inter-latin.woff2') format('woff2');font-weight:100 900;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Inter';src:url('./fonts/inter-cyrillic.woff2') format('woff2');font-weight:100 900;font-display:swap;unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:'Archivo';src:url('./fonts/archivo-wdth.woff2') format('woff2');font-weight:100 900;font-stretch:62% 125%;font-display:swap}
 
+/* ---------- Tokens: one dark, monochrome palette ---------- */
 :root{
   color-scheme:dark;
-  /* palette: Black (default) */
-  --bg:#050606;--fg:#f1f1ec;--soft:#c8c9c3;--muted:#8b8c86;--dim:#5b5c57;--line:#3d3e3a;--accent:#ff3b30;
-  --screen:radial-gradient(120% 120% at 55% -10%,#101111 0,#080909 33%,var(--bg) 70%);--tool-bg:rgba(8,9,9,.66);
-  --frame-bg:var(--bg);--frame-line:rgba(238,239,233,.13);--frame-glow:rgba(255,255,255,.028);--frame-inset:rgba(255,255,255,.015);--frame-shadow:0 18px 50px rgba(0,0,0,.38);
-  --tile:transparent;--glyph:#eee;--active-ring:rgba(255,255,255,.05);--slash:rgba(255,255,255,.07);
-  --edge:#50514d;--ctrl-line:#767772;--ctrl-line-big:#edede8;
-  --wash:rgba(255,255,255,.065);--halo:rgba(255,255,255,.06);
-  --rail:#2e2f2b;--tick:rgba(238,239,233,.3);--ring:rgba(0,0,0,.6);
-  --quiet:#b7b8b2;--caption:#a9aaa4;--hint:#7d7e78;--faint:#6b6c66;--on-fg:#050606;--chip-on:#161715;--err:#ff776f;
-  --pop-bg:rgba(9,10,10,.94);--pop-line:rgba(238,239,233,.2);--pop-fg:#f1f1ec;--pop-soft:#c8c9c3;--pop-err:#ff776f;
-  --toast-bg:rgba(8,9,9,.94);--toast-line:rgba(255,255,255,.13);--toast-fg:#c9cac4;
-  --overlay:rgba(0,0,0,.72);--sheet-bg:#070808;--sheet-line:#2a2b28;--row-line:#1b1c1a;--sheet-shadow:none;--eq-line:#232421;--eq-bg:#0a0b0a;
-  /* canvas palette (read by planet.js and sound-ui.js through theme.js) */
-  --ink:241,241,236;--core:#fff4f0;--planet-dim:64,64,60;--planet-lit:255,255,251;--planet-a0:.22;--planet-a1:1;
-  --star:215,216,210;--star-k:1;--track-front:rgba(236,237,231,.5);--track-back:rgba(205,207,202,.18);--beacon:rgba(236,237,231,.8);--halo-k:1;
-  --eq-muted:139,140,134;--eq-handle:#070808;
-  --orbit:11s;--ease:cubic-bezier(.2,.8,.2,1);--shift-x:0px;--shift-y:0px;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;--dot:'Doto','IBM Plex Mono',monospace}
+  --bg:#0a0a0a;--fg:#f4f4f2;--soft:rgba(244,244,242,.66);--muted:rgba(244,244,242,.52);--dim:rgba(244,244,242,.3);
+  --line:rgba(255,255,255,.1);--line-2:rgba(255,255,255,.16);--pill:rgba(255,255,255,.065);--pill-2:rgba(255,255,255,.1);
+  --accent:#ffffff;
+  --screen:radial-gradient(90% 70% at 30% 0%,#1a1a1a 0,#101010 38%,#0a0a0a 72%);
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--wide:'Archivo','Inter',sans-serif;
+  --mono:var(--sans);
+  /* settings, toast, equalizer */
+  --edge:rgba(255,255,255,.2);--wash:rgba(255,255,255,.07);--halo:rgba(255,255,255,.07);--rail:rgba(255,255,255,.16);--tick:rgba(255,255,255,.35);--ring:rgba(0,0,0,.6);
+  --quiet:rgba(244,244,242,.72);--caption:rgba(244,244,242,.58);--hint:rgba(244,244,242,.5);--faint:rgba(244,244,242,.52);--on-fg:#0a0a0a;--chip-on:rgba(255,255,255,.1);--err:#ff7a70;
+  --pop-bg:rgba(20,20,20,.96);--pop-line:rgba(255,255,255,.14);--pop-fg:#f4f4f2;--pop-soft:rgba(244,244,242,.66);--pop-err:#ff7a70;
+  --toast-bg:rgba(24,24,24,.92);--toast-line:rgba(255,255,255,.12);--toast-fg:rgba(244,244,242,.86);
+  --overlay:rgba(0,0,0,.6);--sheet-bg:#121212;--sheet-line:rgba(255,255,255,.08);--row-line:rgba(255,255,255,.07);--sheet-shadow:0 -10px 60px rgba(0,0,0,.5);--eq-line:rgba(255,255,255,.08);--eq-bg:#0c0c0c;
+  /* canvas palette (read by sound-ui.js through theme.js) */
+  --ink:244,244,242;--core:#ffffff;--planet-dim:64,64,64;--planet-lit:255,255,255;--planet-a0:.22;--planet-a1:1;
+  --star:215,215,215;--star-k:1;--track-front:rgba(255,255,255,.5);--track-back:rgba(255,255,255,.18);--beacon:rgba(255,255,255,.8);--halo-k:1;
+  --eq-muted:150,150,150;--eq-handle:#121212;
+  --ease:cubic-bezier(.2,.8,.2,1);--shift-x:0px;--shift-y:0px;--orbit:11s}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:var(--mono);-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
 button,input{font:inherit;color:inherit}button{background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation}
 .screen{position:absolute;inset:0;background:var(--screen);transition:filter .8s var(--ease)}
 .portrait{display:block}.landscape{display:none}
-@media(orientation:landscape){.portrait{display:none}.landscape{display:flex}}
-.doto{font-family:var(--dot)}
+@media(orientation:landscape){.portrait{display:none}.landscape{display:block}}
 .swap{animation:swap .42s var(--ease)}
+.icon-btn:focus-visible,.ctrl:focus-visible,.tile:focus-visible,.switch:focus-visible,.seg button:focus-visible,.chip:focus-visible,.tabs button:focus-visible,.btn:focus-visible,.weather:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
 
+/* ---------- Brand ---------- */
+.brand{min-width:0}
+.wordmark{display:flex;align-items:baseline;gap:.22em;white-space:nowrap;line-height:1}
+.wordmark b{font:800 1em/1 var(--wide);font-stretch:125%;letter-spacing:-.01em;color:#fff}
+.wordmark span{font:300 1em/1 var(--sans);letter-spacing:-.02em;color:rgba(244,244,242,.82)}
+.tagline{margin-top:.95em;font:500 max(8.5px,.3em)/1 var(--sans);letter-spacing:.42em;color:var(--muted);white-space:nowrap;text-transform:uppercase}
 
-/* ---------- Planet ---------- */
-.art-frame{position:relative;border:1px solid var(--frame-line);background:radial-gradient(circle at 48% 40%,var(--frame-glow),rgba(0,0,0,0) 59%),var(--frame-bg);box-shadow:inset 0 0 0 1px var(--frame-inset),var(--frame-shadow);overflow:hidden;touch-action:pan-y}
-.planet{position:absolute;inset:0;touch-action:pan-y}
-
-/* ---------- Icon buttons ---------- */
-.icon-btn{display:grid;place-items:center;width:48px;height:48px;border:1px solid var(--edge);border-radius:50%;color:var(--fg);transition:transform .14s var(--ease),background .14s,border-color .3s;flex:0 0 auto}
-.icon-btn svg{width:22px;height:22px;display:block}
+/* ---------- Header tools: weather pill, settings ---------- */
+.tools{display:flex;align-items:center;gap:12px}
+.weather{display:flex;align-items:center;gap:9px;height:56px;padding:0 16px 0 12px;border-radius:18px;background:var(--pill);border:1px solid rgba(255,255,255,.04);white-space:nowrap}
+.w-icon{width:30px;height:30px;flex:0 0 auto}.w-icon svg{display:block;width:100%;height:100%}
+.w-text{display:flex;flex-direction:column;align-items:center;line-height:1}
+.w-text b{font:500 22px/1 var(--sans);letter-spacing:-.01em}
+.w-text small{margin-top:4px;font:400 10px/1 var(--sans);color:var(--soft);max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.icon-btn{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;color:var(--fg);transition:transform .14s var(--ease),background .14s;flex:0 0 auto}
+.icon-btn svg{width:26px;height:26px;display:block}
 .icon-btn:active{transform:scale(.92);background:var(--wash)}
-.icon-btn:focus-visible,.ctrl:focus-visible,.dial button:focus-visible,.switch:focus-visible,.seg button:focus-visible,.chip:focus-visible,.tabs button:focus-visible,.btn:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
+.icon-btn.pill{width:56px;height:56px;border-radius:18px;background:var(--pill);border:1px solid rgba(255,255,255,.04)}
 
-/* ---------- Station glyphs ---------- */
-.sicon{width:36px;height:30px;position:relative;flex:0 0 auto}
-.sicon{color:var(--glyph)}.sicon svg{display:block;width:100%;height:100%;overflow:visible}
-/* ---------- Shared controls ---------- */
-.ctrl{border:1px solid var(--ctrl-line);border-radius:50%;display:grid;place-items:center;transition:transform .14s var(--ease),background .14s,border-color .3s}
-.ctrl:active{transform:scale(.92);background:var(--wash)}
-.ctrl svg{fill:var(--fg);width:27px;height:27px}
-.ctrl.big{border-color:var(--ctrl-line-big)}.ctrl.big svg{width:33px;height:33px}
-.is-on .ctrl.big{border-color:var(--accent)}
-.play-toggle .i-stop{display:none}.play-toggle.is-playing .i-play{display:none}.play-toggle.is-playing .i-stop{display:block}
-.live-rail{position:relative;height:2px;background:var(--rail);overflow:hidden;border-radius:2px}
-.live-fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(0);transition:transform 1s linear,background .6s}
-.readout{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10px;letter-spacing:.08em;color:var(--soft);font-variant-numeric:tabular-nums;text-transform:uppercase}
-/* Seek: the rail is a draggable slider (time-shift inside the current mix). */
-.seek{position:relative;height:26px;margin:-12px 0;display:flex;align-items:center;touch-action:none;-webkit-tap-highlight-color:transparent;outline:none;-webkit-user-select:none;user-select:none}
+/* ---------- Planet stage ---------- */
+.stage{position:relative;min-height:0;container-type:size}
+.planet{position:absolute;inset:0;touch-action:pan-y}
+.on-planet{position:absolute;left:50%;top:50%;width:min(64cqmin,100%);transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none;z-index:2}
+.op-top,.op-bottom{font:500 clamp(9px,2.7cqmin,12px)/1 var(--sans);letter-spacing:.5em;margin-right:-.5em;color:rgba(244,244,242,.78);text-transform:uppercase;white-space:nowrap}
+.op-name{margin:clamp(10px,4.2cqmin,22px) 0 clamp(8px,3.4cqmin,18px);font:400 min(14.5cqmin,calc(46cqmin / (var(--chars,6) * .52)),74px)/1 var(--sans);letter-spacing:-.02em;color:#fff;white-space:nowrap;text-shadow:0 2px 24px rgba(0,0,0,.65)}
+.wave{display:block;width:min(46cqmin,100%);height:clamp(18px,7cqmin,34px)}
+.op-bottom{margin-top:clamp(10px,4.4cqmin,24px);color:rgba(244,244,242,.72)}
+[data-phase="lost"] .op-bottom{color:var(--err)}
+
+/* ---------- Now playing ---------- */
+.np{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;min-width:0}
+.np-title{font:500 clamp(20px,6.6cqw,28px)/1.15 var(--sans);letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-sub{margin-top:6px;font:400 clamp(15px,4.6cqw,19px)/1.2 var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- Seek bar ---------- */
+.live-rail{position:relative;height:3px;background:var(--rail);overflow:hidden;border-radius:3px}
+.live-fill{position:absolute;inset:0;background:#fff;transform-origin:0 50%;transform:scaleX(0);transition:transform 1s linear}
+.seek{position:relative;height:28px;margin:-12px 0;display:flex;align-items:center;touch-action:none;outline:none;-webkit-user-select:none;user-select:none}
 .seek.can-seek{cursor:pointer}
 .seek .live-rail{flex:1;transition:height .2s var(--ease)}
 .seek-ticks{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none}
 .seek-ticks i{position:absolute;top:-4px;width:1px;height:8px;background:var(--tick)}
-.seek-thumb{position:absolute;top:50%;left:0;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:var(--fg);box-shadow:0 0 0 3px var(--ring);opacity:0;transform:scale(.3);transition:left 1s linear,transform .22s var(--ease),opacity .3s,background .2s,box-shadow .22s;pointer-events:none}
+.seek-thumb{position:absolute;top:50%;left:0;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(255,255,255,.08),0 0 14px rgba(255,255,255,.55);opacity:0;transform:scale(.4);transition:left 1s linear,transform .22s var(--ease),opacity .3s;pointer-events:none}
 .seek.can-seek .seek-thumb{opacity:1;transform:scale(1)}
-.seek.can-seek:hover .seek-thumb{transform:scale(1.35)}
-.seek.dragging .seek-thumb{transform:scale(2.2);background:var(--accent);box-shadow:0 0 0 4px var(--ring),0 0 20px color-mix(in srgb,var(--accent) 70%,transparent);transition:transform .22s var(--ease),background .2s,box-shadow .22s}
-.seek.dragging .live-rail{height:4px}
+.seek.dragging .seek-thumb{transform:scale(1.5);transition:transform .22s var(--ease)}
+.seek.dragging .live-rail{height:5px}
 .seek.dragging .live-fill{transition:none}
 .seek:focus-visible .seek-thumb{box-shadow:0 0 0 3px var(--ring),0 0 0 5px var(--fg)}
-.seek-tip{position:absolute;bottom:calc(50% + 20px);left:0;transform:translateX(-50%);padding:7px 12px 8px;border:1px solid var(--pop-line);border-radius:11px;background:var(--pop-bg);color:var(--pop-fg);box-shadow:0 8px 24px rgba(0,0,0,.18);font:500 12px/1.2 var(--mono);letter-spacing:.06em;white-space:nowrap;text-align:center;opacity:0;pointer-events:none;transition:opacity .14s;z-index:3}
+.seek-tip{position:absolute;bottom:calc(50% + 22px);left:0;transform:translateX(-50%);padding:8px 12px 9px;border:1px solid var(--pop-line);border-radius:12px;background:var(--pop-bg);color:var(--pop-fg);box-shadow:0 8px 24px rgba(0,0,0,.4);font:500 12px/1.2 var(--sans);white-space:nowrap;text-align:center;opacity:0;pointer-events:none;transition:opacity .14s;z-index:3}
 .seek.dragging .seek-tip{opacity:1}
-.seek-tip b{display:block;font-size:18px;font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums}
-.seek-tip span{display:block;margin-top:3px;font-size:9.5px;letter-spacing:.1em;color:var(--pop-soft);text-transform:uppercase;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
-.readout{position:relative;z-index:1}
-.golive{display:none;position:relative;margin:-6px 0 -6px 10px;height:24px;padding:0 11px;border:1px solid var(--accent);border-radius:12px;background:transparent;color:var(--fg);font:500 9px/22px var(--mono);letter-spacing:.12em;text-transform:uppercase;transition:transform .14s var(--ease),background .2s}
-.golive:active{transform:scale(.94);background:color-mix(in srgb,var(--accent) 18%,transparent)}
-.shifted .golive{display:inline-block}
-.shifted .onair i{background:var(--soft);box-shadow:none;animation:none}
-.onair{display:flex;align-items:center;gap:8px}
-.onair i{width:6px;height:6px;border-radius:50%;background:var(--dim);transition:background .4s}
-.is-on .onair i{background:var(--accent)}
-.is-playing .onair i{box-shadow:0 0 10px var(--accent);animation:pulse 2.2s infinite}
-[data-phase="lost"] .onair{color:var(--err)}
-.text-btn{font-size:9px;letter-spacing:.11em;color:var(--quiet);text-transform:uppercase;display:flex;align-items:center;gap:10px;min-height:36px}
-.text-btn:before{content:"";width:6px;height:6px;background:var(--glyph);flex:0 0 auto}
+.seek-tip b{display:block;font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
+.seek-tip span{display:block;margin-top:3px;font-size:11px;color:var(--pop-soft);max-width:60vw;overflow:hidden;text-overflow:ellipsis}
+.times{position:relative;z-index:1;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin-top:12px;font:400 13px/1 var(--sans);color:var(--muted);font-variant-numeric:tabular-nums}
+.times span:last-child{text-align:right}
+.golive{visibility:hidden;height:24px;padding:0 12px;border:1px solid rgba(255,255,255,.35);border-radius:12px;font:600 10px/22px var(--sans);letter-spacing:.18em;text-transform:uppercase;color:#fff;transition:transform .14s var(--ease),background .2s}
+.golive:active{transform:scale(.94);background:var(--wash)}
+.shifted .golive{visibility:visible}
+
+/* ---------- Transport ---------- */
+.controls{display:flex;align-items:center;justify-content:space-evenly}
+.ctrl{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;color:#fff;transition:transform .14s var(--ease),background .14s}
+.ctrl:active{transform:scale(.9);background:var(--wash)}
+.ctrl svg{width:30px;height:30px;fill:currentColor}
+.ctrl.big{position:relative;width:96px;height:96px;background:radial-gradient(circle at 50% 35%,rgba(255,255,255,.06),rgba(255,255,255,0) 70%)}
+.ctrl.big svg:not(.arc){width:38px;height:38px;position:relative}
+.ctrl.big .arc{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible;fill:none}
+.arc .arc-bg{stroke:rgba(255,255,255,.2);stroke-width:1.2}
+.arc .arc-fg{stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-dasharray:301.6;stroke-dashoffset:calc(301.6 * (1 - var(--p,0)));filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 0 8px rgba(255,255,255,.45));transition:stroke-dashoffset 1s linear;opacity:0}
+.is-on .arc .arc-fg{opacity:1}
+.play-toggle .i-pause{display:none}.play-toggle.is-playing .i-play{display:none}.play-toggle.is-playing .i-pause{display:block}
+.play-toggle .i-play{transform:translateX(2px)}
+
+/* ---------- Station tiles ---------- */
+.tiles{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:clamp(8px,2.6cqw,14px)}
+.tile{display:flex;flex-direction:column;align-items:center;gap:9px;min-width:0;transition:transform .16s var(--ease)}
+.tile:active{transform:scale(.95)}
+.thumb{position:relative;width:100%;aspect-ratio:1;border-radius:14px;overflow:hidden;background:#111;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:.86;transition:opacity .3s}
+.thumb:after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);transition:box-shadow .3s}
+.tile.active .thumb img{opacity:1}
+.tile.active .thumb:after{box-shadow:inset 0 0 0 2px #fff,0 0 18px rgba(255,255,255,.25)}
+.tile.active .thumb{box-shadow:0 0 22px rgba(255,255,255,.14)}
+.tlabel{font:400 clamp(12px,3.6cqw,15px)/1.18 var(--sans);color:var(--soft);text-align:center;max-width:100%;overflow-wrap:break-word}
+.tile.active .tlabel{color:#fff}
+.tile.off .thumb img{opacity:.38}
+.tile.off .tlabel:after{content:" · soon";color:var(--dim)}
+.nudge{animation:nudge .24s}
 
 /* ---------- Portrait ---------- */
-.portrait{top:env(safe-area-inset-top);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);left:env(safe-area-inset-left)}
-.p-logo{position:absolute;left:6.1%;top:5.6%;font:650 clamp(36px,9.1vw,46px)/.79 var(--dot);letter-spacing:.005em}
-.p-menu{position:absolute;right:5.6%;top:6.4%}
-.stations{position:absolute;left:5.1%;right:5.1%;top:17.4%;height:14.6%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:1.6%}
-.station{position:relative;border:1px solid var(--line);border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:var(--tile);transition:transform .16s var(--ease),border-color .3s,opacity .3s;min-width:0}
-.station.active{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--active-ring)}
-.station:active{transform:scale(.95)}
-.station.off{opacity:.62}
-.station.off:after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,transparent 48%,var(--slash) 49%,var(--slash) 51%,transparent 52%);pointer-events:none}
-.station.active.off{opacity:.85}
-.slabel{font-size:clamp(10px,2.65vw,13px);line-height:1.08;text-align:center;min-height:2.16em}
-.station{padding-bottom:12px}
-.sdot{position:absolute;bottom:8px;width:6px;height:6px;border-radius:50%;background:var(--dim);transition:background .4s}
-.station.active .sdot{background:var(--accent);box-shadow:0 0 10px var(--accent)}
-.is-playing .station.active .sdot{animation:pulse 2.2s infinite}
-.nudge{animation:nudge .24s}
-.p-artwrap{position:absolute;left:21.7%;top:35.4%;width:54.7%;aspect-ratio:1}
-.p-artwrap .art-frame{position:absolute;inset:0;border-radius:18px}
-.p-side{position:absolute;top:42.8%;font:400 8px/1.45 var(--mono);letter-spacing:.08em;color:var(--caption);text-transform:uppercase}
-.p-side.left{left:5.2%;width:14%}.p-side.right{right:4.8%;width:13.8%;text-align:right}
-.smallrule{width:22px;height:1px;background:var(--soft);margin-top:14px}.p-side.right .smallrule{margin-left:auto}
-.p-side.left:after{content:"";display:block;width:22px;height:1px;background:var(--soft);margin-top:14px}
-.p-meta{position:absolute;left:6.3%;right:6.3%;top:67.4%}
-.title{font:560 clamp(24px,5.8vw,30px)/.98 var(--dot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sub{font-size:12px;margin-top:7px;color:var(--soft);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sub.now{font-size:13.5px;margin-top:9px;letter-spacing:.02em;text-transform:none}
-.p-live{position:absolute;left:6.4%;right:6.4%;top:76.4%}
-.p-controls{position:absolute;left:13%;right:13%;top:82.3%;height:11.3%;display:flex;align-items:center;justify-content:space-between}
-.p-controls .ctrl{width:70px;height:70px}.p-controls .ctrl.big{width:98px;height:98px}
-
-@media(orientation:portrait) and (max-width:480px){
-  .p-logo{left:5.5%;top:4.8%;font-size:clamp(33px,10vw,42px)}.p-menu{right:5%;top:5.4%}
-  .stations{left:4.5%;right:4.5%;top:15.8%;height:13.6%;gap:1.8%}.station{border-radius:11px;gap:6px}.sicon{transform:scale(.82)}.slabel{font-size:9px}.sdot{bottom:6px;width:5px;height:5px}
-  .p-artwrap{left:20%;top:32.8%;width:60%}.p-side{top:38.6%;font-size:6.5px}.p-side.left{left:4.7%}.p-side.right{right:3.8%;width:13%}
-  .p-meta{left:5.5%;right:5.5%;top:65.4%}.title{font-size:clamp(22px,7vw,28px)}.sub{font-size:11px}
-  .p-live{left:5.7%;right:5.7%;top:75%}
-  .p-controls{left:12%;right:12%;top:80.8%;height:11.5%}.p-controls .ctrl{width:58px;height:58px}.p-controls .ctrl.big{width:82px;height:82px}
-}
-@media(orientation:portrait) and (max-height:700px){.stations{top:15.2%;height:12.5%}.p-artwrap{top:31%;width:50%;left:25%}.p-side{top:37.5%}.p-meta{top:62%}.p-live{top:71.5%}.p-controls{top:77%;height:14%}}
-@media(orientation:portrait) and (max-height:560px){.p-logo{top:3.8%;font-size:28px}.stations{top:15.5%;height:13.5%}.station{gap:3px;border-radius:9px}.sicon{transform:scale(.68)}.slabel{font-size:7.5px}.sdot{bottom:4px}.p-artwrap{top:31%;left:29%;width:42%}.p-side{display:none}.p-meta{top:61%}.title{font-size:21px}.sub{font-size:10px;margin-top:4px}.p-live{top:70.5%}.readout{font-size:8px}.p-controls{top:76%;left:16%;right:16%;height:15%}.p-controls .ctrl{width:48px;height:48px}.p-controls .ctrl.big{width:64px;height:64px}.ctrl svg{width:21px;height:21px}.ctrl.big svg{width:26px;height:26px}}
-
-/* ---------- Portrait, fitted ----------
-   The blocks stack in a column and the planet card takes whatever height is left, so the screen has no
-   empty band on a tall phone and a bigger planet on a short one. Needs container units (iOS 16+);
-   older browsers keep the fixed layout above. */
-.p-caption{display:none}
-@supports (width:1cqw){
-@media(orientation:portrait){
-  .portrait{container-type:size;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto minmax(0,1fr) auto auto auto auto;grid-template-areas:"logo menu" "stations stations" "art art" "caption caption" "meta meta" "live live" "controls controls";padding:0 5.2cqw clamp(14px,3.4cqh,34px)}
-  .p-logo,.p-menu,.stations,.p-artwrap,.p-caption,.p-meta,.p-live,.p-controls{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:auto;height:auto}
-  .p-side{display:none}
-  .p-logo{grid-area:logo;align-self:start;margin:clamp(16px,4.6cqh,42px) 0 0 .5cqw;font-size:clamp(33px,10.4cqw,46px)}
-  .p-menu{grid-area:menu;align-self:start;width:48px;height:48px;margin:clamp(14px,4.2cqh,40px) 0 0 0}
-  .stations{grid-area:stations;height:clamp(74px,13.4cqh,120px);margin:clamp(10px,2.2cqh,22px) 0 0}
-  .p-artwrap{grid-area:art;container-type:size;aspect-ratio:auto;min-height:0;margin:clamp(8px,1.6cqh,18px) 0 0}
-  /* square when the row is short, up to 16 % taller than wide when it is not (the planet stays centred) */
-  .p-artwrap .art-frame{--w:min(86cqw,100cqh);inset:auto;left:50%;top:50%;width:var(--w);height:min(100cqh,calc(var(--w)*1.16));transform:translate(-50%,-50%)}
-  .p-caption{display:block;grid-area:caption;margin-top:clamp(8px,1.4cqh,16px);text-align:center;font:400 clamp(8px,2.5cqw,10.5px)/1.3 var(--mono);letter-spacing:.14em;color:var(--caption);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .p-meta{grid-area:meta;margin-top:clamp(10px,2.2cqh,24px)}
-  .p-live{grid-area:live;margin-top:clamp(12px,2.4cqh,26px)}
-  .p-controls{grid-area:controls;margin:clamp(8px,1.8cqh,20px) 6.5cqw 0}
-}
+.portrait{top:env(safe-area-inset-top);right:env(safe-area-inset-right);bottom:env(safe-area-inset-bottom);left:env(safe-area-inset-left);container-type:size}
+@media(orientation:portrait){.portrait{display:grid}}
+.portrait{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto auto auto;padding:0 6cqw clamp(12px,2.6cqh,26px)}
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-top:clamp(12px,3cqh,30px)}
+.p-head .brand{font-size:clamp(19px,5.7cqw,30px);padding-top:10px}
+.p-head .weather{height:50px;border-radius:16px;padding:0 13px 0 10px}.p-head .w-icon{width:27px;height:27px}.p-head .w-text b{font-size:19px}
+.p-head .tools{gap:6px}
+.p-stage{margin:clamp(4px,1cqh,12px) -6cqw 0}
+.p-np{margin-top:clamp(4px,1cqh,12px)}
+.p-live{margin-top:clamp(16px,3.2cqh,30px)}
+.p-controls{margin:clamp(14px,2.8cqh,28px) 2cqw 0}
+.p-tiles{margin-top:clamp(16px,3.4cqh,34px)}
 @media(orientation:portrait) and (max-height:700px){
-  .p-logo{margin-top:3.2cqh;font-size:clamp(30px,9.6cqw,40px)}.p-menu{margin-top:2.6cqh}
-  .stations{height:clamp(66px,12.4cqh,90px);margin-top:1.8cqh}
-  .station{gap:5px;padding-bottom:10px}.sicon{width:30px;height:25px}
-  .p-artwrap{margin-top:1cqh}.p-caption{margin-top:1cqh}.p-meta{margin-top:1.4cqh}.p-live{margin-top:1.6cqh}.p-controls{margin-top:1.2cqh}
-}
-@media(orientation:portrait) and (max-height:560px){
-  .p-logo{font-size:28px;margin-top:3cqh}.p-menu{margin-top:1.6cqh;width:42px;height:42px}
-  .stations{height:clamp(56px,12.6cqh,72px)}
-  .p-caption{display:none}
-  .p-controls{margin-left:10cqw;margin-right:10cqw}
-}
+  .ctrl.big{width:80px;height:80px}.ctrl{width:56px;height:56px}
+  .weather{height:48px;border-radius:15px}.w-text b{font-size:19px}
+  .thumb{border-radius:12px}
 }
 
-/* ---------- Landscape: the desk screen ---------- */
+/* ---------- Landscape ---------- */
 .landscape{overflow:hidden}
-.l-shell{position:relative;width:100%;height:100%;padding:max(8px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));display:grid;grid-template-rows:auto minmax(0,1fr) auto;row-gap:clamp(2px,1.2vh,12px);transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
-.l-planet{position:absolute;top:0;bottom:calc(52px + env(safe-area-inset-bottom));right:max(0px,env(safe-area-inset-right));left:var(--stage-left,48%);z-index:0;
-  /* the planet, its rain and comets fade out under the controls instead of crossing them */
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 calc(env(safe-area-inset-top) + 84px),#000 calc(100% - 64px),transparent 100%);
-  mask-image:linear-gradient(to bottom,transparent 0,#000 calc(env(safe-area-inset-top) + 84px),#000 calc(100% - 64px),transparent 100%)}
-.l-shell,.l-main{pointer-events:none}
-.l-header,.l-info,.l-bottom{pointer-events:auto}
-.l-header,.l-main,.l-bottom{position:relative;z-index:1}
-.l-header{display:grid;grid-template-columns:auto minmax(16px,1fr) auto;align-items:center;gap:clamp(12px,2vw,24px);min-height:56px}
-.l-brand{font:520 clamp(18px,3vh,26px)/1 var(--dot);white-space:nowrap}
-.l-topline{height:1px;background:var(--line)}
-.l-tools{display:flex;align-items:center;gap:10px}
-.l-tools .ctrl{width:44px;height:44px}.l-tools .ctrl.big{width:54px;height:54px}
-.l-tools .ctrl svg{width:19px;height:19px}.l-tools .ctrl.big svg{width:23px;height:23px}
-.l-tools .icon-btn{width:44px;height:44px;margin-left:6px}
-/* the planet passes behind the controls: frosted buttons keep its lines from running through the icons */
-.l-tools .ctrl,.l-tools .icon-btn{background:var(--tool-bg);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.l-shell{position:absolute;inset:0;container-type:size;display:grid;grid-template-columns:minmax(0,46fr) minmax(0,54fr);grid-template-rows:auto minmax(0,1fr);column-gap:clamp(16px,3cqw,40px);padding:max(10px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
+.l-brand{grid-column:1;grid-row:1;font-size:clamp(22px,7.2cqh,38px);padding-top:clamp(4px,2.4cqh,22px)}
+.l-tools{grid-column:2;grid-row:1;justify-self:end;align-self:start;padding-top:clamp(4px,2cqh,18px)}
+.l-stage{grid-column:1;grid-row:1/3;margin:clamp(40px,14cqh,96px) 0 0 0}
+.l-panel{grid-column:2;grid-row:2;display:flex;flex-direction:column;justify-content:center;min-height:0;container-type:inline-size;padding:1cqh 0 1cqh}
+.l-panel .np{grid-template-columns:minmax(0,1fr)}
+.l-panel .np-title{font-size:clamp(18px,6.8cqh,36px)}
+.l-panel .np-sub{font-size:clamp(13px,4.2cqh,21px);margin-top:4px}
+.l-live{margin-top:clamp(8px,3.6cqh,30px)}
+.l-controls{margin-top:clamp(2px,1.8cqh,20px);justify-content:space-between;padding:0 1cqw}
+.l-controls .ctrl{width:clamp(40px,11cqh,66px);height:clamp(40px,11cqh,66px)}
+.l-controls .ctrl.big{width:clamp(60px,19.5cqh,106px);height:clamp(60px,19.5cqh,106px)}
+.l-controls .ctrl svg:not(.arc){width:clamp(22px,6.6cqh,32px);height:clamp(22px,6.6cqh,32px)}.l-controls .ctrl.big svg:not(.arc){width:clamp(26px,8cqh,40px);height:clamp(26px,8cqh,40px)}
+.l-tiles{margin-top:clamp(4px,2.4cqh,26px)}
+.l-tiles .tile{gap:5px}
+.l-tiles .thumb{width:min(100%,24cqh);border-radius:12px}
+.l-tiles .tlabel{font-size:clamp(11px,3.2cqh,15px)}
 
-.l-main{display:flex;align-items:center;min-height:0}
-.l-info{min-width:0;max-width:54%;display:flex;flex-direction:column;justify-content:center}
-.clock{display:flex;align-items:center;font:650 min(40vh,19vw)/.74 var(--dot);letter-spacing:.01em;white-space:nowrap;min-width:0;font-variant-numeric:tabular-nums}
-.soft-colon{width:.12em;height:.72em;margin:0 .07em;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.17em;transform:translateY(.012em)}
-.soft-colon i{width:.07em;height:.07em;border-radius:50%;background:var(--fg);opacity:.78;animation:colonBreath 2.8s ease-in-out infinite}.soft-colon i:nth-child(2){animation-delay:1.4s}
-.l-meta{display:flex;flex-wrap:nowrap;align-items:baseline;gap:4px 18px;max-width:var(--clock-w,100%);overflow:hidden;margin-top:clamp(10px,2.6vh,22px);font:400 clamp(11px,2.3vh,15px)/1.2 var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
-.weather{display:inline-flex;align-items:baseline;gap:10px;color:var(--soft);min-width:0;white-space:nowrap}
-.weather b{font:560 2em/1 var(--dot);letter-spacing:.02em;color:var(--fg)}
-.weather-city{color:var(--dim);min-width:0;overflow:hidden;text-overflow:ellipsis}
-.l-now{margin-top:clamp(12px,3vh,26px);display:grid;grid-template-columns:12px minmax(0,1fr);gap:14px;align-items:start;min-width:0}
-.l-now .reddot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:.7em;opacity:.55;transition:opacity .4s}
-.is-on .l-now .reddot{opacity:1}.is-playing .l-now .reddot{box-shadow:0 0 10px var(--accent);animation:pulse 2.2s infinite}
-.stationname{font:520 clamp(26px,6.6vh,48px)/.95 var(--dot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-title{font:400 clamp(14px,3.1vh,21px)/1.15 var(--mono);margin-top:clamp(6px,1.4vh,12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.l-sub{font:400 clamp(10px,2vh,14px)/1.15 var(--mono);margin-top:clamp(4px,.9vh,8px);color:var(--caption);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-.l-bottom{display:grid;gap:clamp(2px,.8vh,8px)}
-.dial{display:flex;justify-content:space-between;gap:6px}
-.dial button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 4px;font:400 clamp(10px,2vh,13.5px)/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--soft);white-space:nowrap;transition:color .3s,opacity .6s,transform .14s var(--ease)}
-.dial button:before{content:"";width:6px;height:6px;border-radius:50%;border:1px solid var(--muted);flex:0 0 auto;transition:background .4s,border-color .4s,box-shadow .4s}
-.dial button.active{color:var(--fg);font-weight:500}
-.dial button.active:before{background:var(--accent);border-color:var(--accent);box-shadow:0 0 9px var(--accent)}
-.dial button.off:before{border-style:dashed}
-/* A station without mixes says so ("soon") instead of just fading out. */
-.dial button.off:after{content:"soon";margin-left:2px;padding:3px 6px 2px;border:1px solid currentColor;border-radius:8px;font-size:.66em;letter-spacing:.12em;line-height:1}
-.dial button:active{transform:scale(.96)}
-.l-live .readout{margin-top:7px;font-size:clamp(9px,1.8vh,12px)}
-
-/* Idle: the controls melt away and the screen becomes a calm clock + radio. */
-.chrome{transition:opacity .9s var(--ease)}
-.idle .chrome{opacity:0;pointer-events:none}
-.idle .l-brand,.idle .l-topline{opacity:.3}
-.idle .dial button:not(.active){opacity:.78}
-.idle{cursor:none}
-.l-brand,.l-topline{transition:opacity .9s var(--ease)}
-
-@media(orientation:landscape) and (max-height:340px){
-  .l-header{min-height:46px}.l-tools .ctrl{width:38px;height:38px}.l-tools .ctrl.big{width:46px;height:46px}.l-tools .icon-btn{width:38px;height:38px}
-  .dial button{min-height:38px}
+@media(orientation:landscape) and (max-height:400px){
+  .weather{height:46px;border-radius:15px}.w-icon{width:26px;height:26px}.w-text b{font-size:18px}
+  .icon-btn.pill{width:46px;height:46px;border-radius:15px}
+}
+@media(orientation:portrait) and (max-height:600px){
+  .p-head .weather{height:42px}.p-head .w-icon{width:22px;height:22px}.p-head .w-text b{font-size:16px}
+  .p-np .np-title{font-size:17px}.p-np .np-sub{font-size:13px;margin-top:3px}
+  .p-live{margin-top:10px}.times{margin-top:8px;font-size:12px}
+  .p-controls{margin-top:6px}.p-controls .ctrl{width:46px;height:46px}.p-controls .ctrl.big{width:64px;height:64px}
+  .p-controls .ctrl svg:not(.arc){width:24px;height:24px}.p-controls .ctrl.big svg:not(.arc){width:28px;height:28px}
+  .p-tiles{margin-top:10px;gap:8px}.p-tiles .tile{gap:5px}.p-tiles .thumb{width:min(100%,52px);border-radius:10px}.p-tiles .tlabel{font-size:11px}
 }
 
-/* ---------- Night mode: dim red monochrome, pure black (OLED friendly) ---------- */
+/* Idle (landscape): the controls step back, the planet stays. */
+.chrome{transition:opacity .9s var(--ease)}
+.idle .chrome{opacity:.28}
+.idle{cursor:none}
+
+/* ---------- Night mode: dim, pure black (OLED friendly) ---------- */
 html.night,html.night body{--bg:#000;background:#000}
 html.night .screen{background:#000;filter:brightness(.42)}
-html.night .art-frame{box-shadow:none}
-
-/* ---------- White theme: paper, ink, one red dot ----------
-   Same structure as Black, only the palette changes. Night mode always wins and
-   falls back to the black palette (the :not(.night) below), so it stays OLED safe. */
-html.theme-white:not(.night){
-  color-scheme:light;
-  --bg:#F1F1EE;--fg:#111111;--soft:#3A3A37;--muted:#6A6A64;--dim:#A4A49E;--line:#C9C9C3;--accent:#CC2F26;
-  --screen:radial-gradient(120% 120% at 55% -10%,#FFFFFF 0,#F8F8F6 36%,var(--bg) 74%);--tool-bg:rgba(250,250,248,.7);
-  --frame-bg:#FAFAF8;--frame-line:rgba(17,17,17,.1);--frame-glow:rgba(255,255,255,.9);--frame-inset:rgba(255,255,255,.9);--frame-shadow:0 14px 34px rgba(17,17,17,.07);
-  --tile:#FAFAF8;--glyph:#111111;--active-ring:rgba(17,17,17,.05);--slash:rgba(17,17,17,.07);
-  --edge:#858580;--ctrl-line:#6A6A64;--ctrl-line-big:#111111;
-  --wash:rgba(17,17,17,.06);--halo:rgba(17,17,17,.07);
-  --rail:#D2D2CC;--tick:rgba(17,17,17,.28);--ring:rgba(241,241,238,.95);
-  --quiet:#4F4F4A;--caption:#6A6A64;--hint:#6F6F69;--faint:#74746E;--on-fg:#F6F6F3;--chip-on:#FFFFFF;--err:#C4161C;
-  --pop-bg:rgba(17,17,17,.96);--pop-line:rgba(255,255,255,.12);--pop-fg:#F4F4F0;--pop-soft:#C9C9C3;--pop-err:#FF776F;
-  --toast-bg:rgba(17,17,17,.96);--toast-line:rgba(255,255,255,.1);--toast-fg:#E9E9E4;
-  --overlay:rgba(30,30,28,.28);--sheet-bg:#FAFAF8;--sheet-line:#DEDED8;--row-line:#E6E6E1;--sheet-shadow:0 0 70px rgba(17,17,17,.14);--eq-line:#E2E2DC;--eq-bg:#F1F1EE;
-  --ink:17,17,17;--core:#FFFFFF;--planet-dim:176,176,170;--planet-lit:17,17,17;--planet-a0:.34;--planet-a1:1;
-  --star:17,17,17;--star-k:.55;--track-front:rgba(17,17,17,.42);--track-back:rgba(17,17,17,.16);--beacon:rgba(17,17,17,.7);--halo-k:.6;
-  --eq-muted:106,106,100;--eq-handle:#FAFAF8;
-}
-/* iOS paints the status bar text white (black-translucent): give it a dark strip to sit on. */
-html.theme-white:not(.night) body:before{content:"";position:fixed;z-index:200;left:0;right:0;top:0;height:env(safe-area-inset-top);background:var(--fg);pointer-events:none}
 
 /* ---------- Toast ---------- */
-.player-status{position:fixed;z-index:120;left:50%;bottom:max(14px,calc(env(safe-area-inset-bottom) + 10px));transform:translate(-50%,10px);max-width:min(86vw,520px);padding:10px 16px;border:1px solid var(--toast-line);border-radius:999px;background:var(--toast-bg);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);font:400 10px/1.25 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--toast-fg);opacity:0;pointer-events:none;transition:.22s var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-status{position:fixed;z-index:120;left:50%;bottom:max(14px,calc(env(safe-area-inset-bottom) + 10px));transform:translate(-50%,10px);max-width:min(86vw,520px);padding:11px 18px;border:1px solid var(--toast-line);border-radius:999px;background:var(--toast-bg);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font:500 11px/1.25 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--toast-fg);opacity:0;pointer-events:none;transition:.22s var(--ease);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .player-status.show{opacity:1;transform:translate(-50%,0)}.player-status.error{color:var(--pop-err);border-color:rgba(255,90,80,.35)}
 
 /* ---------- Settings sheet ---------- */
@@ -346,7 +275,7 @@ html.theme-white:not(.night) body:before{content:"";position:fixed;z-index:200;l
 .sheet{position:absolute;top:0;right:0;bottom:0;width:min(580px,100%);display:flex;flex-direction:column;background:var(--sheet-bg);border-left:1px solid var(--sheet-line);box-shadow:var(--sheet-shadow);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);transform:translateX(28px);transition:transform .38s var(--ease)}
 .overlay.show .sheet{transform:none}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:max(14px,env(safe-area-inset-top)) 20px 8px 24px}
-.sheet-head h2{margin:0;font:560 clamp(26px,5vh,34px)/1 var(--dot)}
+.sheet-head h2{margin:0;font:600 clamp(24px,4.6vh,30px)/1 var(--sans);letter-spacing:-.02em}
 .tabs{display:grid;grid-template-columns:repeat(3,1fr);margin:6px 24px 0 24px;border-bottom:1px solid var(--sheet-line)}
 .tabs button{min-height:46px;font:400 14px/1 var(--mono);letter-spacing:.04em;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .2s,border-color .2s}
 .tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--fg)}
@@ -365,8 +294,8 @@ html.theme-white:not(.night) body:before{content:"";position:fixed;z-index:200;l
 
 .switch{position:relative;width:58px;height:34px;border:1px solid var(--edge);border-radius:17px;transition:background .25s,border-color .25s}
 .switch:before{content:"";position:absolute;left:4px;top:4px;width:24px;height:24px;border-radius:50%;background:var(--muted);transition:transform .28s var(--ease),background .25s}
-.switch[aria-checked="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
-.switch[aria-checked="true"]:before{transform:translateX(24px);background:var(--accent)}
+.switch[aria-checked="true"]{border-color:#fff;background:rgba(255,255,255,.9)}
+.switch[aria-checked="true"]:before{transform:translateX(24px);background:#0a0a0a}
 
 .seg{display:inline-grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid var(--edge);border-radius:12px;overflow:hidden}
 .seg button{min-height:42px;min-width:64px;padding:0 14px;font:400 13px/1 var(--mono);color:var(--quiet);transition:background .2s,color .2s}
@@ -400,7 +329,7 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
 .btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
 .list-row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--row-line);font:400 14px/1.3 var(--mono)}
 .list-row span:last-child{color:var(--hint);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-.list-row .live{color:var(--accent)}
+.list-row .live{color:#fff}
 #problemState,.list-row .free{max-width:62%;text-align:right;word-break:break-word;text-transform:none!important;letter-spacing:.02em!important}
 .btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
 .btn-row .btn{touch-action:manipulation;-webkit-user-select:none;user-select:none}
@@ -425,8 +354,6 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
 }
 @media(max-width:420px){.sheet-head{padding-left:18px}.tabs,.sheet-body{margin-left:18px;margin-right:18px;padding-left:0;padding-right:0}.sheet-body{margin:0;padding:6px 18px 28px}.tabs{margin:6px 18px 0}}
 
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 25%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
-@keyframes colonBreath{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:.42;transform:scale(.9)}}
 @keyframes nudge{35%{transform:translateX(-3px)}70%{transform:translateX(3px)}}
 @keyframes swap{0%{opacity:.18;transform:translateY(4px)}100%{opacity:1;transform:none}}
 /* Reduce motion: the phone's setting, or Settings → Screen (html.calm is set before first paint and kept by app.js). */
@@ -436,82 +363,75 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
 <body>
 
 <section class="screen portrait" aria-label="BURZH beats radio">
-  <div class="p-logo">BURZH<br>beats</div>
-  <button class="icon-btn p-menu" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
-
-  <div class="stations" id="stationTiles" role="group" aria-label="Stations"></div>
-
-  <div class="p-side left" data-bind="tagline"></div>
-  <div class="p-artwrap"><div class="art-frame swipe"><div class="planet" data-planet></div></div></div>
-  <div class="p-side right">LIVE<br>RADIO<br>ALWAYS<br>ON<div class="smallrule"></div></div>
-  <div class="p-caption" data-bind="tagline" data-join=" · "></div>
-
-  <div class="p-meta">
-    <div class="title" data-bind="station" data-swap>BURZH beats</div>
-    <div class="sub now" data-bind="nowline">Tuning</div>
+  <header class="p-head">
+    <div class="brand"><div class="wordmark"><b>BURZH</b><span>beats</span></div><div class="tagline">BURZH RADIO · 24/7</div></div>
+    <div class="tools"><button class="weather" type="button" data-open="settingsOverlay" data-tab-open="screen" hidden aria-live="polite"><span class="w-icon" aria-hidden="true"></span><span class="w-text"><b data-bind="w-temp">--°</b><small data-bind="w-city"></small></span><span class="sr" data-bind="w-cond"></span></button><button class="icon-btn gear" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
+  </header>
+  <div class="stage p-stage">
+    <div class="planet swipe" data-planet data-scale="1">
+      <div class="on-planet">
+        <div class="op-top" data-bind="onair">ON AIR NOW</div>
+        <div class="op-name" data-bind="station" data-swap>BURZH beats</div>
+        <canvas class="wave" aria-hidden="true"></canvas>
+        <div class="op-bottom" data-bind="status">TUNING</div>
+      </div>
+    </div>
   </div>
-
+  <div class="np p-np">
+    <div class="np-title" data-bind="headline" data-swap>BURZH beats</div>
+    <div class="np-sub" data-bind="byline">BURZH beats radio</div>
+  </div>
   <div class="p-live">
     <div class="seek" role="slider" tabindex="0" aria-label="Position in the mix" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-disabled="true">
-          <div class="seek-ticks"></div>
-          <div class="live-rail"><div class="live-fill"></div></div>
-          <div class="seek-thumb"></div>
-          <div class="seek-tip"><b></b><span></span></div>
-        </div>
-    <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span><button class="golive" type="button" aria-label="Back to live">&#8634; Live</button></span><span data-bind="remaining"></span></div>
+      <div class="seek-ticks"></div>
+      <div class="live-rail"><div class="live-fill"></div></div>
+      <div class="seek-thumb"></div>
+      <div class="seek-tip"><b></b><span></span></div>
+    </div>
+    <div class="times"><span data-bind="elapsed">0:00</span><button class="golive" type="button" aria-label="Back to live">Live</button><span data-bind="remaining"></span></div>
   </div>
-
-  <div class="p-controls">
-    <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
-    <button class="ctrl big play-toggle" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></svg></button>
-    <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
+  <div class="controls p-controls chrome">
+    <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M5.6 5.2h2.7v13.6H5.6z"/><path d="M19.6 5.7v12.6a.7.7 0 0 1-1.08.58L9.4 12.58a.7.7 0 0 1 0-1.16l9.12-6.3a.7.7 0 0 1 1.08.58z"/></svg></button>
+    <button class="ctrl big play-toggle" aria-label="Play"><svg class="arc" viewBox="0 0 100 100" aria-hidden="true"><circle class="arc-bg" cx="50" cy="50" r="48"/><circle class="arc-fg" cx="50" cy="50" r="48"/></svg><svg class="i-play" viewBox="0 0 24 24"><path d="M7.6 5.1v13.8a.8.8 0 0 0 1.22.68l10.6-6.9a.8.8 0 0 0 0-1.36L8.82 4.42a.8.8 0 0 0-1.22.68z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><rect x="6.4" y="4.8" width="3.7" height="14.4" rx="1.1"/><rect x="13.9" y="4.8" width="3.7" height="14.4" rx="1.1"/></svg></button>
+    <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15.7 5.2h2.7v13.6h-2.7z"/><path d="M4.4 5.7v12.6a.7.7 0 0 0 1.08.58l9.12-6.3a.7.7 0 0 0 0-1.16L5.48 5.12a.7.7 0 0 0-1.08.58z"/></svg></button>
   </div>
-
+  <nav class="tiles p-tiles" id="stationTiles" aria-label="Stations"></nav>
 </section>
 
 <section class="screen landscape" aria-label="BURZH beats radio, desk screen">
-  <div class="l-planet swipe" data-planet></div>
   <div class="l-shell">
-    <header class="l-header">
-      <div class="l-brand">BURZH beats</div>
-      <div class="l-topline"></div>
-      <div class="l-tools chrome">
-        <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM18 6v12l-8-6z"/></svg></button>
-        <button class="ctrl big play-toggle" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></svg></button>
-        <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
-        <button class="icon-btn" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
+    <div class="brand l-brand"><div class="wordmark"><b>BURZH</b><span>beats</span></div><div class="tagline">BURZH RADIO · 24/7</div></div>
+    <div class="tools l-tools chrome"><button class="weather" type="button" data-open="settingsOverlay" data-tab-open="screen" hidden aria-live="polite"><span class="w-icon" aria-hidden="true"></span><span class="w-text"><b data-bind="w-temp">--°</b><small data-bind="w-city"></small></span><span class="sr" data-bind="w-cond"></span></button><button class="icon-btn gear pill" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
+    <div class="stage l-stage">
+    <div class="planet swipe" data-planet data-scale="0.86">
+      <div class="on-planet">
+        <div class="op-top" data-bind="onair">ON AIR NOW</div>
+        <div class="op-name" data-bind="station" data-swap>BURZH beats</div>
+        <canvas class="wave" aria-hidden="true"></canvas>
+        <div class="op-bottom" data-bind="status">TUNING</div>
       </div>
-    </header>
-
-    <main class="l-main">
-      <div class="l-info">
-        <div class="clock" aria-label="Current time"><span data-bind="hh">--</span><span class="soft-colon"><i></i><i></i></span><span data-bind="mm">--</span></div>
-        <div class="l-meta">
-          <span data-bind="date"></span>
-          <span class="weather" id="weatherWidget" hidden aria-live="polite"><b data-bind="w-temp">--°</b><span data-bind="w-cond"></span><span class="weather-city" data-bind="w-city"></span></span>
-        </div>
-        <div class="l-now">
-          <span class="reddot"></span>
-          <div style="min-width:0">
-            <div class="stationname" data-bind="station" data-swap>BURZH beats</div>
-            <div class="l-title" data-bind="title" data-swap></div>
-            <div class="l-sub" data-bind="sub"></div>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <div class="l-bottom">
-      <nav class="dial" id="genreMenu" aria-label="Stations"></nav>
+    </div>
+  </div>
+    <div class="l-panel">
+      <div class="np l-np">
+    <div class="np-title" data-bind="headline" data-swap>BURZH beats</div>
+    <div class="np-sub" data-bind="byline">BURZH beats radio</div>
+  </div>
       <div class="l-live">
-        <div class="seek" role="slider" tabindex="0" aria-label="Position in the mix" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-disabled="true">
-          <div class="seek-ticks"></div>
-          <div class="live-rail"><div class="live-fill"></div></div>
-          <div class="seek-thumb"></div>
-          <div class="seek-tip"><b></b><span></span></div>
-        </div>
-        <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span><button class="golive" type="button" aria-label="Back to live">&#8634; Live</button></span><span data-bind="remaining"></span></div>
-      </div>
+    <div class="seek" role="slider" tabindex="0" aria-label="Position in the mix" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-disabled="true">
+      <div class="seek-ticks"></div>
+      <div class="live-rail"><div class="live-fill"></div></div>
+      <div class="seek-thumb"></div>
+      <div class="seek-tip"><b></b><span></span></div>
+    </div>
+    <div class="times"><span data-bind="elapsed">0:00</span><button class="golive" type="button" aria-label="Back to live">Live</button><span data-bind="remaining"></span></div>
+  </div>
+      <div class="controls l-controls chrome">
+    <button class="ctrl" data-step="-1" aria-label="Previous station"><svg viewBox="0 0 24 24"><path d="M5.6 5.2h2.7v13.6H5.6z"/><path d="M19.6 5.7v12.6a.7.7 0 0 1-1.08.58L9.4 12.58a.7.7 0 0 1 0-1.16l9.12-6.3a.7.7 0 0 1 1.08.58z"/></svg></button>
+    <button class="ctrl big play-toggle" aria-label="Play"><svg class="arc" viewBox="0 0 100 100" aria-hidden="true"><circle class="arc-bg" cx="50" cy="50" r="48"/><circle class="arc-fg" cx="50" cy="50" r="48"/></svg><svg class="i-play" viewBox="0 0 24 24"><path d="M7.6 5.1v13.8a.8.8 0 0 0 1.22.68l10.6-6.9a.8.8 0 0 0 0-1.36L8.82 4.42a.8.8 0 0 0-1.22.68z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><rect x="6.4" y="4.8" width="3.7" height="14.4" rx="1.1"/><rect x="13.9" y="4.8" width="3.7" height="14.4" rx="1.1"/></svg></button>
+    <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15.7 5.2h2.7v13.6h-2.7z"/><path d="M4.4 5.7v12.6a.7.7 0 0 0 1.08.58l9.12-6.3a.7.7 0 0 0 0-1.16L5.48 5.12a.7.7 0 0 0-1.08.58z"/></svg></button>
+  </div>
+      <nav class="tiles l-tiles" id="genreMenu" aria-label="Stations"></nav>
     </div>
   </div>
 </section>
@@ -579,10 +499,6 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
         <div class="row">
           <div><div class="row-title">Night mode</div><div class="row-hint" id="nightHint">Dims the screen. Auto runs 23:00 to 07:00.</div></div>
           <div class="seg" data-seg="night" role="group" aria-label="Night mode"><button data-value="off">Off</button><button data-value="auto">Auto</button><button data-value="on">On</button></div>
-        </div>
-        <div class="row">
-          <div><div class="row-title">Background</div></div>
-          <div class="seg" data-seg="theme" role="group" aria-label="Background"><button data-value="black">Black</button><button data-value="white">White</button></div>
         </div>
         <div class="row">
           <div><div class="row-title">Reduce motion</div><div class="row-hint" id="motionHint">Stills the planet and the animations. Auto follows the iPhone setting.</div></div>

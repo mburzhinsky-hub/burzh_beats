@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.27.1';
+  const VERSION = '0.28.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -42,7 +42,7 @@
     { v: 2, keepAwake: true, night: 'off', theme: 'black', motion: 'auto', weather: false, geo: null, sound: {} },
     storedSettings
   );
-  if (settings.theme !== 'white') settings.theme = 'black';
+  settings.theme = 'black';                 // v0.28: one dark design (the White background was retired)
   if (!['auto', 'on', 'off'].includes(settings.motion)) settings.motion = 'auto';
   settings.sound = Object.assign({ on: false, preset: 'auto', custom: null }, settings.sound || {});
   const saveSettings = () => store.set(KEYS.settings, settings);
@@ -1135,13 +1135,14 @@
 
   function renderStatus() {
     const label = {
-      stopped: available(station) ? 'ON AIR NOW' : 'OFF AIR',
-      tuning: 'TUNING…',
+      stopped: available(station) ? 'TAP TO PLAY' : 'OFF AIR',
+      tuning: 'TUNING',
       live: shifted ? 'TIMESHIFT' : 'LIVE',
-      buffering: 'BUFFERING…',
+      buffering: 'BUFFERING',
       lost: 'SIGNAL LOST'
     }[phase] || '';
     bind('status', label);
+    bind('onair', available(station) ? 'ON AIR NOW' : 'NO SIGNAL');
     const playing = wantPlaying;
     document.querySelectorAll('.play-toggle').forEach(b => {
       b.classList.toggle('is-playing', playing);
@@ -1158,6 +1159,9 @@
     const np = nowPlaying();
     const idx = stations.indexOf(station) + 1;
     bind('station', station.name);
+    document.querySelectorAll('.op-name').forEach(el => el.style.setProperty('--chars', String(Math.max(5, station.name.length))));
+    bind('headline', np.item ? station.name + ' · ' + np.title : station.name);
+    bind('byline', np.cue ? (np.cue.artist ? np.cue.artist + ' — ' + np.cue.title : 'BURZH beats radio') : (np.item ? (np.item.artist || 'BURZH beats radio') : np.line));
     bind('title', np.title);
     bind('sub', np.sub);
     bind('nowline', np.line);
@@ -1210,8 +1214,9 @@
       renderTicks(el, np);
       if (el.classList.contains('dragging')) placeTip(el, np, ratio, offset);
     });
-    bind('elapsed', np.duration ? fmt(offset) : '');
-    bind('remaining', np.duration ? 'NEXT −' + fmt(np.duration - offset) : (available(station) ? '∞' : ''));
+    bind('elapsed', np.duration ? fmt(offset) : (available(station) ? 'LIVE' : ''));
+    bind('remaining', np.duration ? '−' + fmt(np.duration - offset) : (available(station) ? '∞' : ''));
+    document.querySelectorAll('.play-toggle').forEach(b => b.style.setProperty('--p', ratio.toFixed(4)));
   }
 
   // Track starts inside the mix, if the station lists them (cues in stations.json).
@@ -1257,20 +1262,6 @@
     return String(name || '').replace(/^(gorodskoy|munitsipal'?nyy?|urban|municipal)\s+(okrug|district)\s+/i, '').replace(/^(городской|муниципальный)\s+округ\s+/i, '').trim();
   }
 
-  /* Landscape: the planet is centred in the room right of the clock (the clock's width depends on the screen). */
-  function placeStage() {
-    const scr = document.querySelector('.landscape');
-    const clock = scr && scr.querySelector('.clock');
-    if (!scr || !clock || !isLandscape()) return;
-    const W = scr.clientWidth, left = clock.getBoundingClientRect().left;
-    const right = Math.max(...[...clock.children].map(c => c.getBoundingClientRect().right));   // the digits, not the box
-    const clockW = right - left;
-    if (!(clockW > 0)) return;
-    const stage = Math.round(Math.min(Math.max(left + clockW + W * 0.02, W * 0.4), W * 0.6));
-    scr.style.setProperty('--stage-left', stage + 'px');
-    scr.style.setProperty('--clock-w', Math.round(clockW) + 'px');
-  }
-
   function renderClock() {
     const d = new Date();
     bind('hh', String(d.getHours()).padStart(2, '0'));
@@ -1278,7 +1269,6 @@
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     bind('date', days[d.getDay()] + ' ' + String(d.getDate()).padStart(2, '0') + ' ' + months[d.getMonth()]);
-    placeStage();
   }
 
   /* ------------------------------------------------------------------ */
@@ -1352,8 +1342,8 @@
     return h >= NIGHT_FROM || h < NIGHT_TO;
   }
   // Night mode always uses the black palette, whatever background is chosen.
-  const THEME_COLOR = { black: '#050606', white: '#F1F1EE', night: '#000000' };
-  const onPaper = () => settings.theme === 'white' && !isNight();
+  const THEME_COLOR = { black: '#0a0a0a', night: '#000000' };
+  const onPaper = () => false;
   // The station's own colour, as shown on the current background. Every station brings a version for
   // paper (accentPaper); without one the accent is darkened 20 % so small text and thin lines keep their contrast.
   const isHex = h => /^#[0-9a-f]{6}$/i.test(h || '');
@@ -1365,7 +1355,7 @@
     return '#' + ch(0) + ch(1) + ch(2);
   }
   function applyAccent() {
-    document.documentElement.style.setProperty('--accent', accentFor(station));
+    document.documentElement.style.setProperty('--accent', '#ffffff');      // monochrome: the stations differ by texture, not colour
     if (window.BurzhTheme) window.BurzhTheme.refresh();   // canvases pick the new colours up on their next frame
   }
   function applyNight() {
@@ -1376,7 +1366,7 @@
     applyAccent();
   }
   function applyTheme() {
-    document.documentElement.classList.toggle('theme-white', settings.theme === 'white');
+    document.documentElement.classList.remove('theme-white');
     applyNight();
   }
 
@@ -1404,9 +1394,6 @@
   }
   if (landscapeQuery.addEventListener) landscapeQuery.addEventListener('change', onOrientation);
   else if (landscapeQuery.addListener) landscapeQuery.addListener(onOrientation);
-  // the planet follows the clock: after a resize, a turn of the phone, and once the dot face has loaded
-  window.addEventListener('resize', () => requestAnimationFrame(placeStage));
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeStage);
 
   document.addEventListener('visibilitychange', () => {
     rec('page ' + document.visibilityState);
@@ -1429,6 +1416,21 @@
   /* ------------------------------------------------------------------ */
 
   const WEATHER_REFRESH_MS = 30 * 60 * 1000;
+  // Weather icons for the pill: the sun is the one warm colour on the screen, as in the design.
+  const SUN = '<circle cx="12" cy="11" r="4.6" fill="#f6c445"/><g stroke="#f6c445" stroke-width="1.6" stroke-linecap="round"><path d="M12 2.6v1.8M12 17.6v1.8M3.6 11h1.8M18.6 11h1.8M6 5l1.3 1.3M16.7 15.7 18 17M6 17l1.3-1.3M16.7 6.3 18 5"/></g>';
+  const CLOUD = (x, y, k, c) => '<path transform="translate(' + x + ' ' + y + ') scale(' + k + ')" fill="' + c + '" d="M7 18h10.5a3.5 3.5 0 0 0 .4-6.98A5 5 0 0 0 8.3 9.6 4.2 4.2 0 0 0 7 18z"/>';
+  const SKY = {
+    clear: '<svg viewBox="0 0 24 24">' + SUN + '</svg>',
+    partly: '<svg viewBox="0 0 24 24"><g transform="translate(-3 -2.5) scale(.9)">' + SUN + '</g>' + CLOUD(2.5, 1.5, 0.9, '#f2f2f0') + '</svg>',
+    cloud: '<svg viewBox="0 0 24 24">' + CLOUD(-0.5, -1, 1.05, '#e8e8e6') + '</svg>',
+    fog: '<svg viewBox="0 0 24 24" fill="none" stroke="#e8e8e6" stroke-width="1.6" stroke-linecap="round"><path d="M4 8h16M3 12h18M5 16h14M7 20h10"/></svg>',
+    rain: '<svg viewBox="0 0 24 24">' + CLOUD(-0.5, -3.5, 1.05, '#e8e8e6') + '<g stroke="#9cc4ff" stroke-width="1.6" stroke-linecap="round"><path d="M8 18.5l-1 2.5M12 18.5l-1 2.5M16 18.5l-1 2.5"/></g></svg>',
+    snow: '<svg viewBox="0 0 24 24">' + CLOUD(-0.5, -3.5, 1.05, '#e8e8e6') + '<g fill="#fff"><circle cx="8" cy="20" r="1.1"/><circle cx="12" cy="21" r="1.1"/><circle cx="16" cy="20" r="1.1"/></g></svg>',
+    storm: '<svg viewBox="0 0 24 24">' + CLOUD(-0.5, -3.5, 1.05, '#d8d8d6') + '<path d="M12.5 15.5 10 20h2.5l-1 3.5 3.5-5h-2.5l1-3z" fill="#f6c445"/></svg>'
+  };
+  const skyOf = code => (code <= 0 ? 'clear' : code <= 2 ? 'partly' : code === 3 ? 'cloud' : code <= 48 ? 'fog'
+    : (code >= 71 && code <= 77) || code === 85 || code === 86 ? 'snow' : code >= 95 ? 'storm' : 'rain');
+
   const WMO = {
     0: 'CLEAR', 1: 'MOSTLY CLEAR', 2: 'PARTLY CLOUDY', 3: 'OVERCAST', 45: 'FOG', 48: 'FOG',
     51: 'DRIZZLE', 53: 'DRIZZLE', 55: 'DRIZZLE', 56: 'ICY DRIZZLE', 57: 'ICY DRIZZLE',
@@ -1463,18 +1465,20 @@
     const geo = settings.geo;
     const on = !!(settings.weather && geo);
     document.documentElement.classList.toggle('has-weather', on);
-    const box = $('weatherWidget');
-    if (box) box.hidden = !on;
+    document.querySelectorAll('.weather').forEach(box => { box.hidden = !on; });
     const btn = $('locationBtn');
     if (btn) btn.hidden = !on;
     syncControls();
     if (!on) { weatherStatus(''); return; }
     const w = store.get(KEYS.weather, null);
-    const place = ((geo.name || (w && zoneName(w.zone))) || '').toUpperCase();
+    const raw = cleanPlace(geo.name || (w && zoneName(w.zone)) || '');
+    const place = raw.toLowerCase().replace(/(^|[\s-])\S/g, c => c.toUpperCase());
+    const sky = w ? skyOf(w.code) : 'cloud';
+    document.querySelectorAll('.weather .w-icon').forEach(el => { if (el.dataset.sky !== sky) { el.dataset.sky = sky; el.innerHTML = SKY[sky]; } });
     bind('w-temp', w ? Math.round(w.temp) + '°' : '--°');
     bind('w-cond', w ? (WMO[w.code] || 'WEATHER') : '');
-    bind('w-city', cleanPlace(place));
-    weatherStatus(place ? 'Showing the weather for ' + place.charAt(0) + place.slice(1).toLowerCase() + '.' : 'Showing the weather for your location.');
+    bind('w-city', place);
+    weatherStatus(place ? 'Showing the weather for ' + place + '.' : 'Showing the weather for your location.');
   }
 
   async function refreshWeather(force) {
@@ -1797,67 +1801,44 @@
     set('problemState', lastProblem || 'None');
   }
 
-  /* Station glyphs: one 36×30 box and one stroke weight for all four, so the tiles read as a set. */
-  const GLYPHS = (() => {
-    const svg = body => '<svg viewBox="0 0 36 30" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>';
-    let dots = '';
-    for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) {
-      if (i * i + j * j > 10.5) continue;                       // a round field of dots
-      dots += '<circle cx="' + (18 + i * 4.1).toFixed(1) + '" cy="' + (15 + j * 4.1).toFixed(1) + '" r="1.05" fill="currentColor" stroke="none"/>';
-    }
-    return {
-      grid: svg(dots),
-      wave: svg('<path d="M4 9.5c3-2.4 6-2.4 9 0s6 2.4 9 0 6-2.4 9 0"/><path d="M7 15c3-2.4 6-2.4 9 0s6 2.4 9 0 4.5-1.8 6 0" opacity=".75"/><path d="M4 20.5c3-2.4 6-2.4 9 0s6 2.4 9 0" opacity=".5"/>'),
-      rings: svg('<circle cx="13.5" cy="15" r="9.5"/><circle cx="22.5" cy="15" r="9.5"/>'),
-      tri: svg('<path d="M18 4.5 30.5 26h-25z"/><path d="M18 12.5 24 23h-12z" opacity=".55"/>')
-    };
-  })();
-
+  // Every station is a square of its own black-and-white texture (docs/planet/tile-<id>.jpg, tools/make_art.py).
   function buildStationButtons() {
-    const tiles = $('stationTiles');
-    const menu = $('genreMenu');
-    if (tiles) tiles.textContent = '';
-    if (menu) menu.textContent = '';
-    const label = (el, name) => name.split(' ').forEach((word, i) => { if (i) el.appendChild(document.createElement('br')); el.appendChild(document.createTextNode(word)); });
+    const rows = [...document.querySelectorAll('.tiles')];
+    rows.forEach(r => { r.textContent = ''; });
     const onTap = btn => () => {
       feedback('station');
       press(btn);
       selectStation(btn.dataset.station);
       if (!available(station)) nudge();
     };
-    stations.forEach(st => {
-      if (tiles) {
-        const b = document.createElement('button');
-        b.className = 'station';
-        b.dataset.station = st.id;
-        b.setAttribute('aria-label', st.name);
-        const icon = document.createElement('span');
-        icon.className = 'sicon glyph-' + (st.glyph || 'grid');
-        icon.innerHTML = GLYPHS[st.glyph] || GLYPHS.grid;
-        icon.setAttribute('aria-hidden', 'true');
-        const name = document.createElement('span');
-        name.className = 'slabel';
-        label(name, st.name);
-        const dot = document.createElement('i');
-        dot.className = 'sdot';
-        b.append(icon, name, dot);
-        b.addEventListener('click', onTap(b));
-        tiles.appendChild(b);
-      }
-      if (menu) {
-        const b = document.createElement('button');
-        b.dataset.station = st.id;
-        b.textContent = st.name;
-        b.addEventListener('click', onTap(b));
-        menu.appendChild(b);
-      }
-    });
+    stations.forEach(st => rows.forEach(row => {
+      const b = document.createElement('button');
+      b.className = 'tile';
+      b.type = 'button';
+      b.dataset.station = st.id;
+      b.setAttribute('aria-label', st.name);
+      const thumb = document.createElement('span');
+      thumb.className = 'thumb';
+      const img = document.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.src = './planet/tile-' + st.id + '.jpg';
+      img.onerror = () => { img.remove(); };
+      thumb.appendChild(img);
+      const name = document.createElement('span');
+      name.className = 'tlabel';
+      name.textContent = st.name;
+      b.append(thumb, name);
+      b.addEventListener('click', onTap(b));
+      row.appendChild(b);
+    }));
   }
+
 
   function bindUi() {
     document.querySelectorAll('.play-toggle').forEach(btn => btn.addEventListener('click', () => { feedback('play'); press(btn); togglePlay(); }));
     document.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => { press(btn); stepStation(Number(btn.dataset.step)); }));
-    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { feedback(); renderSettings(); openOverlay(btn.dataset.open); }));
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { feedback(); renderSettings(); openOverlay(btn.dataset.open); if (btn.dataset.tabOpen) showTab(btn.dataset.tabOpen); }));
     document.querySelectorAll('.seek').forEach(bindSeek);
     document.querySelectorAll('.golive').forEach(b => b.addEventListener('click', goLive));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => { feedback(); closeOverlay(btn.dataset.close); }));
@@ -1990,7 +1971,12 @@
     applyMotion();
     renderClock();
     if (window.BurzhPlanet) {
-      document.querySelectorAll('[data-planet]').forEach(box => planets.push(window.BurzhPlanet.create(box, { getLevel: () => (fxActive() ? sound.level() : null), calm: calmOn })));
+      document.querySelectorAll('[data-planet]').forEach(box => planets.push(window.BurzhPlanet.create(box, {
+        getLevel: () => (fxActive() ? sound.level() : null),
+        getSpectrum: out => !!(fxActive() && wantPlaying && sound.spectrum(out)),
+        scale: Number(box.dataset.scale) || 1,
+        calm: calmOn
+      })));
     }
     bindUi();
     bindMediaSession();

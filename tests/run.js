@@ -515,7 +515,7 @@ async function scrubFlow(t, sel, playSel, goLiveSel) {
   if ((await t.p.evaluate(() => window.BURZH.stations().find(s => s.id === window.BURZH.debug().station).items.length)) > 1) assert.notStrictEqual(d.src.split('#')[0], item0.split('#')[0], 'should have moved to the other mix');
 }
 
-test('seek slider (landscape): drag, tap, keys, back to live, next mix', t => scrubFlow(t, '.l-live .seek', '.l-tools .play-toggle', '.l-live .golive'));
+test('seek slider (landscape): drag, tap, keys, back to live, next mix', t => scrubFlow(t, '.l-live .seek', '.l-controls .play-toggle', '.l-live .golive'));
 test('seek slider (portrait)', t => scrubFlow(t, '.p-live .seek', '.p-controls .play-toggle', '.p-live .golive'), { viewport: PORT });
 
 test('seek slider works with touch, and the first touch on an idle screen only wakes it', async t => {
@@ -549,23 +549,23 @@ test('settings: sound controls, EQ drag, weather by geolocation', async t => {
   assert.strictEqual(stored.preset, 'custom', 'dragging a point makes a custom preset');
   assert.strictEqual(stored.on, true);
   await t.p.click('#tab-screen'); await t.p.click('[data-switch="weather"]');
-  assert.ok(await waitFor(() => t.p.evaluate(() => /5°/.test(document.getElementById('weatherWidget').textContent)), 5000), 'weather widget');
+  assert.ok(await waitFor(() => t.p.evaluate(() => [...document.querySelectorAll('.weather')].some(w => !w.hidden && /5°/.test(w.textContent))), 5000), 'weather pill');
   await t.p.click('#tab-about');
   assert.match(await t.p.textContent('#versionState'), /^v\d+\.\d+\.\d+$/);
   assert.ok((await t.dbg()).phase === 'live', 'music kept playing while changing settings');
 }, { geolocation: { latitude: 55.7558, longitude: 37.6173 }, scale: 2 });
 
-/* ----------------------------------------------------------------- theme */
+/* ----------------------------------------------------------- the design */
 
 // Every visible piece of text must be readable on the colour it actually sits on, in every state of the
-// screen. Catches a hard-coded colour that was left over from the other palette.
+// screen. Catches a hard-coded colour or a too-faint grey.
 const contrastReport = (page, min) => page.evaluate(min => {
   const chan = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
   const lum = c => 0.2126 * chan(c[0]) + 0.7152 * chan(c[1]) + 0.0722 * chan(c[2]);
   const parse = css => { const m = css.match(/[\d.]+/g) || [0, 0, 0]; return { c: m.slice(0, 3).map(Number), a: m.length > 3 ? Number(m[3]) : 1 }; };
   const bgOf = el => {
     for (let e = el; e; e = e.parentElement) { const b = parse(getComputedStyle(e).backgroundColor); if (b.a > 0.9) return b.c; }
-    return [255, 255, 255];
+    return [10, 10, 10];
   };
   const faded = el => { let o = 1; for (let e = el; e; e = e.parentElement) o *= Number(getComputedStyle(e).opacity); return o < 0.9; };
   const bad = [];
@@ -575,179 +575,123 @@ const contrastReport = (page, min) => page.evaluate(min => {
     if (!own) return;
     const cs = getComputedStyle(el);
     if (cs.visibility === 'hidden' || Number(cs.fontSize.replace('px', '')) < 6) return;
-    const fg = parse(cs.color).c, bg = bgOf(el);
-    const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    const fg = parse(cs.color), bg = bgOf(el);
+    const seen = fg.c.map((v, i) => v * fg.a + bg[i] * (1 - fg.a));          // a translucent grey, as the eye sees it
+    const [a, b] = [lum(seen), lum(bg)].sort((x, y) => y - x);
     const ratio = (a + 0.05) / (b + 0.05);
     if (ratio < min) bad.push(`${el.tagName.toLowerCase()}.${el.className} "${el.textContent.trim().slice(0, 24)}" ${ratio.toFixed(2)}`);
   });
   return bad;
 }, min);
 
-const paintStats = (page, selector) => page.evaluate(sel => {
-  const cv = [...document.querySelectorAll(sel)].find(c => c.offsetParent !== null && c.width > 20);
-  if (!cv) return null;
-  const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-  let dark = 0, bright = 0, tint = 0;
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] < 150) continue;
-    const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
-    if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 60) tint++;      // the station's colour (grey is ink or light)
-    else if (l < 70) dark++;
-    else if (l > 190) bright++;
-  }
-  return { dark, bright, tint };
-}, selector);
+const themeState = t => t.p.evaluate(() => ({
+  white: document.documentElement.classList.contains('theme-white'), night: document.documentElement.classList.contains('night'),
+  bg: getComputedStyle(document.body).backgroundColor, meta: document.querySelector('meta[name="theme-color"]').content
+}));
 
-// The station the app opens with (the first one with music) and its two accents.
 // A station without music (what a new station is until its first mix arrives): the "off air" state keeps being checked
 // even when every real station has music.
 const lofiOffAir = j => { j.stations.find(x => x.id === 'lofi').items = []; };
+const stationsFile = () => JSON.parse(fs.readFileSync(path.join(DOCS, 'stations.json'), 'utf8'));
+const visiblePlanet = t => t.p.evaluate(() => (window.BURZH.planets().find(p => p.drawn) || null));
+const clickStation = (t, id) => t.p.evaluate(sid => document.querySelector(`button[data-station="${sid}"]`).click(), id);
 
-const firstStation = () => { const s = stationsFile().stations.find(x => x.items.length); return { id: s.id, black: s.accent.toLowerCase(), paper: s.accentPaper.toLowerCase() }; };
+for (const [label, viewport] of [['portrait', PORT], ['landscape', LAND]]) {
+  test(`one dark design (${label}): every text readable on the screen and in Settings`, async t => {
+    await t.play(); await t.live(); await sleep(400);
+    let bad = await contrastReport(t.p, 4.5);
+    assert.deepStrictEqual(bad, [], 'low contrast on the main screen:\n' + bad.join('\n'));
+    await t.openSettings();
+    for (const tab of ['sound', 'screen', 'about']) {
+      await t.p.click('#tab-' + tab); await sleep(200);
+      if (tab === 'sound') { await t.p.click('[data-switch="sound.on"]'); await sleep(900); }
+      bad = await contrastReport(t.p, 4.5);
+      assert.deepStrictEqual(bad, [], `low contrast in Settings / ${tab}:\n` + bad.join('\n'));
+    }
+    assert.strictEqual(await t.p.locator('.seg[data-seg="theme"]').count(), 0, 'no background choice any more');
+  }, { viewport, touch: true, scale: 2, settings: { weather: true, geo: { lat: 55.75, lon: 37.62, name: 'Moscow' } } });
+}
 
-const themeState = t => t.p.evaluate(() => {
-  const root = document.documentElement;
-  return {
-    white: root.classList.contains('theme-white'), night: root.classList.contains('night'),
-    bg: getComputedStyle(document.body).backgroundColor,
-    meta: document.querySelector('meta[name="theme-color"]').content,
-    accent: root.style.getPropertyValue('--accent').trim().toLowerCase()
-  };
-});
-
-test('white theme: paper palette, every text readable (settings tabs included)', async t => {
-  const st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.night, st.bg, st.meta], [true, false, 'rgb(241, 241, 238)', '#F1F1EE'], 'paper background');
-  assert.strictEqual(st.accent, firstStation().paper, 'the accent is a touch deeper on paper');
-  let bad = await contrastReport(t.p, 4.0);
-  assert.deepStrictEqual(bad, [], 'low contrast on the main screen:\n' + bad.join('\n'));
-  await t.openSettings();
-  for (const tab of ['sound', 'screen', 'about']) {
-    await t.p.click('#tab-' + tab); await sleep(200);
-    if (tab === 'sound') { await t.p.click('[data-switch="sound.on"]'); await sleep(900); }
-    bad = await contrastReport(t.p, 4.0);
-    assert.deepStrictEqual(bad, [], `low contrast in Settings / ${tab}:\n` + bad.join('\n'));
-    await t.shot(`white-settings-${tab}.png`);
-  }
-  const seg = await t.p.locator('.seg[data-seg="theme"] button').allTextContents();
-  assert.deepStrictEqual(seg, ['Black', 'White'], 'the Graphite option is gone');
-}, { viewport: PORT, touch: true, scale: 2, settings: { theme: 'white' } });
-
-test('black theme keeps readable text (guard against regressions from the token refactor)', async t => {
-  const bad = await contrastReport(t.p, 3.0);
-  assert.deepStrictEqual(bad, [], 'low contrast:\n' + bad.join('\n'));
-  await t.openSettings();
-  for (const tab of ['sound', 'screen', 'about']) {
-    await t.p.click('#tab-' + tab); await sleep(150);
-    const b = await contrastReport(t.p, 3.0);
-    assert.deepStrictEqual(b, [], `low contrast in Settings / ${tab}:\n` + b.join('\n'));
-  }
-  const st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', firstStation().black], 'black palette untouched');
-}, { viewport: PORT, touch: true, scale: 2 });
-
-test('background switch: applies live, persists, night mode wins, old Graphite maps to White', async t => {
-  await t.openSettings(); await t.p.click('#tab-screen');
-  const pick = v => t.p.click(`.seg[data-seg="theme"] button[data-value="${v}"]`);
-  const night = v => t.p.click(`.seg[data-seg="night"] button[data-value="${v}"]`);
+test('one dark design: a saved White background opens dark, night mode is pure black', async t => {
   let st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg, st.meta], [true, 'rgb(241, 241, 238)', '#F1F1EE'], 'Graphite is shown as White');
-  assert.strictEqual(await t.p.getAttribute('.seg[data-seg="theme"] button[data-value="white"]', 'aria-pressed'), 'true');
-
-  await pick('black'); await sleep(150); st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [false, 'rgb(5, 6, 6)', '#050606', firstStation().black], 'black applied live');
-  await pick('white'); await sleep(150); st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg, st.meta, st.accent], [true, 'rgb(241, 241, 238)', '#F1F1EE', firstStation().paper], 'white applied live');
-  assert.strictEqual(await t.p.evaluate(() => JSON.parse(localStorage.getItem('burzh.radio.settings.v1')).theme), 'white', 'saved');
-
-  await night('on'); await sleep(150); st = await themeState(t);
-  assert.deepStrictEqual([st.night, st.bg, st.meta, st.accent], [true, 'rgb(0, 0, 0)', '#000000', firstStation().black], 'night mode is black even on the White background');
-  await night('off'); await sleep(150); st = await themeState(t);
-  assert.deepStrictEqual([st.night, st.white, st.meta], [false, true, '#F1F1EE'], 'back to paper');
-
-  await t.p.reload(); await waitFor(() => t.p.evaluate(() => !!window.BURZH), 6000);
+  assert.deepStrictEqual([st.white, st.night, st.bg, st.meta], [false, false, 'rgb(10, 10, 10)', '#0a0a0a'], 'dark, even with White saved');
+  await t.openSettings(); await t.p.click('#tab-screen');
+  await t.p.click('.seg[data-seg="night"] button[data-value="on"]'); await sleep(200);
   st = await themeState(t);
-  assert.deepStrictEqual([st.white, st.bg], [true, 'rgb(241, 241, 238)'], 'White survives a reload');
-}, { viewport: PORT, touch: true, scale: 2, settings: { theme: 'graphite' } });
+  assert.deepStrictEqual([st.night, st.bg, st.meta], [true, 'rgb(0, 0, 0)', '#000000'], 'night mode');
+  await t.p.click('.seg[data-seg="night"] button[data-value="off"]'); await sleep(200);
+  st = await themeState(t);
+  assert.deepStrictEqual([st.night, st.meta], [false, '#0a0a0a']);
+}, { viewport: PORT, touch: true, settings: { theme: 'white' } });
 
-test('white theme is applied before the app script runs (no black flash)', async t => {
+test('the dark design and night mode are applied before the app script runs (no flash)', async t => {
   const p2 = await t.ctx.newPage();
   await p2.route('**/app.js', r => r.abort());
   await p2.goto(t.p.url(), { waitUntil: 'domcontentloaded' });
-  const r = await p2.evaluate(() => ({ white: document.documentElement.classList.contains('theme-white'), bg: getComputedStyle(document.body).backgroundColor, meta: document.querySelector('meta[name="theme-color"]').content }));
-  assert.deepStrictEqual(r, { white: true, bg: 'rgb(241, 241, 238)', meta: '#F1F1EE' });
+  let r = await p2.evaluate(() => ({ bg: getComputedStyle(document.body).backgroundColor, meta: document.querySelector('meta[name="theme-color"]').content }));
+  assert.deepStrictEqual(r, { bg: 'rgb(10, 10, 10)', meta: '#0a0a0a' });
+  await p2.evaluate(() => localStorage.setItem('burzh.radio.settings.v1', JSON.stringify({ night: 'on' })));
+  await p2.reload({ waitUntil: 'domcontentloaded' });
+  r = await p2.evaluate(() => ({ night: document.documentElement.classList.contains('night'), meta: document.querySelector('meta[name="theme-color"]').content }));
+  assert.deepStrictEqual(r, { night: true, meta: '#000000' });
   await p2.close();
-}, { viewport: PORT, settings: { theme: 'white' } });
+}, { viewport: PORT });
 
-test('canvases follow the theme: planet and equalizer are drawn in ink on white, in light on black', async t => {
-  await t.play(); await t.live(); await sleep(1500);
-  let w = await paintStats(t.p, '[data-planet] canvas');
-  assert.ok(w && w.dark > 300, 'on White the planet is drawn with dark dots: ' + JSON.stringify(w));
-  assert.ok(w.bright < w.dark / 10, 'and no longer with light ones: ' + JSON.stringify(w));
-  assert.ok(w.tint > 5, 'the comet keeps the station colour: ' + JSON.stringify(w));
-  await t.openSettings(); await t.p.click('[data-switch="sound.on"]'); await sleep(900);
-  await t.p.locator('#eqCanvas').scrollIntoViewIfNeeded(); await sleep(300);
-  let e = await paintStats(t.p, '#eqCanvas');
-  assert.ok(e && e.dark > 100, 'EQ curve and handles are ink on White: ' + JSON.stringify(e));
-  await t.p.click('#tab-screen'); await t.p.click('.seg[data-seg="theme"] button[data-value="black"]'); await sleep(600);
-  await t.p.click('[data-close]'); await sleep(500);
-  w = await paintStats(t.p, '[data-planet] canvas');
-  assert.ok(w && w.bright > 300, 'switching to Black repaints the planet in light dots: ' + JSON.stringify(w));
-  assert.ok(w.dark < w.bright / 10, 'without ink left over: ' + JSON.stringify(w));
-}, { viewport: PORT, touch: true, scale: 2, settings: { theme: 'white' } });
+/* ------------------------------------------------------------ the planet */
 
-/* ------------------------------------------------- station character */
-
-const wcag = (a, b) => {
-  const lum = hex => { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
-  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-};
-const stationsFile = () => JSON.parse(fs.readFileSync(path.join(DOCS, 'stations.json'), 'utf8'));
-const visiblePlanet = t => t.p.evaluate(() => (window.BURZH.planets().find(p => p.drawn) || null));
-const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-const clickStation = (t, id) => t.p.evaluate(sid => document.querySelector(`button[data-station="${sid}"]`).click(), id);
-
-test('every station has its own colour and character, readable on Black and on White, in step with the validator', async t => {
+test('stations: each has its own texture and planet, in step with the validator; the live planet glides to it', async t => {
   const data = stationsFile();
-  const accents = data.stations.map(s => s.accent.toLowerCase());
-  assert.strictEqual(new Set(accents).size, accents.length, 'every station has its own accent: ' + accents);
   assert.strictEqual(new Set(data.stations.map(s => JSON.stringify(s.look))).size, data.stations.length, 'every station has its own look');
-  data.stations.forEach(s => {
-    assert.ok(wcag(s.accent, '#050606') >= 4.5, `${s.id}: accent ${s.accent} on Black is ${wcag(s.accent, '#050606').toFixed(2)}`);
-    assert.ok(s.accentPaper, `${s.id}: needs accentPaper`);
-    [['#f1f1ee', 'page'], ['#fafaf8', 'card']].forEach(([bg, what]) => assert.ok(wcag(s.accentPaper, bg) >= 4.5, `${s.id}: accentPaper ${s.accentPaper} on the White ${what} is ${wcag(s.accentPaper, bg).toFixed(2)}`));
-  });
-  // The ranges in tools/radio.py (validator) and docs/planet.js (what the planet accepts) are one table.
   const py = JSON.parse(require('child_process').execFileSync('python3', ['-c', 'import json,sys; sys.path.insert(0,"tools"); import radio; print(json.dumps(radio.LOOK_LIMITS))'], { cwd: path.join(DOCS, '..') }).toString());
   const page = await t.p.evaluate(() => window.BurzhPlanet.LIMITS);
   assert.deepStrictEqual(page, py, 'LIMITS in planet.js and LOOK_LIMITS in tools/radio.py must match');
   data.stations.forEach(s => Object.entries(s.look).forEach(([k, v]) => assert.ok(k in page && v >= page[k][0] && v <= page[k][1], `${s.id}: look.${k}=${v} is out of range`)));
 
-  // Tuning: the page takes the station's colour, and the planet glides to its look and colour.
+  // every tile shows its texture
+  const tiles = await waitFor(() => t.p.evaluate(() => {
+    const imgs = [...document.querySelectorAll('.p-tiles .tile img')];
+    return imgs.length && imgs.every(i => i.complete && i.naturalWidth >= 256) ? imgs.map(i => i.getAttribute('src')) : null;
+  }), 6000, 150);
+  assert.deepStrictEqual(tiles, data.stations.map(s => './planet/tile-' + s.id + '.jpg'), 'tile textures');
+
   for (const s of data.stations) {
     await clickStation(t, s.id);
-    assert.strictEqual(await t.p.evaluate(() => document.documentElement.style.getPropertyValue('--accent').trim().toLowerCase()), s.accent.toLowerCase(), s.id + ' accent');
     const want = await t.p.evaluate(look => window.BurzhPlanet.look(look), s.look);
     const got = await waitFor(async () => {
       const pl = await visiblePlanet(t);
-      const close = pl && Object.keys(want).every(k => k === 'grain' || k === 'land' || Math.abs(pl.look[k] - want[k]) < 0.03);
-      return close && pl.accent.every((v, i) => Math.abs(v - hexToRgb(s.accent)[i]) <= 3) ? pl : null;
+      return pl && pl.station === s.id && Object.keys(want).every(k => Math.abs(pl.look[k] - want[k]) < 0.02) ? pl : null;
     }, 5000, 150);
-    assert.ok(got, `${s.id}: the planet should glide to its look and colour: ` + JSON.stringify(await visiblePlanet(t)));
-    assert.strictEqual(got.grain, want.grain, s.id + ' grain');
-    assert.ok(got.points > 100, 'the globe has dots');
+    assert.ok(got, `${s.id}: the planet should glide to its look: ` + JSON.stringify(await visiblePlanet(t)));
+    assert.strictEqual(got.webgl, true, 'the planet is drawn live (WebGL), not the still picture');
+    assert.strictEqual(await t.p.evaluate(() => document.querySelector('.p-stage [data-bind="station"]').textContent), s.name, 'the name sits on the planet');
+    assert.strictEqual(await t.p.evaluate(() => document.querySelector('.tile.active').dataset.station), s.id, 'the tile is marked');
   }
+  const a = await visiblePlanet(t); await sleep(700); const b = await visiblePlanet(t);
+  assert.ok(b.frames > a.frames && b.spin !== a.spin && b.orbit !== a.orbit, 'the planet turns and the light runs round the ring');
 }, { viewport: PORT, touch: true });
 
-test('White uses each station\'s paper colour', async t => {
-  for (const s of stationsFile().stations) {
-    await clickStation(t, s.id);
-    assert.strictEqual(await t.p.evaluate(() => document.documentElement.style.getPropertyValue('--accent').trim().toLowerCase()), s.accentPaper.toLowerCase(), s.id + ' paper accent');
-  }
-}, { viewport: PORT, touch: true, settings: { theme: 'white' } });
+test('planet without WebGL: the still picture of the same planet, under the same ring', async t => {
+  const r = await t.p.evaluate(async () => {
+    const sleep = ms => new Promise(res => setTimeout(res, ms));
+    const real = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (kind, o) { return /webgl/.test(kind) ? null : real.call(this, kind, o); };
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:0;top:0;width:300px;height:300px;z-index:-1';
+    document.body.appendChild(box);
+    const pl = window.BurzhPlanet.create(box, { getLevel: () => null });
+    HTMLCanvasElement.prototype.getContext = real;
+    await sleep(1500);
+    const st = pl.state();
+    const cv = box.querySelector('canvas.planet-fx');
+    const d = cv.getContext('2d').getImageData(cv.width >> 1, cv.height >> 1, 1, 1).data;
+    pl.destroy(); box.remove();
+    return { still: st.still, webgl: st.webgl, centre: d[3] };
+  });
+  assert.deepStrictEqual([r.still, r.webgl], [true, false]);
+  assert.ok(r.centre > 200, 'the picture is drawn in the middle: ' + r.centre);
+}, { viewport: PORT });
 
-test('planet: a kick in the music sends a ring out; nothing without a real signal; nothing in calm mode', async t => {
+test('planet: a kick in the music flares the ring; nothing without a real signal; nothing in calm mode', async t => {
   const r = await t.p.evaluate(async () => {
     const sleep = ms => new Promise(res => setTimeout(res, ms));
     const box = document.createElement('div');
@@ -761,93 +705,82 @@ test('planet: a kick in the music sends a ring out; nothing without a real signa
     const beat = async n => { for (let i = 0; i < n; i++) { window.__lv = 0.05; await sleep(420); window.__lv = 0.9; await sleep(160); } window.__lv = 0.05; await sleep(200); };
     const out = { start: pl.state().kickCount };
     await beat(6); out.beats = pl.state().kickCount - out.start;
-    out.visible = pl.state().kicks;
     const before = pl.state().kickCount;
-    window.__lv = null; await sleep(2400); out.noSignal = pl.state().kickCount - before;   // the engine is off: only the slow breathing
+    window.__lv = null; await sleep(2400); out.noSignal = pl.state().kickCount - before;
     window.__lv = 0.05; window.__calm = true; await sleep(400);
     const b2 = pl.state().kickCount; await beat(4); out.calm = pl.state().kickCount - b2;
     out.calmState = pl.state().calm;
     pl.destroy(); box.remove();
     return out;
   });
-  assert.ok(r.beats >= 5 && r.beats <= 8, 'six kicks should make about six rings: ' + JSON.stringify(r));
-  assert.ok(r.visible >= 0 && r.visible <= 5, 'at most five rings at once: ' + JSON.stringify(r));
-  assert.strictEqual(r.noSignal, 0, 'no rings without a real level: ' + JSON.stringify(r));
-  assert.strictEqual(r.calm, 0, 'no rings in calm mode: ' + JSON.stringify(r));
+  assert.ok(r.beats >= 5 && r.beats <= 8, 'six kicks, about six flares: ' + JSON.stringify(r));
+  assert.strictEqual(r.noSignal, 0, 'no flares without a real level: ' + JSON.stringify(r));
+  assert.strictEqual(r.calm, 0, 'no flares in calm mode: ' + JSON.stringify(r));
   assert.strictEqual(r.calmState, true);
 }, { viewport: PORT, touch: true });
 
-test('planet glow fades out before the edge of its canvas (no straight line on any station, at full music level)', async t => {
-  const r = await t.p.evaluate(async () => {
-    const sleep = ms => new Promise(res => setTimeout(res, ms));
-    const out = [];
-    const stations = window.BURZH.stations();
-    for (const [bw, bh] of [[400, 400], [520, 380], [300, 340]]) {
-      const box = document.createElement('div');
-      box.style.cssText = `position:fixed;left:0;top:0;width:${bw}px;height:${bh}px;z-index:-1`;
-      document.body.appendChild(box);
-      window.__lv = 0.95;
-      const pl = window.BurzhPlanet.create(box, { getLevel: () => window.__lv });
-      pl.setPlaying(true);
-      for (let i = 0; i < stations.length; i++) {
-        pl.setStation(stations[i], i, stations.length, { instant: true });
-        await sleep(700);                                   // glow and level come up
-        const cv = box.querySelector('canvas');
-        const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-        const edges = { left: [], right: [], top: [], bottom: [] };
-        for (let y = 0; y < cv.height; y++) { edges.left.push(d[(y * cv.width) * 4 + 3]); edges.right.push(d[(y * cv.width + cv.width - 1) * 4 + 3]); }
-        for (let x = 0; x < cv.width; x++) { edges.top.push(d[x * 4 + 3]); edges.bottom.push(d[((cv.height - 1) * cv.width + x) * 4 + 3]); }
-        // share of the edge that is visibly tinted (a few stray star pixels are fine, a cut-off glow is a long run)
-        const tinted = a => a.filter(v => v > 3).length / a.length;
-        const glowAtCentre = d[((cv.height >> 1) * cv.width + (cv.width >> 1)) * 4 + 3];
-        out.push({ box: bw + 'x' + bh, id: stations[i].id, left: tinted(edges.left), right: tinted(edges.right), top: tinted(edges.top), bottom: tinted(edges.bottom), centre: glowAtCentre });
-      }
-      pl.destroy(); box.remove();
-    }
-    return out;
-  });
-  assert.strictEqual(r.length, 12);
-  r.forEach(x => {
-    assert.ok(x.centre > 0, `${x.id} ${x.box}: something is drawn`);
-    ['left', 'right', 'top', 'bottom'].forEach(side => assert.ok(x[side] <= 0.1, `${x.id} ${x.box}: the glow reaches the ${side} edge of the canvas along ${Math.round(x[side] * 100)} % of it: it shows as a straight line`));
-  });
-}, { viewport: PORT, touch: true });
+for (const [label, viewport] of [['portrait 390x844', PORT], ['portrait 320x568', { width: 320, height: 568 }], ['landscape 932x430', LAND], ['landscape 667x375', { width: 667, height: 375 }]]) {
+  test(`planet (${label}): ring, ticks and glow fit inside the stage, the name and waveform fit on the planet`, async t => {
+    await sleep(600);
+    const r = await t.p.evaluate(() => {
+      const box = [...document.querySelectorAll('[data-planet]')].find(b => b.offsetWidth > 0);
+      const pl = window.BURZH.planets().find(p => p.drawn);
+      const rb = box.getBoundingClientRect();
+      const name = box.querySelector('.op-name').getBoundingClientRect();
+      const wave = box.querySelector('.wave').getBoundingClientRect();
+      const top = box.querySelector('.op-top').getBoundingClientRect();
+      const bottom = box.querySelector('.op-bottom').getBoundingClientRect();
+      return { pl, W: rb.width, H: rb.height, left: rb.left, top: rb.top, name: { l: name.left, r: name.right }, wave: { l: wave.left, r: wave.right }, labels: { t: top.top, b: bottom.bottom } };
+    });
+    const { pl } = r;
+    assert.ok(pl && pl.R > 60, 'a planet of a decent size: ' + JSON.stringify(pl));
+    assert.ok(pl.R * 1.37 + 2 <= r.W / 2, `the outer ticks (${(pl.R * 1.37).toFixed(0)}) fit in the width (${r.W / 2})`);
+    assert.ok(pl.ringR + 4 <= r.H / 2, `the ring (${pl.ringR.toFixed(0)}) fits in the height (${r.H / 2})`);
+    // the glow fades as exp(-10 (r - 1)) and is at most 0.22 × 1.6: at the stage edge it must be invisible (< 3/255)
+    const edge = Math.min(r.W, r.H) / 2 / pl.R - 1;
+    assert.ok(0.22 * 1.6 * Math.exp(-10 * edge) < 0.012, 'no straight line where the glow meets the edge: ' + edge.toFixed(2));
+    const cx = r.left + pl.cx, cy = r.top + pl.cy;
+    for (const k of ['name', 'wave']) assert.ok(r[k].l >= cx - pl.R * 0.98 && r[k].r <= cx + pl.R * 0.98, `${k} stays on the planet: ${JSON.stringify(r[k])}`);
+    assert.ok(r.labels.t >= cy - pl.R && r.labels.b <= cy + pl.R, 'the labels stay on the planet');
+  }, { viewport, touch: true });
+}
 
 /* ------------------------------------------------------- reduce motion */
 
 const motionState = t => t.p.evaluate(() => ({
   calm: document.documentElement.classList.contains('calm'), api: window.BURZH.calm(),
-  anim: parseFloat(getComputedStyle(document.querySelector('.soft-colon i')).animationDuration) * (/ms$/.test(getComputedStyle(document.querySelector('.soft-colon i')).animationDuration) ? 0.001 : 1),
+  anim: (v => parseFloat(v) * (/ms$/.test(v) ? 0.001 : 1))(getComputedStyle(document.querySelector('.p-live .live-fill')).transitionDuration),
   planet: window.BURZH.planets().find(p => p.drawn) || null
 }));
 
 test('reduce motion: follows the phone, can be switched on or off in Settings, stills the planet and the animations', async t => {
   let m = await motionState(t);
   assert.strictEqual(m.calm, false, 'normal motion by default');
-  assert.ok(m.anim > 1, 'the colon breathes: ' + m.anim);
+  assert.ok(m.anim >= 0.9, 'the progress glides: ' + m.anim);
 
   await t.p.emulateMedia({ reducedMotion: 'reduce' });                    // iPhone: Accessibility → Motion → Reduce Motion
   m = await waitFor(async () => { const x = await motionState(t); return x.calm ? x : null; }, 4000, 100) || await motionState(t);
   assert.deepStrictEqual([m.calm, m.api], [true, true], 'Auto follows the phone');
-  assert.ok(m.anim < 0.01, 'CSS animations are stilled: ' + m.anim);
+  assert.ok(m.anim < 0.01, 'CSS motion is stilled: ' + m.anim);
   await t.play(); assert.ok(await t.live());
-  await sleep(600);
+  await sleep(1600);
   const a = (await motionState(t)).planet; await sleep(900); const b = (await motionState(t)).planet;
   assert.strictEqual(a.calm, true);
   assert.strictEqual(a.spin, b.spin, 'the planet does not turn');
-  assert.strictEqual(b.omega, 0); assert.strictEqual(b.orbitRate, 0);
-  assert.strictEqual(b.kicks, 0, 'no rings');
+  assert.strictEqual(a.orbit, b.orbit, 'the light on the ring stands still');
+  assert.strictEqual(b.kicks, 0, 'no flares');
 
   await t.openSettings(); await t.p.click('#tab-screen');
   await t.p.click('.seg[data-seg="motion"] button[data-value="off"]'); await sleep(250);
   m = await motionState(t);
   assert.deepStrictEqual([m.calm, m.api], [false, false], 'Off wins over the phone setting');
-  assert.ok(m.anim > 1, 'animations are back');
-  await sleep(700);
+  assert.ok(m.anim >= 0.9, 'motion is back');
+  await t.p.click('[data-close]'); await sleep(700);
   const c = (await motionState(t)).planet; await sleep(700); const d = (await motionState(t)).planet;
-  assert.ok(Math.abs(d.spin - c.spin) > 0.01, 'the planet turns again');
+  assert.ok(Math.abs(d.spin - c.spin) > 0.001, 'the planet turns again');
 
   await t.p.emulateMedia({ reducedMotion: 'no-preference' }); await sleep(1300);
+  await t.openSettings(); await t.p.click('#tab-screen');
   await t.p.click('.seg[data-seg="motion"] button[data-value="on"]'); await sleep(250);
   m = await motionState(t);
   assert.deepStrictEqual([m.calm, m.api], [true, true], 'On works with a normal phone');
@@ -881,18 +814,19 @@ test('app-icon shortcuts: the manifest lists the stations; ?station= opens one a
     sc.icons.forEach(i => assert.ok(fs.existsSync(path.join(DOCS, i.src)), 'shortcut icon ' + i.src));
   });
   assert.strictEqual(manifest.shortcuts[0].url.endsWith(data.stations.find(s => s.items.length).id), true, 'stations with music come first');
-  assert.ok(manifest.icons.length >= 3 && manifest.background_color === '#050606', 'manifest keeps its icons and the dark launch colour');
+  assert.ok(manifest.icons.length >= 3 && manifest.background_color === '#0a0a0a' && manifest.theme_color === '#0a0a0a', 'manifest keeps its icons and the dark launch colour');
 
   const open = async q => {
     await t.p.goto(new URL(q, t.p.url()).href);
     await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 8000);
     await sleep(300);
-    return t.p.evaluate(() => ({ station: window.BURZH.debug().station, search: location.search, saved: localStorage.getItem('burzh.radio.station.v1'), name: document.querySelector('[data-bind="station"]').textContent, status: document.querySelector('.p-live [data-bind="status"]').textContent }));
+    return t.p.evaluate(() => ({ station: window.BURZH.debug().station, search: location.search, saved: localStorage.getItem('burzh.radio.station.v1'), name: document.querySelector('.p-stage [data-bind="station"]').textContent, status: document.querySelector('.p-stage [data-bind="status"]').textContent, top: document.querySelector('.p-stage [data-bind="onair"]').textContent }));
   };
   let r = await open('?station=trance');
   assert.strictEqual(r.station, 'trance'); assert.strictEqual(r.search, '', 'the address is clean'); assert.strictEqual(JSON.parse(r.saved), 'trance', 'remembered');
+  assert.deepStrictEqual([r.name, r.top, r.status], ['Trance', 'ON AIR NOW', 'TAP TO PLAY']);
   r = await open('?station=lofi');
-  assert.strictEqual(r.station, 'lofi'); assert.strictEqual(r.status, 'OFF AIR', 'a station without music opens and says so');
+  assert.strictEqual(r.station, 'lofi'); assert.deepStrictEqual([r.top, r.status], ['NO SIGNAL', 'OFF AIR'], 'a station without music opens and says so');
   r = await open('?station=deep-house');
   assert.strictEqual(r.station, 'deep-house');
   r = await open('?station=no-such-station');
@@ -918,108 +852,118 @@ test('launch images: every iPhone size, both orientations and appearances, right
     assert.deepStrictEqual([g.w, g.h], want, `${file} must be ${want.join('x')} for ${media}`);
     seen.add([w, h, dpr, orient, scheme].join('/'));
   });
-  // every device has all four variants
   const devices = new Set(links.map(l => /device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: (\d)/.exec(l.media).slice(1).join('/')));
   devices.forEach(d => ['portrait', 'landscape'].forEach(o => ['dark', 'light'].forEach(c => assert.ok(seen.has(`${d}/${o}/${c}`), `${d} is missing ${o} ${c}`))));
   assert.ok(bytes < 2.5e6, 'launch images stay small: ' + Math.round(bytes / 1024) + ' KB');
-  // the files in docs/splash are exactly the declared ones (nothing stale)
   assert.deepStrictEqual(fs.readdirSync(path.join(DOCS, 'splash')).sort(), links.map(l => l.file.replace('splash/', '')).sort());
   assert.ok(/<meta name="apple-mobile-web-app-capable" content="yes">/.test(html));
 });
 
-/* ------------------------------------------------------ station selector */
+/* ------------------------------------------------------ station tiles */
 
-const dialReport = t => t.p.evaluate(() => {
+const tileReport = (t, sel) => t.p.evaluate(sel => {
   const chan = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
   const lum = c => 0.2126 * chan(c[0]) + 0.7152 * chan(c[1]) + 0.0722 * chan(c[2]);
-  const rgb = css => (css.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number);
-  const bg = rgb(getComputedStyle(document.body).backgroundColor);
-  return [...document.querySelectorAll('.dial button')].map(b => {
-    let op = 1; for (let e = b; e; e = e.parentElement) op *= Number(getComputedStyle(e).opacity);
-    const fg = rgb(getComputedStyle(b).color).map((v, i) => v * op + bg[i] * (1 - op));      // what the eye sees
+  const rgba = css => { const m = (css.match(/[\d.]+/g) || [0, 0, 0]).map(Number); return { c: m.slice(0, 3), a: m.length > 3 ? m[3] : 1 }; };
+  const bg = rgba(getComputedStyle(document.body).backgroundColor).c;
+  return [...document.querySelectorAll(sel + ' .tile')].map(b => {
+    const label = b.querySelector('.tlabel');
+    let op = 1; for (let e = label; e; e = e.parentElement) op *= Number(getComputedStyle(e).opacity);
+    const f = rgba(getComputedStyle(label).color);
+    const fg = f.c.map((v, i) => (v * f.a + bg[i] * (1 - f.a)) * op + bg[i] * (1 - op));
     const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
-    return { id: b.dataset.station, off: b.classList.contains('off'), active: b.classList.contains('active'), ratio: (hi + 0.05) / (lo + 0.05), tag: getComputedStyle(b, '::after').content };
+    const r = b.getBoundingClientRect();
+    return { id: b.dataset.station, off: b.classList.contains('off'), active: b.classList.contains('active'), ratio: (hi + 0.05) / (lo + 0.05), after: getComputedStyle(label, '::after').content, box: { l: r.left, r: r.right, t: r.top, b: r.bottom } };
   });
-});
+}, sel);
 
-for (const theme of ['black', 'white']) {
-  test(`landscape station dial (${theme}): inactive stations stay readable, stations without music say "soon", also when the screen goes idle`, async t => {
+for (const [label, viewport, sel] of [['portrait', PORT, '.p-tiles'], ['landscape', LAND, '.l-tiles']]) {
+  test(`station tiles (${label}): every name readable, also when the screen goes idle; stations without music say "soon"`, async t => {
     for (const idle of [false, true]) {
       if (idle) { await t.p.evaluate(() => document.documentElement.classList.add('idle')); await sleep(1200); }
-      const rep = await dialReport(t);
+      const rep = await tileReport(t, sel);
       assert.strictEqual(rep.length, 4);
       rep.forEach(r => {
         assert.ok(r.ratio >= 4.5, `${r.id} reads at ${r.ratio.toFixed(2)}:1 (idle ${idle})`);
-        assert.strictEqual(r.tag === '"soon"', r.off, `${r.id}: the "soon" tag belongs to stations without music only (${r.tag})`);
+        assert.strictEqual(/soon/.test(r.after), r.off, `${r.id}: "soon" belongs to stations without music only (${r.after})`);
+        assert.ok(r.box.l >= -1 && r.box.r <= viewport.width + 1 && r.box.b <= viewport.height + 1, `${r.id} is on the screen: ${JSON.stringify(r.box)}`);
       });
     }
-  }, { viewport: LAND, settings: { theme }, mutate: lofiOffAir });
+  }, { viewport, mutate: lofiOffAir });
 }
 
-for (const [w, h] of [[1000, 462], [932, 430], [667, 375]]) {
-  test(`landscape ${w}x${h}: the planet is centred in the room right of the clock, and the weather line stays under the clock`, async t => {
-    await t.p.evaluate(() => { const el = document.getElementById('weatherWidget'); el.hidden = false; el.querySelector('[data-bind="w-city"]').textContent = 'Gorodskoy Okrug Krasnogorsk Very Long Place'; });
-    await sleep(300);
-    const r = await t.p.evaluate(() => {
-      const c = document.querySelector('.landscape .clock');
-      const right = Math.max(...[...c.children].map(x => x.getBoundingClientRect().right));
-      const pl = document.querySelector('.l-planet').getBoundingClientRect();
-      const meta = document.querySelector('.l-meta').getBoundingClientRect();
-      const tools = document.querySelector('.l-tools').getBoundingClientRect();
-      return { right, left: pl.left, end: pl.right, W: innerWidth, metaRight: meta.right, toolsRight: tools.right };
-    });
-    assert.ok(r.left >= r.right, `the planet starts after the clock (${r.left.toFixed(0)} < ${r.right.toFixed(0)})`);
-    assert.ok(r.left - r.right <= r.W * 0.05, 'and close to it, so it sits in the middle of the free room');
-    assert.ok(r.end >= r.W - 4, 'and reaches the right edge');
-    assert.ok(r.metaRight <= r.right + 2, `the weather line stays under the clock (${r.metaRight.toFixed(0)} > ${r.right.toFixed(0)})`);
-    assert.strictEqual(await t.p.evaluate(() => document.querySelector('[data-bind="w-city"]').scrollWidth > document.querySelector('[data-bind="w-city"]').clientWidth), true, 'a long place name is cut with an ellipsis');
-  }, { viewport: { width: w, height: h } });
-}
+/* ----------------------------------------------------------- layouts */
 
-/* ----------------------------------------------------- portrait fitting */
+const blocksOf = (t, list) => t.p.evaluate(list => {
+  const box = sel => { const e = [...document.querySelectorAll(sel)].find(x => x.getClientRects().length); if (!e) return null; const r = e.getBoundingClientRect(); return { t: r.top, b: r.bottom, l: r.left, r: r.right, w: r.width, h: r.height }; };
+  return { blocks: list.map(s => [s, box(s)]), iw: innerWidth, ih: innerHeight, sw: document.scrollingElement.scrollWidth, sh: document.scrollingElement.scrollHeight };
+}, list);
 
 for (const [w, h] of [[375, 667], [390, 844], [393, 852], [430, 932], [402, 874], [360, 740], [320, 568]]) {
-  test(`portrait ${w}x${h}: the blocks stack without overlap and the planet takes the room that is left`, async t => {
-    const m = await t.p.evaluate(() => {
-      const box = sel => { const e = document.querySelector(sel); if (!e || getComputedStyle(e).display === 'none') return null; const r = e.getBoundingClientRect(); return { t: r.top, b: r.bottom, l: r.left, r: r.right, w: r.width, h: r.height }; };
-      const blocks = ['.p-logo', '.stations', '.p-artwrap', '.p-caption', '.p-meta', '.p-live', '.p-controls', '.p-footer'].map(s => [s, box(s)]);
-      return { blocks, card: box('.p-artwrap .art-frame'), menu: box('.p-menu'), iw: innerWidth, ih: innerHeight, sw: document.scrollingElement.scrollWidth, sh: document.scrollingElement.scrollHeight, tag: document.querySelector('.p-caption').scrollWidth - document.querySelector('.p-caption').clientWidth };
-    });
+  test(`portrait ${w}x${h}: header, planet, title, progress, controls and tiles stack without overlap`, async t => {
+    await t.play(); await t.live(); await sleep(300);
+    const m = await blocksOf(t, ['.p-head', '.p-stage', '.p-np', '.p-live', '.p-controls', '.p-tiles']);
     let prev = null;
-    m.blocks.filter(([, b]) => b).forEach(([name, b]) => {
+    m.blocks.forEach(([name, b]) => {
+      assert.ok(b, name + ' is missing');
       assert.ok(b.l >= -1 && b.r <= m.iw + 1 && b.b <= m.ih + 1 && b.t >= -1, `${name} is outside the screen: ${JSON.stringify(b)}`);
-      if (prev && name !== '.p-menu') assert.ok(b.t >= prev[1].b - 1, `${name} (top ${b.t.toFixed(1)}) overlaps ${prev[0]} (bottom ${prev[1].b.toFixed(1)})`);
+      if (prev) assert.ok(b.t >= prev[1].b - 1, `${name} (top ${b.t.toFixed(1)}) overlaps ${prev[0]} (bottom ${prev[1].b.toFixed(1)})`);
       prev = [name, b];
     });
     assert.ok(m.sh <= m.ih + 1 && m.sw <= m.iw + 1, 'no scrolling');
-    const art = m.blocks.find(([n]) => n === '.p-artwrap')[1];
-    assert.ok(m.card.t >= art.t - 1 && m.card.b <= art.b + 1, 'the planet card stays inside its area');
-    const room = Math.min(0.86 * art.w, art.h);
-    assert.ok(m.card.w >= room * 0.97, `the planet card should use the room: ${m.card.w.toFixed(0)} of ${room.toFixed(0)}`);
-    assert.ok(m.card.w >= m.iw * 0.5, 'the planet card is at least half the screen wide: ' + m.card.w.toFixed(0));
-    assert.ok(m.tag <= 1, 'the caption fits on one line');
-    await t.shot(`portrait-fit-${w}x${h}.png`);
-  }, { viewport: { width: w, height: h }, touch: true });
+    const stage = m.blocks.find(([n]) => n === '.p-stage')[1];
+    assert.ok(stage.h >= m.ih * 0.28, 'the planet takes the room that is left: ' + stage.h.toFixed(0));
+    const head = await t.p.evaluate(() => { const b = document.querySelector('.p-head .brand').getBoundingClientRect(), tl = document.querySelector('.p-head .tools').getBoundingClientRect(); return { brand: b.right, tools: tl.left }; });
+    assert.ok(head.brand <= head.tools + 1, `the brand and the weather do not touch (${head.brand.toFixed(0)} > ${head.tools.toFixed(0)})`);
+    await t.shot(`portrait-${w}x${h}.png`);
+  }, { viewport: { width: w, height: h }, touch: true, settings: { weather: true, geo: { lat: 55.75, lon: 37.62, name: 'Moscow' } } });
 }
 
-/* --------------------------------------------------------------- layouts */
-
-for (const [theme, w, h] of [['black', 932, 430], ['black', 667, 375], ['black', 844, 390], ['black', 1180, 820], ['black', 390, 844], ['black', 375, 667],
-                              ['white', 932, 430], ['white', 667, 375], ['white', 390, 844], ['white', 375, 667]]) {
-  test(`layout ${w}x${h} (${theme}): fits the screen, controls visible`, async t => {
-    await t.play(); await t.live(); await sleep(400);
-    const m = await t.p.evaluate(() => {
-      const vis = sel => { const e = [...document.querySelectorAll(sel)].find(x => x.offsetParent !== null || getComputedStyle(x).position === 'fixed'); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom }; };
-      return { sw: document.scrollingElement.scrollWidth, sh: document.scrollingElement.scrollHeight, iw: innerWidth, ih: innerHeight, play: vis('.play-toggle'), seek: vis('.seek .live-rail'), dial: vis('button[data-station]') };
+for (const [w, h] of [[932, 430], [1000, 462], [844, 390], [667, 375], [1180, 820]]) {
+  test(`landscape ${w}x${h}: planet on the left, title, progress, controls and tiles on the right, nothing overlaps`, async t => {
+    await t.play(); await t.live(); await sleep(300);
+    const m = await blocksOf(t, ['.l-brand', '.l-tools', '.l-stage', '.l-np', '.l-live', '.l-controls', '.l-tiles']);
+    const b = Object.fromEntries(m.blocks);
+    Object.entries(b).forEach(([name, r]) => {
+      assert.ok(r, name + ' is missing');
+      assert.ok(r.l >= -1 && r.r <= m.iw + 1 && r.b <= m.ih + 1 && r.t >= -1, `${name} is outside the screen: ${JSON.stringify(r)}`);
     });
-    assert.ok(m.sw <= m.iw + 1, `horizontal overflow ${m.sw} > ${m.iw}`);
-    for (const k of ['play', 'seek', 'dial']) {
-      assert.ok(m[k], k + ' is missing');
-      assert.ok(m[k].x >= -1 && m[k].r <= m.iw + 1 && m[k].y >= -1 && m[k].b <= m.ih + 1, `${k} is outside the screen: ${JSON.stringify(m[k])}`);
+    let prev = null;
+    for (const name of ['.l-tools', '.l-np', '.l-live', '.l-controls', '.l-tiles']) {
+      if (prev) assert.ok(b[name].t >= b[prev].b - 1, `${name} (top ${b[name].t.toFixed(1)}) overlaps ${prev} (bottom ${b[prev].b.toFixed(1)})`);
+      prev = name;
     }
-    await t.shot(`layout-${theme === 'white' ? 'white-' : ''}${w}x${h}.png`);
-  }, { viewport: { width: w, height: h }, settings: { theme } });
+    assert.ok(b['.l-stage'].r <= b['.l-np'].l + 1, 'the planet stays left of the panel');
+    assert.ok(m.sh <= m.ih + 1 && m.sw <= m.iw + 1, 'no scrolling');
+    await t.shot(`landscape-${w}x${h}.png`);
+  }, { viewport: { width: w, height: h }, settings: { weather: true, geo: { lat: 55.75, lon: 37.62, name: 'Moscow' } } });
 }
+
+test('weather pill: icon, temperature and the place, tidy name; a tap opens the screen settings', async t => {
+  const r = await waitFor(() => t.p.evaluate(() => {
+    const w = [...document.querySelectorAll('.weather')].find(x => x.getClientRects().length);
+    return w && /5°/.test(w.textContent) ? { text: w.textContent, icon: w.querySelector('.w-icon').dataset.sky, svg: !!w.querySelector('.w-icon svg') } : null;
+  }), 6000, 150);
+  assert.ok(r, 'the pill shows the temperature');
+  assert.match(r.text, /5°/); assert.match(r.text, /Krasnogorsk/); assert.doesNotMatch(r.text, /Okrug/i);
+  assert.deepStrictEqual([r.icon, r.svg], ['partly', true], 'partly cloudy has its icon');
+  await t.p.locator('.weather:visible').first().click(); await sleep(400);
+  assert.strictEqual(await t.p.getAttribute('#tab-screen', 'aria-selected'), 'true', 'the pill opens Settings → Screen');
+}, { viewport: PORT, touch: true, settings: { weather: true, geo: { lat: 55.75, lon: 37.62, name: 'Gorodskoy Okrug Krasnogorsk' } } });
+
+test('play button: the ring around it shows how far the mix has played', async t => {
+  await t.play(); await t.live();
+  const r = await waitFor(async () => {
+    const x = await t.p.evaluate(() => {
+      const b = document.querySelector('.p-controls .play-toggle');
+      return { p: Number(b.style.getPropertyValue('--p')), offset: getComputedStyle(b.querySelector('.arc-fg')).strokeDashoffset, dbg: window.BURZH.debug().time };
+    });
+    return x.p > 0.05 ? x : null;
+  }, 6000, 200);
+  assert.ok(r, 'the arc follows the mix');
+  const want = 301.6 * (1 - r.p);
+  near(parseFloat(r.offset), want, 8, 'arc length');
+}, { viewport: PORT, touch: true });
 
 /* ------------------------------------------------- long mixes cut in parts */
 
@@ -1069,14 +1013,16 @@ test('a mix cut into parts looks and scrubs as one mix: one title, one length, o
   if (!(await t.dbg()).wantPlaying) await t.play();
   assert.ok(await t.live(), 'plays');
   const text = () => t.p.evaluate(() => ({
-    title: document.querySelector('.p-meta [data-bind="station"]').textContent,
-    line: document.querySelector('[data-bind="nowline"]').textContent,
+    title: document.querySelector('.p-stage [data-bind="station"]').textContent,
+    line: document.querySelector('.p-np [data-bind="headline"]').textContent,
+    left: document.querySelector('.p-live [data-bind="remaining"]').textContent,
     max: document.querySelector('.p-live .seek').getAttribute('aria-valuemax'),
     now: +document.querySelector('.p-live .seek').getAttribute('aria-valuenow')
   }));
   let x = await text();
   assert.strictEqual(x.title, st.name);
-  assert.match(x.line, /^Mix 01 · 2:00$/, 'no part number, the length of the whole mix: ' + x.line);   // two 60 s parts in the fixture
+  assert.strictEqual(x.line, st.name + ' · Mix 01', 'no part number: ' + x.line);
+  assert.match(x.left, /^−1:\d\d$/, 'the time left is that of the whole mix (two 60 s parts in the fixture): ' + x.left);
   assert.strictEqual(x.max, '120', 'the rail spans both parts');
 
   await t.p.evaluate(() => window.BURZH.seekTo(90));                 // into the second part
@@ -1085,7 +1031,8 @@ test('a mix cut into parts looks and scrubs as one mix: one title, one length, o
   near(d.time, 30, 4, 'time inside the second part');
   x = await text();
   near(x.now, 91, 4, 'the rail shows the place in the whole mix');
-  assert.match(x.line, /^Mix 01 · 2:00$/);
+  assert.strictEqual(x.line, st.name + ' · Mix 01');
+  assert.match(x.left, /^−0:\d\d$/);
 
   await t.p.evaluate(() => window.BURZH.seekTo(10));                 // back into the first part
   d = await waitFor(async () => { const v = await t.dbg(); return /part1/.test(v.src) && v.phase === 'live' && !v.paused ? v : null; }, 9000);

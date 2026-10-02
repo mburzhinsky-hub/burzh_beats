@@ -45,11 +45,9 @@ GLYPHS = {"grid", "wave", "rings", "tri"}
 
 # A station's planet character ("look"). Same table as LIMITS in docs/planet.js (a browser check keeps them equal).
 LOOK_LIMITS = {
-    "spin": (0.2, 2.5), "rings": (1, 3), "spread": (0, 1.2), "tilt": (0.1, 0.9), "roll": (-1.4, 1.4),
-    "grain": (0.7, 1.5), "land": (-0.06, 0.08), "halo": (0.5, 2), "pulse": (0, 2), "flutter": (0, 0.6),
-    "rain": (0, 1), "comets": (1, 2),
+    "spin": (0.2, 2.5), "tilt": (0.05, 0.35), "face": (0, 1), "halo": (0.5, 2), "pulse": (0, 2), "orbit": (0.2, 3),
 }
-BG_BLACK, BG_PAPER = "#050606", "#f1f1ee"      # the two app backgrounds (docs/index.html)
+BG_BLACK, BG_PAPER = "#0a0a0a", "#f1f1ee"      # the app background (docs/index.html) and paper (kept for the accent check)
 # GitHub refuses files over 100 MB. A mix whose encoded size would pass MAX_PART_BYTES is cut into equal parts at the
 # quietest moment near each cut; the player keeps the parts of one mix together, in order (item "group").
 MAX_PART_BYTES = 80_000_000
