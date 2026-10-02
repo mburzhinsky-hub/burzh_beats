@@ -91,9 +91,9 @@
   color-scheme:dark;
   /* palette: Black (default) */
   --bg:#050606;--fg:#f1f1ec;--soft:#c8c9c3;--muted:#8b8c86;--dim:#5b5c57;--line:#3d3e3a;--accent:#ff3b30;
-  --screen:radial-gradient(120% 120% at 55% -10%,#101111 0,#080909 33%,var(--bg) 70%);
+  --screen:radial-gradient(120% 120% at 55% -10%,#101111 0,#080909 33%,var(--bg) 70%);--tool-bg:rgba(8,9,9,.66);
   --frame-bg:var(--bg);--frame-line:rgba(238,239,233,.13);--frame-glow:rgba(255,255,255,.028);--frame-inset:rgba(255,255,255,.015);--frame-shadow:0 18px 50px rgba(0,0,0,.38);
-  --tile:transparent;--tile-cut:var(--bg);--glyph:#eee;--active-ring:rgba(255,255,255,.05);--slash:rgba(255,255,255,.07);
+  --tile:transparent;--glyph:#eee;--active-ring:rgba(255,255,255,.05);--slash:rgba(255,255,255,.07);
   --edge:#50514d;--ctrl-line:#767772;--ctrl-line-big:#edede8;
   --wash:rgba(255,255,255,.065);--halo:rgba(255,255,255,.06);
   --rail:#2e2f2b;--tick:rgba(238,239,233,.3);--ring:rgba(0,0,0,.6);
@@ -129,12 +129,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 
 /* ---------- Station glyphs ---------- */
 .sicon{width:36px;height:30px;position:relative;flex:0 0 auto}
-.glyph-grid{border-radius:50%;background:radial-gradient(circle,var(--glyph) 1.1px,transparent 1.45px);background-size:5.3px 5.3px}
-.glyph-wave:before{content:"";position:absolute;left:2px;right:2px;top:15px;height:1px;background:var(--glyph);box-shadow:4px -4px var(--glyph),8px -10px var(--glyph),12px -4px var(--glyph),16px 5px var(--glyph),20px -8px var(--glyph),24px -12px var(--glyph),28px -3px var(--glyph),32px 5px var(--glyph)}
-.glyph-rings:before,.glyph-rings:after{content:"";position:absolute;top:4px;width:21px;height:21px;border:1px solid var(--glyph);border-radius:50%}.glyph-rings:before{left:3px}.glyph-rings:after{right:3px}
-.glyph-tri{width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-bottom:28px solid var(--glyph)}
-.glyph-tri:after{content:"";position:absolute;left:-13px;top:5px;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:22px solid var(--tile-cut)}
-
+.sicon{color:var(--glyph)}.sicon svg{display:block;width:100%;height:100%;overflow:visible}
 /* ---------- Shared controls ---------- */
 .ctrl{border:1px solid var(--ctrl-line);border-radius:50%;display:grid;place-items:center;transition:transform .14s var(--ease),background .14s,border-color .3s}
 .ctrl:active{transform:scale(.92);background:var(--wash)}
@@ -186,7 +181,8 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .station.off{opacity:.62}
 .station.off:after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,transparent 48%,var(--slash) 49%,var(--slash) 51%,transparent 52%);pointer-events:none}
 .station.active.off{opacity:.85}
-.slabel{font-size:clamp(10px,2.65vw,13px);line-height:1.05;text-align:center}
+.slabel{font-size:clamp(10px,2.65vw,13px);line-height:1.08;text-align:center;min-height:2.16em}
+.station{padding-bottom:12px}
 .sdot{position:absolute;bottom:8px;width:6px;height:6px;border-radius:50%;background:var(--dim);transition:background .4s}
 .station.active .sdot{background:var(--accent);box-shadow:0 0 10px var(--accent)}
 .is-playing .station.active .sdot{animation:pulse 2.2s infinite}
@@ -200,10 +196,10 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .p-meta{position:absolute;left:6.3%;right:6.3%;top:67.4%}
 .title{font:560 clamp(24px,5.8vw,30px)/.98 var(--dot);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub{font-size:12px;margin-top:7px;color:var(--soft);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub.now{font-size:13.5px;margin-top:9px;letter-spacing:.02em;text-transform:none}
 .p-live{position:absolute;left:6.4%;right:6.4%;top:76.4%}
 .p-controls{position:absolute;left:13%;right:13%;top:82.3%;height:11.3%;display:flex;align-items:center;justify-content:space-between}
 .p-controls .ctrl{width:70px;height:70px}.p-controls .ctrl.big{width:98px;height:98px}
-.p-footer{position:absolute;left:6%;right:6%;bottom:2.4%;display:flex;justify-content:space-between;font:400 8.5px/1.25 var(--mono);letter-spacing:.08em;color:var(--muted);text-transform:uppercase;pointer-events:none}
 
 @media(orientation:portrait) and (max-width:480px){
   .p-logo{left:5.5%;top:4.8%;font-size:clamp(33px,10vw,42px)}.p-menu{right:5%;top:5.4%}
@@ -213,8 +209,8 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
   .p-live{left:5.7%;right:5.7%;top:75%}
   .p-controls{left:12%;right:12%;top:80.8%;height:11.5%}.p-controls .ctrl{width:58px;height:58px}.p-controls .ctrl.big{width:82px;height:82px}
 }
-@media(orientation:portrait) and (max-height:700px){.stations{top:15.2%;height:12.5%}.p-artwrap{top:31%;width:50%;left:25%}.p-side{top:37.5%}.p-meta{top:62%}.p-live{top:71.5%}.p-controls{top:77%;height:14%}.p-footer{bottom:1.6%}}
-@media(orientation:portrait) and (max-height:560px){.p-logo{top:3.8%;font-size:28px}.stations{top:15.5%;height:13.5%}.station{gap:3px;border-radius:9px}.sicon{transform:scale(.68)}.slabel{font-size:7.5px}.sdot{bottom:4px}.p-artwrap{top:31%;left:29%;width:42%}.p-side{display:none}.p-meta{top:61%}.title{font-size:21px}.sub{font-size:10px;margin-top:4px}.p-live{top:70.5%}.readout{font-size:8px}.p-controls{top:76%;left:16%;right:16%;height:15%}.p-controls .ctrl{width:48px;height:48px}.p-controls .ctrl.big{width:64px;height:64px}.ctrl svg{width:21px;height:21px}.ctrl.big svg{width:26px;height:26px}.p-footer{bottom:1.3%;font-size:6.5px}}
+@media(orientation:portrait) and (max-height:700px){.stations{top:15.2%;height:12.5%}.p-artwrap{top:31%;width:50%;left:25%}.p-side{top:37.5%}.p-meta{top:62%}.p-live{top:71.5%}.p-controls{top:77%;height:14%}}
+@media(orientation:portrait) and (max-height:560px){.p-logo{top:3.8%;font-size:28px}.stations{top:15.5%;height:13.5%}.station{gap:3px;border-radius:9px}.sicon{transform:scale(.68)}.slabel{font-size:7.5px}.sdot{bottom:4px}.p-artwrap{top:31%;left:29%;width:42%}.p-side{display:none}.p-meta{top:61%}.title{font-size:21px}.sub{font-size:10px;margin-top:4px}.p-live{top:70.5%}.readout{font-size:8px}.p-controls{top:76%;left:16%;right:16%;height:15%}.p-controls .ctrl{width:48px;height:48px}.p-controls .ctrl.big{width:64px;height:64px}.ctrl svg{width:21px;height:21px}.ctrl.big svg{width:26px;height:26px}}
 
 /* ---------- Portrait, fitted ----------
    The blocks stack in a column and the planet card takes whatever height is left, so the screen has no
@@ -223,8 +219,8 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .p-caption{display:none}
 @supports (width:1cqw){
 @media(orientation:portrait){
-  .portrait{container-type:size;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto minmax(0,1fr) auto auto auto auto auto;grid-template-areas:"logo menu" "stations stations" "art art" "caption caption" "meta meta" "live live" "controls controls" "footer footer";padding:0 5.2cqw}
-  .p-logo,.p-menu,.stations,.p-artwrap,.p-caption,.p-meta,.p-live,.p-controls,.p-footer{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:auto;height:auto}
+  .portrait{container-type:size;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto minmax(0,1fr) auto auto auto auto;grid-template-areas:"logo menu" "stations stations" "art art" "caption caption" "meta meta" "live live" "controls controls";padding:0 5.2cqw clamp(14px,3.4cqh,34px)}
+  .p-logo,.p-menu,.stations,.p-artwrap,.p-caption,.p-meta,.p-live,.p-controls{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:auto;height:auto}
   .p-side{display:none}
   .p-logo{grid-area:logo;align-self:start;margin:clamp(16px,4.6cqh,42px) 0 0 .5cqw;font-size:clamp(33px,10.4cqw,46px)}
   .p-menu{grid-area:menu;align-self:start;width:48px;height:48px;margin:clamp(14px,4.2cqh,40px) 0 0 0}
@@ -236,11 +232,11 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
   .p-meta{grid-area:meta;margin-top:clamp(10px,2.2cqh,24px)}
   .p-live{grid-area:live;margin-top:clamp(12px,2.4cqh,26px)}
   .p-controls{grid-area:controls;margin:clamp(8px,1.8cqh,20px) 6.5cqw 0}
-  .p-footer{grid-area:footer;margin:clamp(6px,1.4cqh,14px) 0;padding:0 .8cqw}
 }
 @media(orientation:portrait) and (max-height:700px){
   .p-logo{margin-top:3.2cqh;font-size:clamp(30px,9.6cqw,40px)}.p-menu{margin-top:2.6cqh}
   .stations{height:clamp(66px,12.4cqh,90px);margin-top:1.8cqh}
+  .station{gap:5px;padding-bottom:10px}.sicon{width:30px;height:25px}
   .p-artwrap{margin-top:1cqh}.p-caption{margin-top:1cqh}.p-meta{margin-top:1.4cqh}.p-live{margin-top:1.6cqh}.p-controls{margin-top:1.2cqh}
 }
 @media(orientation:portrait) and (max-height:560px){
@@ -254,7 +250,10 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 /* ---------- Landscape: the desk screen ---------- */
 .landscape{overflow:hidden}
 .l-shell{position:relative;width:100%;height:100%;padding:max(8px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));display:grid;grid-template-rows:auto minmax(0,1fr) auto;row-gap:clamp(2px,1.2vh,12px);transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
-.l-planet{position:absolute;top:0;bottom:0;right:0;width:min(50%,100vh);z-index:0}
+.l-planet{position:absolute;top:0;bottom:calc(52px + env(safe-area-inset-bottom));right:max(0px,env(safe-area-inset-right));width:min(52%,124vh);z-index:0;
+  /* the planet, its rain and comets fade out under the controls instead of crossing them */
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 calc(env(safe-area-inset-top) + 84px),#000 calc(100% - 64px),transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0,#000 calc(env(safe-area-inset-top) + 84px),#000 calc(100% - 64px),transparent 100%)}
 .l-shell,.l-main{pointer-events:none}
 .l-header,.l-info,.l-bottom{pointer-events:auto}
 .l-header,.l-main,.l-bottom{position:relative;z-index:1}
@@ -265,6 +264,8 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .l-tools .ctrl{width:44px;height:44px}.l-tools .ctrl.big{width:54px;height:54px}
 .l-tools .ctrl svg{width:19px;height:19px}.l-tools .ctrl.big svg{width:23px;height:23px}
 .l-tools .icon-btn{width:44px;height:44px;margin-left:6px}
+/* the planet passes behind the controls: frosted buttons keep its lines from running through the icons */
+.l-tools .ctrl,.l-tools .icon-btn{background:var(--tool-bg);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 
 .l-main{display:flex;align-items:center;min-height:0}
 .l-info{min-width:0;max-width:54%;display:flex;flex-direction:column;justify-content:center}
@@ -318,9 +319,9 @@ html.night .art-frame{box-shadow:none}
 html.theme-white:not(.night){
   color-scheme:light;
   --bg:#F1F1EE;--fg:#111111;--soft:#3A3A37;--muted:#6A6A64;--dim:#A4A49E;--line:#C9C9C3;--accent:#CC2F26;
-  --screen:radial-gradient(120% 120% at 55% -10%,#FFFFFF 0,#F8F8F6 36%,var(--bg) 74%);
+  --screen:radial-gradient(120% 120% at 55% -10%,#FFFFFF 0,#F8F8F6 36%,var(--bg) 74%);--tool-bg:rgba(250,250,248,.7);
   --frame-bg:#FAFAF8;--frame-line:rgba(17,17,17,.1);--frame-glow:rgba(255,255,255,.9);--frame-inset:rgba(255,255,255,.9);--frame-shadow:0 14px 34px rgba(17,17,17,.07);
-  --tile:#FAFAF8;--tile-cut:#FAFAF8;--glyph:#111111;--active-ring:rgba(17,17,17,.05);--slash:rgba(17,17,17,.07);
+  --tile:#FAFAF8;--glyph:#111111;--active-ring:rgba(17,17,17,.05);--slash:rgba(17,17,17,.07);
   --edge:#858580;--ctrl-line:#6A6A64;--ctrl-line-big:#111111;
   --wash:rgba(17,17,17,.06);--halo:rgba(17,17,17,.07);
   --rail:#D2D2CC;--tick:rgba(17,17,17,.28);--ring:rgba(241,241,238,.95);
@@ -446,8 +447,8 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
   <div class="p-caption" data-bind="tagline" data-join=" · "></div>
 
   <div class="p-meta">
-    <div class="title" data-bind="title" data-swap>BURZH beats</div>
-    <div class="sub" data-bind="sub">TUNING</div>
+    <div class="title" data-bind="station" data-swap>BURZH beats</div>
+    <div class="sub now" data-bind="nowline">Tuning</div>
   </div>
 
   <div class="p-live">
@@ -466,7 +467,6 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
     <button class="ctrl" data-step="1" aria-label="Next station"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM6 6v12l8-6z"/></svg></button>
   </div>
 
-  <div class="p-footer"><span data-bind="channel">CH -- / --</span><span>BURZH RADIO · 24/7</span></div>
 </section>
 
 <section class="screen landscape" aria-label="BURZH beats radio, desk screen">
@@ -510,7 +510,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
           <div class="seek-thumb"></div>
           <div class="seek-tip"><b></b><span></span></div>
         </div>
-        <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span><button class="golive" type="button" aria-label="Back to live">&#8634; Live</button></span><span data-bind="channel"></span><span data-bind="remaining"></span></div>
+        <div class="readout"><span class="onair"><i></i><span data-bind="status">ON AIR NOW</span><button class="golive" type="button" aria-label="Back to live">&#8634; Live</button></span><span data-bind="remaining"></span></div>
       </div>
     </div>
   </div>

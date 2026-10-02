@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.26.3';
+  const VERSION = '0.27.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -122,6 +122,38 @@
     });
     groupCache.set(st, groups);
     return groups;
+  }
+  // Where an item sits inside its mix. A mix cut into parts is shown, timed and scrubbed as one.
+  function spanOf(st, item) {
+    const i = st.items.indexOf(item);
+    const parts = (groupsOf(st).find(g => g.includes(i)) || [i]).map(k => st.items[k]);
+    let start = 0;
+    for (const p of parts) { if (p === item) break; start += p.duration; }
+    return { parts, start, total: parts.reduce((n, p) => n + p.duration, 0) };
+  }
+  // A moment of the whole mix: the part that holds it and the time inside that part.
+  function partAt(span, time) {
+    let t = Math.max(0, time);
+    for (let k = 0; k < span.parts.length; k++) {
+      const p = span.parts[k];
+      if (t < p.duration || k === span.parts.length - 1) return { item: p, offset: Math.min(t, Math.max(0, p.duration - 1)) };
+      t -= p.duration;
+    }
+    return { item: span.parts[0], offset: 0 };
+  }
+  // The tracklist of the whole mix (a track that runs across a cut is listed once).
+  function mixCues(span) {
+    const out = [];
+    let start = 0;
+    span.parts.forEach(p => {
+      (p.cues || []).forEach(c => {
+        const prev = out[out.length - 1];
+        if (c.at < 0.5 && prev && start > 0 && prev.title === c.title && prev.artist === c.artist) return;
+        out.push(Object.assign({}, c, { at: c.at + start }));
+      });
+      start += p.duration;
+    });
+    return out;
   }
   function rawOrder(st, cycle) {
     const idx = groupsOf(st).map((_, i) => i);
@@ -268,7 +300,7 @@
     updateWakeLock();
   }
 
-  function tune({ autoplay = true, after = null, follow = false, retry = false } = {}) {
+  function tune({ autoplay = true, after = null, follow = false, retry = false, at = null } = {}) {
     const st = station;
     clearTimeout(retryTimer);
     retryTimer = 0;
@@ -291,7 +323,10 @@
       url = st.stream;
     } else {
       let live;
-      if (follow && after) {
+      if (at) {
+        // A seek into another part of the same mix (the caller has decided whether that is live).
+        live = { item: at.item, offset: at.offset };
+      } else if (follow && after) {
         // Time-shifted listener: carry on with the next mix from its start instead of jumping to the clock.
         live = { item: followingItem(st, after), offset: 0 };
       } else {
@@ -861,9 +896,9 @@
     const st = station;
     if (!st) return null;
     if (!available(st)) {
-      return { st, title: 'NO SIGNAL', sub: 'OFF AIR · ' + st.name.toUpperCase(), item: null, offset: 0, duration: 0 };
+      return { st, title: 'NO SIGNAL', sub: 'OFF AIR · ' + st.name.toUpperCase(), line: 'No music here yet', item: null, offset: 0, duration: 0 };
     }
-    if (st.stream) return { st, title: st.streamTitle || st.name, sub: 'LIVE STREAM', item: null, offset: 0, duration: 0 };
+    if (st.stream) return { st, title: st.streamTitle || st.name, sub: 'LIVE STREAM', line: 'Live stream', item: null, offset: 0, duration: 0 };
 
     let item, offset;
     const loaded = current && current.st === st && current.item;
@@ -876,15 +911,19 @@
       offset = live.offset;
     }
     const cue = cueAt(item, offset);
+    const span = spanOf(st, item);
     const groups = groupsOf(st);
     const position = groups.findIndex(g => g.includes(st.items.indexOf(item))) + 1;
-    const counter = String(position).padStart(2, '0') + ' / ' + String(groups.length).padStart(2, '0');
+    // "02 / 05" only when there is more than one mix to count.
+    const meta = (groups.length > 1 ? String(position).padStart(2, '0') + ' / ' + String(groups.length).padStart(2, '0') + ' · ' : '') + fmt(span.total);
+    const title = cue ? cue.title : item.title;
+    const artist = cue && cue.artist ? cue.artist : (item.artist || '');
     return {
-      st, item, offset, cue,
-      duration: item.duration,
-      title: cue ? cue.title : item.title,
-      artist: cue && cue.artist ? cue.artist : (item.artist || ''),
-      sub: cue && cue.artist ? cue.artist : (item.artist ? item.artist + ' · ' + counter : counter + ' · ' + fmt(item.duration))
+      st, item, span, cue, title, artist,
+      offset: span.start + offset,           // position in the whole mix
+      duration: span.total,
+      sub: cue && cue.artist ? cue.artist : (item.artist ? item.artist + ' · ' + meta : meta),
+      line: cue ? (cue.artist ? cue.artist + ' — ' + cue.title : cue.title) : (item.artist ? item.artist + ' — ' : '') + item.title + ' · ' + fmt(span.total)
     };
   }
 
@@ -948,11 +987,22 @@
 
   const canSeek = () => !!(wantPlaying && current && current.item && !current.st.stream && audio.readyState >= 1);
 
+  // `time` is a moment of the whole mix; a mix cut into parts switches to the part that holds it.
   function seekTo(time) {
     if (!canSeek()) return;
+    const span = spanOf(current.st, current.item);
+    const to = partAt(span, Math.min(Math.max(0, span.total - 1), time));
+    if (to.item !== current.item) {
+      const live = liveAt(current.st);
+      shifted = !(live && live.item === to.item && Math.abs(live.offset - to.offset) < 4);
+      snapProgress = true;
+      rec('seek to ' + (to.item.file || to.item.url) + ' @' + Math.round(to.offset) + 's');
+      tune({ autoplay: true, at: to });
+      return;
+    }
     const item = current.item;
     const length = Number.isFinite(audio.duration) && audio.duration > 0 ? Math.min(audio.duration, item.duration) : item.duration;
-    const t = Math.max(0, Math.min(Math.max(0, length - 1), time));
+    const t = Math.max(0, Math.min(Math.max(0, length - 1), to.offset));
     audio.dataset.sync = '';
     try { audio.currentTime = t; } catch (e) { return; }
     const live = liveAt(current.st);
@@ -988,12 +1038,13 @@
 
     const timeAt = clientX => {
       const r = rail.getBoundingClientRect();
-      const dur = current.item.duration;
+      const span = spanOf(current.st, current.item);
+      const dur = span.total;
       const ratio = clamp01((clientX - r.left) / (r.width || 1));
       let t = ratio * dur;
       let magnet = null;
       // Track starts attract the thumb a little, with a tick of feedback.
-      (current.item.cues || []).forEach(c => { if (Math.abs(c.at / dur - ratio) * r.width < 7) { t = c.at; magnet = c.at; } });
+      mixCues(span).forEach(c => { if (Math.abs(c.at / dur - ratio) * r.width < 7) { t = c.at; magnet = c.at; } });
       if (magnet !== lastMagnet) { lastMagnet = magnet; if (magnet !== null) feedback('soft'); }
       return t;
     };
@@ -1029,10 +1080,12 @@
       const big = e.shiftKey || e.key === 'PageUp' || e.key === 'PageDown';
       const step = big ? 60 : 10;
       let target = null;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'PageUp') target = audio.currentTime + step;
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'PageDown') target = audio.currentTime - step;
+      const span = spanOf(current.st, current.item);
+      const now = span.start + audio.currentTime;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'PageUp') target = now + step;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'PageDown') target = now - step;
       else if (e.key === 'Home') target = 0;
-      else if (e.key === 'End') target = current.item.duration;
+      else if (e.key === 'End') target = span.total;
       if (target === null) return;
       e.preventDefault();
       e.stopPropagation();
@@ -1107,6 +1160,7 @@
     bind('station', station.name);
     bind('title', np.title);
     bind('sub', np.sub);
+    bind('nowline', np.line);
     bind('channel', 'CH ' + String(idx).padStart(2, '0') + ' / ' + String(stations.length).padStart(2, '0'));
     const lines = station.tagline || [];
     const tag = lines.join('\n');
@@ -1163,8 +1217,8 @@
   // Track starts inside the mix, if the station lists them (cues in stations.json).
   function renderTicks(el, np) {
     const box = el.querySelector('.seek-ticks');
-    const cues = (np.item && np.item.cues) || [];
-    const key = np.item ? np.item.file + '|' + cues.length : '';
+    const cues = np.span ? mixCues(np.span) : [];
+    const key = np.span ? np.span.parts.map(p => p.file || p.url).join('+') + '|' + cues.length : '';
     if (box.dataset.key === key) return;
     box.dataset.key = key;
     box.textContent = '';
@@ -1182,12 +1236,13 @@
     const w = rail.getBoundingClientRect().width;
     if (!w) return;
     tip.querySelector('b').textContent = fmt(offset);
-    const cue = cueAt(np.item, offset);
+    let cue = null;
+    if (np.span) for (const c of mixCues(np.span)) { if (c.at <= offset + 0.5) cue = c; else break; }
     let info = cue && cue.title ? cue.title : '';
-    if (!info) {
+    if (!info && np.span) {
       const live = liveAt(np.st);
-      if (live && live.item === np.item) {
-        const d = offset - live.offset;
+      if (live && np.span.parts.includes(live.item)) {
+        const d = offset - (spanOf(np.st, live.item).start + live.offset);
         info = Math.abs(d) < 4 ? 'Live position' : (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + (d > 0 ? ' ahead of live' : ' behind live');
       }
     }
@@ -1719,6 +1774,22 @@
     set('problemState', lastProblem || 'None');
   }
 
+  /* Station glyphs: one 36×30 box and one stroke weight for all four, so the tiles read as a set. */
+  const GLYPHS = (() => {
+    const svg = body => '<svg viewBox="0 0 36 30" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>';
+    let dots = '';
+    for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) {
+      if (i * i + j * j > 10.5) continue;                       // a round field of dots
+      dots += '<circle cx="' + (18 + i * 4.1).toFixed(1) + '" cy="' + (15 + j * 4.1).toFixed(1) + '" r="1.05" fill="currentColor" stroke="none"/>';
+    }
+    return {
+      grid: svg(dots),
+      wave: svg('<path d="M4 9.5c3-2.4 6-2.4 9 0s6 2.4 9 0 6-2.4 9 0"/><path d="M7 15c3-2.4 6-2.4 9 0s6 2.4 9 0 4.5-1.8 6 0" opacity=".75"/><path d="M4 20.5c3-2.4 6-2.4 9 0s6 2.4 9 0" opacity=".5"/>'),
+      rings: svg('<circle cx="13.5" cy="15" r="9.5"/><circle cx="22.5" cy="15" r="9.5"/>'),
+      tri: svg('<path d="M18 4.5 30.5 26h-25z"/><path d="M18 12.5 24 23h-12z" opacity=".55"/>')
+    };
+  })();
+
   function buildStationButtons() {
     const tiles = $('stationTiles');
     const menu = $('genreMenu');
@@ -1739,6 +1810,8 @@
         b.setAttribute('aria-label', st.name);
         const icon = document.createElement('span');
         icon.className = 'sicon glyph-' + (st.glyph || 'grid');
+        icon.innerHTML = GLYPHS[st.glyph] || GLYPHS.grid;
+        icon.setAttribute('aria-hidden', 'true');
         const name = document.createElement('span');
         name.className = 'slabel';
         label(name, st.name);

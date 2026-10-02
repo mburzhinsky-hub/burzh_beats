@@ -473,6 +473,7 @@ test('app update: waits while Settings are open, switches when they close, and n
 /* ------------------------------------------------------------------- seek */
 
 async function scrubFlow(t, sel, playSel, goLiveSel) {
+  await clickStation(t, 'deep-house'); await sleep(300);           // single-file mixes (cut mixes have their own check)
   await t.p.locator(playSel).click(); await t.live();
   const rail = await (await t.p.$(sel + ' .live-rail')).boundingBox();
   const cy = rail.y + rail.height / 2;
@@ -518,6 +519,7 @@ test('seek slider (landscape): drag, tap, keys, back to live, next mix', t => sc
 test('seek slider (portrait)', t => scrubFlow(t, '.p-live .seek', '.p-controls .play-toggle', '.p-live .golive'), { viewport: PORT });
 
 test('seek slider works with touch, and the first touch on an idle screen only wakes it', async t => {
+  await clickStation(t, 'deep-house'); await sleep(300);
   await t.play(); await t.live();
   const box = await (await t.p.$('.l-live .live-rail')).boundingBox(); const y = box.y + 1;
   const cdp = await t.ctx.newCDPSession(t.p);
@@ -1039,6 +1041,37 @@ test('the parts of one cut mix play back to back and in order, count as one mix,
   const lib = await t.p.evaluate(() => document.getElementById('libraryState').textContent);
   assert.match(lib, /^\d+ mixes · 3 of 4 on air|^\d+ mixes · \d of 4 on air/, lib);
 }, { mutate: partsFixture });
+
+test('a mix cut into parts looks and scrubs as one mix: one title, one length, one rail across the cut', async t => {
+  const st = stationsFile().stations.find(s => s.items.some(i => i.group));
+  assert.ok(st, 'a station with a cut mix');
+  await clickStation(t, st.id);
+  if (!(await t.dbg()).wantPlaying) await t.play();
+  assert.ok(await t.live(), 'plays');
+  const text = () => t.p.evaluate(() => ({
+    title: document.querySelector('.p-meta [data-bind="station"]').textContent,
+    line: document.querySelector('[data-bind="nowline"]').textContent,
+    max: document.querySelector('.p-live .seek').getAttribute('aria-valuemax'),
+    now: +document.querySelector('.p-live .seek').getAttribute('aria-valuenow')
+  }));
+  let x = await text();
+  assert.strictEqual(x.title, st.name);
+  assert.match(x.line, /^Mix 01 · 2:00$/, 'no part number, the length of the whole mix: ' + x.line);   // two 60 s parts in the fixture
+  assert.strictEqual(x.max, '120', 'the rail spans both parts');
+
+  await t.p.evaluate(() => window.BURZH.seekTo(90));                 // into the second part
+  let d = await waitFor(async () => { const v = await t.dbg(); return /part2/.test(v.src) && v.phase === 'live' && !v.paused && v.time > 25 ? v : null; }, 9000);
+  assert.ok(d, 'the second part plays: ' + JSON.stringify(await t.dbg()));
+  near(d.time, 30, 4, 'time inside the second part');
+  x = await text();
+  near(x.now, 91, 4, 'the rail shows the place in the whole mix');
+  assert.match(x.line, /^Mix 01 · 2:00$/);
+
+  await t.p.evaluate(() => window.BURZH.seekTo(10));                 // back into the first part
+  d = await waitFor(async () => { const v = await t.dbg(); return /part1/.test(v.src) && v.phase === 'live' && !v.paused ? v : null; }, 9000);
+  assert.ok(d, 'back in the first part');
+  near(d.time, 10, 4, 'time inside the first part');
+}, { viewport: PORT, touch: true });
 
 test('the schedule of a station without parts is exactly what it always was', async t => {
   // A frozen copy of the original schedule (shuffle of whole mixes, seeded by station and cycle). If this ever differs

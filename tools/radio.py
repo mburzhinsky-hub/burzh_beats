@@ -347,7 +347,7 @@ def build(args: argparse.Namespace) -> None:
                 length = round(probe(out / rel)["duration"], 3)
                 item = {
                     "file": rel,
-                    "title": title if len(files) == 1 else f"{title} · {k + 1}/{len(files)}",
+                    "title": title,                        # the parts of one mix share its title (the player shows them as one)
                     "duration": length,
                     "cues": cues_between(cues, start, start + length) if len(files) > 1 else cues,
                 }

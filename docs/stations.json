@@ -31,14 +31,14 @@
       "items": [
         {
           "file": "future-garage/mix-01-part1.m4a",
-          "title": "Mix 01 · 1/2",
+          "title": "Mix 01",
           "duration": 3888.571,
           "cues": [],
           "group": "mix-01"
         },
         {
           "file": "future-garage/mix-01-part2.m4a",
-          "title": "Mix 01 · 2/2",
+          "title": "Mix 01",
           "duration": 3767.1,
           "cues": [],
           "group": "mix-01"
@@ -73,14 +73,14 @@
       "items": [
         {
           "file": "lofi/mix-01-part1.m4a",
-          "title": "Mix 01 · 1/2",
+          "title": "Mix 01",
           "duration": 3073.737,
           "cues": [],
           "group": "mix-01"
         },
         {
           "file": "lofi/mix-01-part2.m4a",
-          "title": "Mix 01 · 2/2",
+          "title": "Mix 01",
           "duration": 3033.5,
           "cues": [],
           "group": "mix-01"
@@ -148,10 +148,9 @@
       },
       "tempo": 6,
       "tagline": [
-        "A HIGHER",
-        "STATE",
-        "THROUGH",
-        "SOUND"
+        "UPLIFT",
+        "EUPHORIA",
+        "STARLIGHT"
       ],
       "art": "./art/trance.png",
       "items": [
