@@ -156,7 +156,7 @@ test('engine request fails, the plain player takes over and plays (and keeps the
 
 test('engine request hangs: the loader is restarted once, then the plain player takes over', async t => {
   await t.play();
-  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 42000, 300);
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 55000, 300);
   assert.ok(d, 'no playback after a hang: ' + JSON.stringify(await t.dbg()));
   assert.strictEqual(d.fx, false);
   assert.strictEqual(d.fxFails, 1);
@@ -258,12 +258,77 @@ test('a slow server (cold CDN) is waited for: no restart, no engine blame, shapi
 
 test('a stuck first connection while the server is fast: one restart with a fresh connection fixes it', async t => {
   await t.play();
-  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 30000, 300);
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 45000, 300);
   assert.ok(d, 'the restart should have played: ' + JSON.stringify(await t.dbg()));
   assert.strictEqual((await t.srcs()).length, 2, 'exactly one restart: ' + (await t.srcs()).join(' | '));
   assert.strictEqual(d.fx, true, 'one stuck connection is not the engine\'s fault');
   assert.strictEqual(d.fxFails, 0);
 }, { policyFactory: () => { let k = 0; return r => (r.type === 'media' && k++ === 0 ? 'hang' : undefined); }, allowNetworkErrors: true });
+
+test('a load that is slowly working is left alone, even when the server answers probes at once', async t => {
+  const t0 = Date.now();
+  await t.play();
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 40000, 300);
+  assert.ok(d, 'playback should start once the slow first request is answered: ' + JSON.stringify(await t.dbg()));
+  assert.ok(Date.now() - t0 > 13000, 'the scenario should really have been slow');
+  assert.strictEqual((await t.srcs()).length, 1, 'restarting a working load throws its progress away: ' + (await t.srcs()).join(' | '));
+  assert.strictEqual(d.fx, true);
+  assert.strictEqual(d.fxFails, 0);
+}, { policyFactory: () => { let k = 0; return r => (r.type === 'media' ? (k++ === 0 ? { delay: 14000 } : undefined) : undefined); }, allowNetworkErrors: true });
+
+/* ------------------------- the audio system takes the engine away (call, Siri, lock) */
+
+test('engine interrupted: the music is not left silent, no strike, and a tap restores sound shaping', async t => {
+  await t.play();
+  assert.ok(await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && x.fx && x.ctx === 'running' ? x : null; }, 10000), 'engine live first');
+  await t.p.evaluate(async () => { window.__noResume = true; await window.__ctxs[0].suspend(); });
+  const held = await waitFor(async () => { const x = await t.dbg(); return x.fxHeld && !x.fx && x.phase === 'live' && !x.paused ? x : null; }, 16000, 300);
+  assert.ok(held, 'the music should continue on the plain player: ' + JSON.stringify(await t.dbg()));
+  assert.strictEqual(held.fxFails, 0, 'an interruption is not an engine failure');
+  // (read without tapping: any tap would already restore the engine)
+  const st = await t.p.evaluate(() => ({ hint: document.getElementById('soundHint').textContent, disabled: document.querySelector('[data-switch="sound.on"]').disabled }));
+  assert.match(st.hint, /tap the screen/i, st.hint);
+  assert.strictEqual(st.disabled, false, 'the Sound switch stays usable');
+  await t.p.evaluate(() => { window.__noResume = false; });         // the call is over
+  await t.p.mouse.click(8, 8);                                        // any tap
+  const back = await waitFor(async () => { const x = await t.dbg(); return x.fx && !x.fxHeld && x.ctx === 'running' && x.phase === 'live' && !x.paused ? x : null; }, 12000, 300);
+  assert.ok(back, 'a tap should bring the engine back: ' + JSON.stringify(await t.dbg()));
+  assert.strictEqual(back.fxFails, 0);
+  assert.match(await t.p.evaluate(() => window.BURZH.report()), /engine held/);
+}, { audioHooks: true, settings: { sound: { on: true } } });
+
+test('engine interrupted with shaping off: just keeps the music going', async t => {
+  await t.play();
+  assert.ok(await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && x.fx && x.ctx === 'running' ? x : null; }, 10000), 'engine live first');
+  await t.p.evaluate(async () => { window.__noResume = true; await window.__ctxs[0].suspend(); });
+  const held = await waitFor(async () => { const x = await t.dbg(); return !x.fx && x.phase === 'live' && !x.paused ? x : null; }, 16000, 300);
+  assert.ok(held, 'the music should continue on the plain player: ' + JSON.stringify(await t.dbg()));
+  assert.strictEqual(held.fxHeld, false, 'with shaping off there is nothing to restore');
+  assert.strictEqual(held.fxFails, 0);
+}, { audioHooks: true });
+
+/* --------------------------------------------------------- event log */
+
+test('event log: records what happened, survives a relaunch, and the report is complete', async t => {
+  await t.play(); assert.ok(await t.live());
+  await t.p.keyboard.press('Shift'); await sleep(150);
+  await t.play(); await sleep(300);                                   // stop
+  await t.p.reload();
+  assert.ok(await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 8000));
+  await t.openSettings(); await t.p.click('#tab-about'); await sleep(200);
+  await t.p.locator('#logBox summary').scrollIntoViewIfNeeded();
+  await t.p.click('#logBox summary'); await sleep(300);
+  const text = await t.p.textContent('#logView');
+  for (const word of ['launch v', 'play', 'tune ', 'loadstart', 'START ', 'stop', 'warm ']) assert.ok(text.includes(word), `the log should contain "${word}" (from before the relaunch):\n${text}`);
+  assert.ok((text.match(/launch v/g) || []).length >= 2, 'both launches should be in the log');
+  const report = await t.p.evaluate(() => window.BURZH.report());
+  for (const word of ['BURZH beats v', 'device:', 'mode:', 'saved copy:', 'launch:', 'sound:', 'last problem:', '--- events']) assert.ok(report.includes(word), `the report should contain "${word}"`);
+  await t.p.locator('#logCopy').scrollIntoViewIfNeeded();
+  await t.p.click('#logCopy');
+  assert.ok(await waitFor(() => t.p.evaluate(() => /Copied|Could not copy/.test(document.getElementById('logState').textContent)), 4000), 'the copy button should answer');
+  await t.p.click('#logClear'); await sleep(200);
+  assert.strictEqual((await t.p.textContent('#logView')).trim(), '', 'Clear empties the log');
+}, { viewport: PORT });
 
 /* ------------------------------------------------- launch and warm-up */
 
