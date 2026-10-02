@@ -45,7 +45,14 @@
         "GROOVE"
       ],
       "art": "./art/deep-house.png",
-      "items": [],
+      "items": [
+        {
+          "file": "deep-house/mix-01.m4a",
+          "title": "Mix 01",
+          "duration": 4302.866,
+          "cues": []
+        }
+      ],
       "sound": "deep"
     },
     {
