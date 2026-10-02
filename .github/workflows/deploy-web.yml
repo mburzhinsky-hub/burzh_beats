@@ -6,6 +6,7 @@ on:
     paths:
       - 'docs/**'
       - '.github/workflows/deploy-web.yml'
+      - 'tools/live_check.py'
   workflow_dispatch:
 
 permissions:
@@ -22,6 +23,8 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,3 +40,12 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # After every release: ask the live site for the audio exactly like a phone would.
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Live site check (Range requests, CORS, file sizes)
+        run: python3 tools/live_check.py "${{ needs.deploy.outputs.page_url }}"
