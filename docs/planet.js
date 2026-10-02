@@ -245,7 +245,9 @@
         const f = 1 - j / TRAIL;
         const a = Math.pow(f, 1.7) * (isFront ? 0.95 : 0.5);
         if (j === 0) {
-          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R * (0.2 + 0.1 * lv) * size);
+          // (a comet near the edge of the canvas gets a smaller glow, so it fades out instead of being cut off)
+          const gr = Math.max(1, Math.min(R * (0.2 + 0.1 * lv) * size, p.x, W - p.x, p.y, H - p.y));
+          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, gr);
           g.addColorStop(0, accent); g.addColorStop(1, accentClear);
           ctx.globalAlpha = clamp((0.38 + 0.3 * glow) * (isFront ? 1 : 0.6), 0, 1) * vis;
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, R * 0.32 * size, 0, TAU); ctx.fill();
@@ -269,11 +271,18 @@
       ctx.clearRect(0, 0, W, H);
 
       // Atmosphere behind everything.
-      const hr = R * (1.75 + 0.35 * (cur.halo - 1));
-      const halo = ctx.createRadialGradient(cx, cy, R * 0.85, cx, cy, hr);
-      halo.addColorStop(0, accent); halo.addColorStop(1, accentClear);
+      // The glow must be gone before the canvas ends: a glow cut off by the edge shows as a straight line.
+      const edge = Math.min(cx, W - cx, cy, H - cy);
+      const hr = Math.min(R * (1.75 + 0.35 * (cur.halo - 1)), edge);
+      const h0 = Math.min(R * 0.85, hr * 0.6);
+      const hc = accRgb.map(Math.round).join(',');
+      const halo = ctx.createRadialGradient(cx, cy, h0, cx, cy, hr);
+      halo.addColorStop(0, 'rgba(' + hc + ',1)');
+      halo.addColorStop(0.4, 'rgba(' + hc + ',0.5)');
+      halo.addColorStop(0.75, 'rgba(' + hc + ',0.16)');
+      halo.addColorStop(1, 'rgba(' + hc + ',0)');
       ctx.globalAlpha = clamp((0.035 + 0.1 * glow + 0.05 * lv) * pal.haloK * cur.halo, 0, 1);
-      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, hr + R * 0.05, 0, TAU); ctx.fill();
+      ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, hr, 0, TAU); ctx.fill();
       ctx.globalAlpha = 1;
 
       // Stars (and rain, when the station has it).

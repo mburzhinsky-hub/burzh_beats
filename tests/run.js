@@ -768,6 +768,42 @@ test('planet: a kick in the music sends a ring out; nothing without a real signa
   assert.strictEqual(r.calmState, true);
 }, { viewport: PORT, touch: true });
 
+test('planet glow fades out before the edge of its canvas (no straight line on any station, at full music level)', async t => {
+  const r = await t.p.evaluate(async () => {
+    const sleep = ms => new Promise(res => setTimeout(res, ms));
+    const out = [];
+    const stations = window.BURZH.stations();
+    for (const [bw, bh] of [[400, 400], [520, 380], [300, 340]]) {
+      const box = document.createElement('div');
+      box.style.cssText = `position:fixed;left:0;top:0;width:${bw}px;height:${bh}px;z-index:-1`;
+      document.body.appendChild(box);
+      window.__lv = 0.95;
+      const pl = window.BurzhPlanet.create(box, { getLevel: () => window.__lv });
+      pl.setPlaying(true);
+      for (let i = 0; i < stations.length; i++) {
+        pl.setStation(stations[i], i, stations.length, { instant: true });
+        await sleep(700);                                   // glow and level come up
+        const cv = box.querySelector('canvas');
+        const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+        const edges = { left: [], right: [], top: [], bottom: [] };
+        for (let y = 0; y < cv.height; y++) { edges.left.push(d[(y * cv.width) * 4 + 3]); edges.right.push(d[(y * cv.width + cv.width - 1) * 4 + 3]); }
+        for (let x = 0; x < cv.width; x++) { edges.top.push(d[x * 4 + 3]); edges.bottom.push(d[((cv.height - 1) * cv.width + x) * 4 + 3]); }
+        // share of the edge that is visibly tinted (a few stray star pixels are fine, a cut-off glow is a long run)
+        const tinted = a => a.filter(v => v > 3).length / a.length;
+        const glowAtCentre = d[((cv.height >> 1) * cv.width + (cv.width >> 1)) * 4 + 3];
+        out.push({ box: bw + 'x' + bh, id: stations[i].id, left: tinted(edges.left), right: tinted(edges.right), top: tinted(edges.top), bottom: tinted(edges.bottom), centre: glowAtCentre });
+      }
+      pl.destroy(); box.remove();
+    }
+    return out;
+  });
+  assert.strictEqual(r.length, 12);
+  r.forEach(x => {
+    assert.ok(x.centre > 0, `${x.id} ${x.box}: something is drawn`);
+    ['left', 'right', 'top', 'bottom'].forEach(side => assert.ok(x[side] <= 0.1, `${x.id} ${x.box}: the glow reaches the ${side} edge of the canvas along ${Math.round(x[side] * 100)} % of it: it shows as a straight line`));
+  });
+}, { viewport: PORT, touch: true });
+
 /* ------------------------------------------------------- reduce motion */
 
 const motionState = t => t.p.evaluate(() => ({
