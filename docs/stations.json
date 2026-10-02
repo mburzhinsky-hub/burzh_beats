@@ -51,6 +51,12 @@
           "title": "Mix 01",
           "duration": 4302.866,
           "cues": []
+        },
+        {
+          "file": "deep-house/mix-02.m4a",
+          "title": "Mix 02",
+          "duration": 5442.432,
+          "cues": []
         }
       ],
       "sound": "deep"
