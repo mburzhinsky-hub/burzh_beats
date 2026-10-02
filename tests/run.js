@@ -956,6 +956,26 @@ for (const theme of ['black', 'white']) {
   }, { viewport: LAND, settings: { theme }, mutate: lofiOffAir });
 }
 
+for (const [w, h] of [[1000, 462], [932, 430], [667, 375]]) {
+  test(`landscape ${w}x${h}: the planet is centred in the room right of the clock, and the weather line stays under the clock`, async t => {
+    await t.p.evaluate(() => { const el = document.getElementById('weatherWidget'); el.hidden = false; el.querySelector('[data-bind="w-city"]').textContent = 'Gorodskoy Okrug Krasnogorsk Very Long Place'; });
+    await sleep(300);
+    const r = await t.p.evaluate(() => {
+      const c = document.querySelector('.landscape .clock');
+      const right = Math.max(...[...c.children].map(x => x.getBoundingClientRect().right));
+      const pl = document.querySelector('.l-planet').getBoundingClientRect();
+      const meta = document.querySelector('.l-meta').getBoundingClientRect();
+      const tools = document.querySelector('.l-tools').getBoundingClientRect();
+      return { right, left: pl.left, end: pl.right, W: innerWidth, metaRight: meta.right, toolsRight: tools.right };
+    });
+    assert.ok(r.left >= r.right, `the planet starts after the clock (${r.left.toFixed(0)} < ${r.right.toFixed(0)})`);
+    assert.ok(r.left - r.right <= r.W * 0.05, 'and close to it, so it sits in the middle of the free room');
+    assert.ok(r.end >= r.W - 4, 'and reaches the right edge');
+    assert.ok(r.metaRight <= r.right + 2, `the weather line stays under the clock (${r.metaRight.toFixed(0)} > ${r.right.toFixed(0)})`);
+    assert.strictEqual(await t.p.evaluate(() => document.querySelector('[data-bind="w-city"]').scrollWidth > document.querySelector('[data-bind="w-city"]').clientWidth), true, 'a long place name is cut with an ellipsis');
+  }, { viewport: { width: w, height: h } });
+}
+
 /* ----------------------------------------------------- portrait fitting */
 
 for (const [w, h] of [[375, 667], [390, 844], [393, 852], [430, 932], [402, 874], [360, 740], [320, 568]]) {

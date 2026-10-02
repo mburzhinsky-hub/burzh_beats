@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.27.0';
+  const VERSION = '0.27.1';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -1252,6 +1252,25 @@
     tip.style.left = Math.max(half, Math.min(w - half, ratio * w)) + 'px';
   }
 
+  // "Gorodskoy Okrug Krasnogorsk" → "Krasnogorsk": the district word adds length, not information.
+  function cleanPlace(name) {
+    return String(name || '').replace(/^(gorodskoy|munitsipal'?nyy?|urban|municipal)\s+(okrug|district)\s+/i, '').replace(/^(городской|муниципальный)\s+округ\s+/i, '').trim();
+  }
+
+  /* Landscape: the planet is centred in the room right of the clock (the clock's width depends on the screen). */
+  function placeStage() {
+    const scr = document.querySelector('.landscape');
+    const clock = scr && scr.querySelector('.clock');
+    if (!scr || !clock || !isLandscape()) return;
+    const W = scr.clientWidth, left = clock.getBoundingClientRect().left;
+    const right = Math.max(...[...clock.children].map(c => c.getBoundingClientRect().right));   // the digits, not the box
+    const clockW = right - left;
+    if (!(clockW > 0)) return;
+    const stage = Math.round(Math.min(Math.max(left + clockW + W * 0.02, W * 0.4), W * 0.6));
+    scr.style.setProperty('--stage-left', stage + 'px');
+    scr.style.setProperty('--clock-w', Math.round(clockW) + 'px');
+  }
+
   function renderClock() {
     const d = new Date();
     bind('hh', String(d.getHours()).padStart(2, '0'));
@@ -1259,6 +1278,7 @@
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     bind('date', days[d.getDay()] + ' ' + String(d.getDate()).padStart(2, '0') + ' ' + months[d.getMonth()]);
+    placeStage();
   }
 
   /* ------------------------------------------------------------------ */
@@ -1384,6 +1404,9 @@
   }
   if (landscapeQuery.addEventListener) landscapeQuery.addEventListener('change', onOrientation);
   else if (landscapeQuery.addListener) landscapeQuery.addListener(onOrientation);
+  // the planet follows the clock: after a resize, a turn of the phone, and once the dot face has loaded
+  window.addEventListener('resize', () => requestAnimationFrame(placeStage));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeStage);
 
   document.addEventListener('visibilitychange', () => {
     rec('page ' + document.visibilityState);
@@ -1450,7 +1473,7 @@
     const place = ((geo.name || (w && zoneName(w.zone))) || '').toUpperCase();
     bind('w-temp', w ? Math.round(w.temp) + '°' : '--°');
     bind('w-cond', w ? (WMO[w.code] || 'WEATHER') : '');
-    bind('w-city', place);
+    bind('w-city', cleanPlace(place));
     weatherStatus(place ? 'Showing the weather for ' + place.charAt(0) + place.slice(1).toLowerCase() + '.' : 'Showing the weather for your location.');
   }
 
