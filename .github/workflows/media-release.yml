@@ -1,0 +1,36 @@
+name: Media release test
+# Experiment: can GitHub Releases serve the mixes like a phone needs (redirect, Range, CORS, speed)?
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        default: media-test
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish one mix as a release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ inputs.tag }}" >/dev/null 2>&1 || gh release create "${{ inputs.tag }}" --title "Media test" --notes "audio hosting experiment" --prerelease
+          cp docs/media/trance/mix-01.m4a /tmp/trance-mix-01.m4a
+          gh release upload "${{ inputs.tag }}" /tmp/trance-mix-01.m4a --clobber
+      - name: Probe like a phone
+        run: |
+          U="https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}/trance-mix-01.m4a"
+          echo "::notice title=headers (HEAD)::$(curl -sIL -H 'Origin: https://mburzhinsky-hub.github.io' "$U" | tr -d '\r' | grep -i -E '^(HTTP|location|content-length|accept-ranges|access-control|content-type|cache-control|age|x-cache|server)' | tr '\n' '|')"
+          n=0
+          p() { n=$((n+1)); curl -sSL -o /dev/null -D /tmp/h.txt -H "Origin: https://mburzhinsky-hub.github.io" -H "Range: bytes=$1" -w "ttfb=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download} code=%{http_code} redirects=%{num_redirects} final=%{url_effective}" "$U" > /tmp/w.txt; 
+            echo "::notice title=$(printf %02d $n) $2::$(cat /tmp/w.txt | cut -c1-260) | $(grep -i -E '^(content-range|access-control-allow-origin|accept-ranges|x-cache|age):' /tmp/h.txt | tr -d '\r' | tr '\n' ' ')"; }
+          p 0-1 "probe 0-1"
+          p 0-1048575 "moov 1MB"
+          p 28000000-28262143 "middle 256KB"
+          p 14000000-14262143 "quarter"
+          p 0-1 "probe again"
+          p 28000000-28262143 "middle again"
