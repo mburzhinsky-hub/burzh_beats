@@ -54,6 +54,11 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Stamp the release into the service worker
+        # A phone installs an update only when sw.js changes, so every release gets its own id.
+        run: |
+          sed -i "s/^const BUILD = 'dev';/const BUILD = '${GITHUB_SHA::10}';/" docs/sw.js
+          grep -n "^const BUILD = '${GITHUB_SHA::10}';" docs/sw.js
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

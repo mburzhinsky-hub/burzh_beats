@@ -10,6 +10,7 @@ bytes at the start, middle and end are actually served. Exits non-zero on any
 problem, so a broken release shows up red in CI instead of on the listener's phone.
 """
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -62,6 +63,21 @@ def main():
         problems.append("stations.json -> %s" % status)
     elif live != data:
         problems.append("stations.json on the site differs from the repository")
+
+    # The service worker carries the release id: a phone only updates when sw.js changed.
+    sha = (os.environ.get("GITHUB_SHA") or "")[:10]
+    if sha:
+        found = ""
+        for attempt in range(8):
+            status, _, body = fetch(base + "sw.js?nocache=%d" % attempt, origin=False)
+            found = body.decode("utf-8", "replace") if status == 200 else ""
+            if "BUILD = '%s'" % sha in found:
+                break
+            time.sleep(15)  # the CDN may still hold the previous copy
+        ok = "BUILD = '%s'" % sha in found
+        print("sw.js carries release %s: %s" % (sha, "yes" if ok else "NO"))
+        if not ok:
+            problems.append("sw.js on the site does not carry release %s (phones would never update)" % sha)
 
     for st in data["stations"]:
         for item in st.get("items", []):

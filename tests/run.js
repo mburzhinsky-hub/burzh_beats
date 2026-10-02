@@ -10,7 +10,10 @@
  */
 'use strict';
 const assert = require('assert');
-const { startServer, open, closeBrowser, sleep, waitFor } = require('./lib');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { startServer, open, closeBrowser, sleep, waitFor, DOCS } = require('./lib');
 
 const tests = [];
 const test = (name, fn, opts = {}) => tests.push({ name, fn, opts });
@@ -118,35 +121,79 @@ test('a user stop right after starting is respected', async t => {
   assert.strictEqual(d.phase, 'stopped'); assert.strictEqual(d.paused, true);
 });
 
-test('a silent engine falls back to the original sound', async t => {
+/* Sound shaping is a switch the listener controls: whatever goes wrong with the engine, the switch stays usable. */
+const switchUsable = async t => {
+  await t.openSettings();
+  const st = await t.p.evaluate(() => { const b = document.querySelector('[data-switch="sound.on"]'); return { disabled: b.disabled || b.getAttribute('aria-disabled') === 'true', hint: document.getElementById('soundHint').textContent }; });
+  assert.strictEqual(st.disabled, false, 'the Sound switch must stay usable (hint: ' + st.hint + ')');
+  assert.doesNotMatch(st.hint, /not supported/i, 'a failed start is not "not supported": ' + st.hint);
+  return st;
+};
+
+test('a silent engine falls back to the original sound (the switch stays usable)', async t => {
   await t.play();
-  const d = await waitFor(async () => { const x = await t.dbg(); return x.fxBroken ? x : null; }, 20000, 500);
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.fxBroken ? x : null; }, 24000, 400);
   assert.ok(d, 'did not fall back');
   assert.strictEqual(d.fx, false);
   await waitFor(async () => (await t.dbg()).phase === 'live', 6000);
   assert.strictEqual((await t.dbg()).paused, false);
+  await switchUsable(t);
 }, { media: 'silent.ogg' });
 
 /* ------------------------------------------------ never silent: fallbacks */
 
 test('engine request fails, the plain player takes over and plays (and keeps the saved setting)', async t => {
-  await t.p.evaluate(() => { const k = 'burzh.radio.settings.v1'; const s = JSON.parse(localStorage.getItem(k) || '{}'); s.sound = Object.assign({}, s.sound, { on: true }); localStorage.setItem(k, JSON.stringify(s)); });
-  await t.p.reload(); await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 6000); await sleep(400);
   await t.play();
   const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused && x.fxBroken ? x : null; }, 14000);
   assert.ok(d, 'no playback after the engine failed: ' + JSON.stringify(await t.dbg()));
   assert.strictEqual(d.fx, false);
-  assert.match(d.problem, /E\d|no sound|could not start/i, 'problem was not recorded: ' + JSON.stringify(d.problem));
+  assert.strictEqual(d.fxFails, 1, 'one failed start is one strike, not a permanent verdict');
+  assert.match(d.problem, /did not start|E\d|no sound/i, 'problem was not recorded: ' + JSON.stringify(d.problem));
   const saved = await t.p.evaluate(() => JSON.parse(localStorage.getItem('burzh.radio.settings.v1')).sound.on);
   assert.strictEqual(saved, true, 'a fallback must not switch Sound shaping off for the next launch');
-}, { policy: r => (r.fx ? { status: 404 } : undefined), allowNetworkErrors: true });
+  await switchUsable(t);
+}, { policy: r => (r.fx ? { status: 404 } : undefined), allowNetworkErrors: true, settings: { sound: { on: true } } });
 
-test('engine request hangs, playback still starts (stall watchdog)', async t => {
+test('engine request hangs: the loader is restarted once, then the plain player takes over', async t => {
   await t.play();
-  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 34000, 300);
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 42000, 300);
   assert.ok(d, 'no playback after a hang: ' + JSON.stringify(await t.dbg()));
-  assert.strictEqual(d.fxBroken, true);
+  assert.strictEqual(d.fx, false);
+  assert.strictEqual(d.fxFails, 1);
+  assert.ok((await t.srcs()).length >= 3, 'expected engine, one restart, then plain: ' + (await t.srcs()).join(' | '));
+  await switchUsable(t);
 }, { policy: r => (r.fx && r.type === 'media' ? 'hang' : undefined), allowNetworkErrors: true });
+
+test('a failed engine is retried at the next Play and recovers; two strikes park it until the switch is toggled', async t => {
+  await t.play();
+  assert.ok(await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && x.fxFails === 1 && !x.fx ? x : null; }, 14000), 'first strike: plain playback expected');
+  await t.play(); await sleep(400);                                   // stop
+  await sleep(Math.max(0, 7000 - (Date.now() - t.opened)));           // the engine starts working again
+  await t.play();
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused && x.fx ? x : null; }, 12000);
+  assert.ok(d, 'the engine should be tried again at the next Play: ' + JSON.stringify(await t.dbg()));
+  assert.strictEqual(d.fxFails, 0, 'a successful engine start clears the strikes');
+}, { policyFactory: () => r => (r.fx && r.ms < 7000 ? { status: 404 } : undefined), allowNetworkErrors: true });
+
+test('two failed starts park the engine; toggling the Sound switch gives it a fresh start', async t => {
+  for (let i = 0; i < 2; i++) {
+    await t.play();
+    assert.ok(await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && x.fxFails === i + 1 ? x : null; }, 14000), 'strike ' + (i + 1));
+    await t.play(); await sleep(400);
+  }
+  const engineAsks = () => t.log.filter(l => l.type === 'media' && l.fx).length;
+  const before = engineAsks();
+  await t.play(); assert.ok(await t.live(10000), 'plain playback while parked');
+  assert.strictEqual((await t.dbg()).fx, false, 'a parked engine is not tried again');
+  assert.strictEqual(engineAsks(), before, 'a parked engine must not be requested');
+  const st = await switchUsable(t);
+  assert.match(st.hint, /Paused|switch off and on/i, st.hint);
+  await t.p.keyboard.press('Escape'); await sleep(300);
+  await t.play(); await sleep(400);                                    // stop, then toggle the switch
+  await t.openSettings();
+  await t.p.click('[data-switch="sound.on"]'); await sleep(300);
+  assert.strictEqual((await t.dbg()).fxFails, 0, 'toggling the switch clears the strikes');
+}, { policy: r => (r.fx ? { status: 404 } : undefined), allowNetworkErrors: true, settings: { sound: { on: true } } });
 
 test('ladder: engine, plain, then no #t fragment', async t => {
   await t.play();
@@ -159,15 +206,202 @@ test('ladder: engine, plain, then no #t fragment', async t => {
   near(d.time, live, 5, 'position should still match the live clock');
 }, { policy: r => (r.n <= 2 ? { status: 404 } : undefined), allowNetworkErrors: true });
 
-test('everything fails: says why, retries calmly, no crash', async t => {
-  await t.play(); await sleep(11000);
+test('everything fails: says why, retries calmly, never blames the engine', async t => {
+  await t.play();
+  assert.ok(await waitFor(async () => (await t.dbg()).phase === 'lost', 10000), 'should end up in "lost": ' + JSON.stringify(await t.dbg()));
+  await sleep(3000);
   const d = await t.dbg();
-  assert.strictEqual(d.phase, 'lost');
   assert.match(d.problem, /E\d|NotSupported|play\(\)/, 'media error missing in the diagnosis');
   await waitFor(async () => /HTTP 404/.test((await t.dbg()).problem), 4000);
   assert.match((await t.dbg()).problem, /HTTP 404/, 'server answer missing in the diagnosis');
-  assert.ok((await t.srcs()).length <= 10, 'too many retries');
+  assert.ok((await t.srcs()).length <= 10, 'too many retries: ' + (await t.srcs()).length);
+  assert.strictEqual(d.fxFails, 0, 'a dead server says nothing about the sound engine');
+  assert.strictEqual(d.fxBroken, false);
+  await switchUsable(t);
 }, { policy: () => ({ status: 404 }), allowNetworkErrors: true });
+
+/* ------------------------------------------- loading: slow is not broken */
+
+test('no connection: says so, keeps the engine, and starts by itself when the connection returns', async t => {
+  await t.play();
+  assert.ok(await waitFor(async () => (await t.dbg()).phase === 'lost', 12000), 'should report a lost signal');
+  let d = await t.dbg();
+  assert.strictEqual(d.fxFails, 0, 'no connection is not an engine failure');
+  await switchUsable(t);
+  await t.p.keyboard.press('Escape'); await sleep(300);
+  d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 30000, 400);
+  assert.ok(d, 'playback should resume when the connection is back: ' + JSON.stringify(await t.dbg()));
+  assert.strictEqual(d.fx, true, 'shaping must still be on after an outage');
+  assert.strictEqual(d.fxFails, 0);
+}, { policyFactory: () => r => (r.ms < 12000 ? 'abort' : undefined), allowNetworkErrors: true });
+
+test('the server stops answering while the player waits: the watchdog says so instead of blaming the engine', async t => {
+  await t.play();
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'lost' ? x : null; }, 30000, 400);
+  assert.ok(d, 'should give up waiting: ' + JSON.stringify(await t.dbg()));
+  assert.match(d.problem, /server did not answer/i, d.problem);
+  assert.strictEqual(d.fxFails, 0);
+}, { policy: r => (r.type === 'media' ? 'hang' : 'abort'), allowNetworkErrors: true });
+
+test('a slow server (cold CDN) is waited for: no restart, no engine blame, shaping stays on', async t => {
+  const t0 = Date.now();
+  await t.play();
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 45000, 300);
+  assert.ok(d, 'playback should start once the slow server answers: ' + JSON.stringify(await t.dbg()));
+  assert.ok(Date.now() - t0 > 11000, 'the scenario should really have been slow');
+  assert.strictEqual((await t.srcs()).length, 1, 'a slow load must not be restarted: ' + (await t.srcs()).join(' | '));
+  assert.strictEqual(d.fx, true);
+  assert.strictEqual(d.fxFails, 0);
+  assert.ok(!d.problem, 'a slow start is not a problem: ' + d.problem);
+  assert.match(await t.p.evaluate(() => document.getElementById('startState').textContent), /^engine · \d+\.\d s/);
+}, { policyFactory: () => { let k = 0; return r => (r.type === 'media' ? (k++ === 0 ? { delay: 12000 } : undefined) : r.ms > 2000 ? { delay: 4000 } : undefined); }, allowNetworkErrors: true });
+
+test('a stuck first connection while the server is fast: one restart with a fresh connection fixes it', async t => {
+  await t.play();
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 30000, 300);
+  assert.ok(d, 'the restart should have played: ' + JSON.stringify(await t.dbg()));
+  assert.strictEqual((await t.srcs()).length, 2, 'exactly one restart: ' + (await t.srcs()).join(' | '));
+  assert.strictEqual(d.fx, true, 'one stuck connection is not the engine\'s fault');
+  assert.strictEqual(d.fxFails, 0);
+}, { policyFactory: () => { let k = 0; return r => (r.type === 'media' && k++ === 0 ? 'hang' : undefined); }, allowNetworkErrors: true });
+
+/* ------------------------------------------------- launch and warm-up */
+
+test('warm-up: the live mix gets a tiny range request at launch, once, and the next one before it is needed', async t => {
+  const live = await t.p.evaluate(() => { const s = window.BURZH.stations().find(x => x.id === window.BURZH.debug().station); const l = window.BURZH.liveAt(s.id); return { item: l.item.file, next: l.next && l.next.file, remaining: l.remaining }; });
+  const warm = () => t.log.filter(l => l.type === 'fetch' && l.range === 'bytes=0-1');
+  assert.ok(await waitFor(async () => warm().some(l => l.url.endsWith(live.item)), 3000), 'the live mix was not warmed up: ' + JSON.stringify(t.log.map(l => l.url.split('/media/')[1] + ' ' + l.range)));
+  const n = warm().filter(l => l.url.endsWith(live.item)).length;
+  await t.p.locator('button[data-station]:visible').last().click(); await sleep(300);
+  await t.p.locator(`button[data-station="${await t.p.evaluate(() => window.BURZH.debug().station)}"]:visible`).first().click(); await sleep(300);
+  assert.strictEqual(warm().filter(l => l.url.endsWith(live.item)).length, n, 'warming must not repeat within minutes');
+  if (live.next && live.next !== live.item) assert.ok(warm().some(l => l.url.endsWith(live.next)), 'the next mix should be warmed up too');
+});
+
+test('launch from the saved station list is instant even when the network is slow', async t => {
+  assert.ok(await t.p.evaluate(() => !!localStorage.getItem('burzh.radio.data.v1')), 'the station list should be saved after the first launch');
+  t.net.stationsDelay = 7000;
+  const t0 = Date.now();
+  await t.p.reload();
+  const ok = await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 6000, 100);
+  assert.ok(ok, 'the app should open from the saved list');
+  assert.ok(Date.now() - t0 < 3500, 'opened in ' + (Date.now() - t0) + ' ms');
+  assert.match(await t.p.evaluate(() => document.getElementById('launchState').textContent), /saved list/);
+  await t.play();
+  assert.ok(await t.live(10000), 'playback from the saved list');
+});
+
+test('Settings → About: start time, launch, connection test and Refresh app', async t => {
+  await t.play(); assert.ok(await t.live());
+  await t.openSettings(); await t.p.click('#tab-about'); await sleep(200);
+  assert.match(await t.p.textContent('#startState'), /^(engine|plain) · \d+\.\d s/);
+  assert.match(await t.p.textContent('#launchState'), /^\d+\.\d s · (saved list|first load)$/);
+  await t.p.locator('#netBtn').scrollIntoViewIfNeeded();
+  await t.p.click('#netBtn');
+  assert.ok(await waitFor(() => t.p.evaluate(() => /first byte [\d.]+ s · 1 MB in/.test(document.getElementById('netState').textContent)), 8000), 'connection test result: ' + await t.p.textContent('#netState'));
+  const box = await t.p.evaluate(() => { const r = ['netBtn', 'refreshBtn'].map(id => document.getElementById(id).getBoundingClientRect()); return { w: innerWidth, r: r.map(x => [x.left, x.right]), sw: document.querySelector('.sheet-body').scrollWidth, cw: document.querySelector('.sheet-body').clientWidth }; });
+  box.r.forEach(([l, r]) => assert.ok(l >= 0 && r <= box.w, 'About buttons outside the screen: ' + JSON.stringify(box)));
+  assert.ok(box.sw <= box.cw + 1, 'About must not scroll sideways: ' + JSON.stringify(box));
+  await t.p.click('#refreshBtn');
+  assert.ok(await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length) && /first load/.test(document.getElementById('launchState').textContent)).catch(() => false), 10000), 'the app should come back after a refresh, without the saved list: ' + await t.p.textContent('#launchState').catch(() => '?'));
+}, { viewport: PORT });
+
+/* ---------------------------------------------------- service worker */
+
+// The app opens from a copy saved on the device. These tests run a copy of docs/ (without the audio) on a
+// throw-away server, with the service worker switched on.
+const copyDocs = build => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'burzh-sw-'));
+  fs.cpSync(DOCS, dir, { recursive: true, filter: src => path.basename(src) !== 'media' });
+  setBuild(dir, build);
+  return dir;
+};
+const setBuild = (dir, build) => {
+  const f = path.join(dir, 'sw.js');
+  fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/^const BUILD = '[^']*';/m, `const BUILD = '${build}';`));
+};
+const swState = page => page.evaluate(async () => {
+  const reg = await navigator.serviceWorker.getRegistration();
+  const keys = await caches.keys();
+  const files = keys.length ? (await (await caches.open(keys[0])).keys()).length : 0;
+  return { active: !!(reg && reg.active), controlled: !!navigator.serviceWorker.controller, keys, files };
+}).catch(() => null);
+
+test('service worker list: every saved file exists, every file the page loads is saved, the release id can be stamped', async () => {
+  const sw = fs.readFileSync(path.join(DOCS, 'sw.js'), 'utf8');
+  assert.match(sw, /^const BUILD = 'dev';/m, "deploy-web.yml stamps the release into the line `const BUILD = 'dev';`");
+  const shell = [...sw.slice(sw.indexOf('const SHELL'), sw.indexOf('];')).matchAll(/'\.\/([^']*)'/g)].map(m => m[1]).filter(Boolean);
+  shell.forEach(f => assert.ok(fs.existsSync(path.join(DOCS, f)), `sw.js lists ${f}, which does not exist (the whole install would fail)`));
+  const html = fs.readFileSync(path.join(DOCS, 'index.html'), 'utf8');
+  [...html.matchAll(/(?:src|href)="\.\/([^"#?]+)"/g)].map(m => m[1]).forEach(f => assert.ok(shell.includes(f), `index.html loads ${f}, but sw.js does not save it`));
+  fs.readdirSync(path.join(DOCS, 'art')).filter(f => /\.png$/.test(f)).forEach(f => assert.ok(shell.includes('art/' + f), `art/${f} is not saved by sw.js`));
+  assert.ok(shell.includes('stations.json') && shell.includes('app.js'));
+});
+
+test('service worker: saves the whole app, removes older copies, then opens with no network at all', async t => {
+  const dir = copyDocs('b1'), srv = await startServer(dir);
+  try {
+    // An older release left a copy behind: it must be gone once the new one is active.
+    await t.p.addInitScript(() => { try { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); caches.open('burzh-radio-old').then(c => c.put('/old', new Response('old'))); } } catch (e) { /* ignore */ } });
+    await t.p.goto(srv.url);
+    const st = await waitFor(async () => { const s = await swState(t.p); return s && s.active && s.controlled && s.files >= 21 && s.keys.length === 1 ? s : null; }, 12000, 300);
+    assert.ok(st, 'the service worker should install and take over: ' + JSON.stringify(await swState(t.p)));
+    assert.deepStrictEqual(st.keys, ['burzh-radio-b1'], 'older copies must be deleted');
+    srv.close();                                              // the network is gone
+    await t.p.reload();
+    assert.ok(await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 8000), 'the app should open from the saved copy');
+    assert.match(await t.p.evaluate(() => document.getElementById('versionState').textContent), /^v\d/);
+  } finally { srv.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+}, { sw: true });
+
+test('service worker: a release that cannot be saved completely is not installed (nothing half-saved, the app still runs)', async t => {
+  const dir = copyDocs('b1'), srv = await startServer(dir);
+  try {
+    fs.rmSync(path.join(dir, 'art', 'lofi.png'));             // one file of the release is missing
+    await t.p.goto(srv.url);
+    await sleep(3500);
+    const st = await swState(t.p);
+    assert.deepStrictEqual(st.keys, [], 'no half-saved copy may be left behind: ' + JSON.stringify(st));
+    assert.strictEqual(st.controlled, false);
+    assert.ok(await t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 'without a saved copy the app still loads from the network');
+  } finally { srv.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+}, { sw: true });
+
+/* ------------------------------------------------------ app updates */
+
+// A new release is saved in the background. The page switches to it only when that costs nothing:
+// not while music plays, not while Settings are open. (Chromium delays real update checks by a minute after
+// a registration, so the "new copy took control" signal is sent by hand; the service worker side is above.)
+const newReleaseReady = page => page.evaluate(() => {
+  window.__stay = 1;
+  navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));   // the first one only marks the first install
+  navigator.serviceWorker.dispatchEvent(new Event('controllerchange'));
+});
+const reloaded = async (t, ms) => waitFor(async () => (await t.p.evaluate(() => window.__stay).catch(() => 'reloading')) === undefined, ms, 250);
+
+test('app update: waits while music plays, switches when it is stopped', async t => {
+  await t.play(); assert.ok(await t.live());
+  await newReleaseReady(t.p);
+  await sleep(1800);
+  assert.strictEqual(await t.p.evaluate(() => window.__stay), 1, 'the page must not reload while music plays');
+  assert.strictEqual((await t.dbg()).phase, 'live');
+  await t.play();                                           // stop
+  assert.ok(await reloaded(t, 6000), 'the page should switch to the new release once the music stops');
+  assert.ok(await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)).catch(() => false), 8000), 'the new page should start');
+});
+
+test('app update: waits while Settings are open, switches when they close, and never reloads in a loop', async t => {
+  await t.openSettings();
+  await newReleaseReady(t.p);
+  await sleep(1800);
+  assert.strictEqual(await t.p.evaluate(() => window.__stay), 1, 'the page must not reload while Settings are open');
+  await t.p.keyboard.press('Escape');
+  assert.ok(await reloaded(t, 6000), 'the page should switch once Settings close');
+  assert.ok(await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)).catch(() => false), 8000));
+  await newReleaseReady(t.p);                               // another "new release" right away: no second reload within 30 s
+  await sleep(1500);
+  assert.strictEqual(await t.p.evaluate(() => window.__stay), 1, 'two reloads in a row are a loop');
+});
 
 /* ------------------------------------------------------------------- seek */
 

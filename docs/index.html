@@ -311,7 +311,9 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
 .list-row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--row-line);font:400 14px/1.3 var(--mono)}
 .list-row span:last-child{color:var(--hint);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
 .list-row .live{color:var(--accent)}
-#problemState{max-width:62%;text-align:right;word-break:break-word;text-transform:none!important;letter-spacing:.02em!important}
+#problemState,.list-row .free{max-width:62%;text-align:right;word-break:break-word;text-transform:none!important;letter-spacing:.02em!important}
+.btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.btn-row .btn{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 
 @media(orientation:landscape) and (min-width:760px){
   .sheet{width:min(940px,100%)}
@@ -504,6 +506,13 @@ input[type=range]:focus-visible{outline:2px solid var(--fg);outline-offset:2px;b
         <div class="list-row"><span>Library</span><span id="libraryState">-</span></div>
         <div class="list-row"><span>Sound engine</span><span id="engineState">-</span></div>
         <div class="list-row"><span>Last playback problem</span><span id="problemState">None</span></div>
+        <div class="list-row"><span>Last start</span><span id="startState" class="free">-</span></div>
+        <div class="list-row"><span>App launch</span><span id="launchState" class="free">-</span></div>
+        <div class="list-row"><span>Connection</span><span id="netState" class="free">Not tested</span></div>
+        <div class="btn-row">
+          <button class="btn" id="netBtn" type="button">Test connection</button>
+          <button class="btn" id="refreshBtn" type="button">Refresh app</button>
+        </div>
       </div>
     </div>
   </section>
