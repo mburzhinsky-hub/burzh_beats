@@ -1,0 +1,30 @@
+name: Probe media delivery
+# Manual diagnostic: how fast does GitHub Pages serve the mixes the way a phone asks for them?
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Range timing and CDN headers
+        run: |
+          BASE="https://mburzhinsky-hub.github.io/burzh_beats/media"
+          probe() { # url range label
+            curl -sS -o /dev/null -D /tmp/h.txt -H "Range: bytes=$2" \
+              -w "%{http_code} ttfb=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download} speed=%{speed_download}B/s connect=%{time_connect}s tls=%{time_appconnect}s" "$1" > /tmp/w.txt || echo "curl failed" > /tmp/w.txt
+            H=$(grep -i -E '^(x-cache|age|x-served-by|cache-control|via|x-timer|accept-ranges|content-range|etag|server):' /tmp/h.txt | tr -d '\r' | tr '\n' ' ')
+            echo "::notice title=$3::$(cat /tmp/w.txt) | $H"
+          }
+          for f in deep-house/mix-02.m4a deep-house/mix-01.m4a trance/mix-01.m4a; do
+            U="$BASE/$f"
+            SIZE=$(curl -sI "$U" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}')
+            MID=$((SIZE/2))
+            for round in 1 2; do
+              probe "$U" "0-1" "$f r$round probe 0-1"
+              probe "$U" "0-1048575" "$f r$round moov 1MB"
+              probe "$U" "$MID-$((MID+1048575))" "$f r$round middle 1MB"
+              probe "$U" "$((SIZE-1048576))-$((SIZE-1))" "$f r$round tail 1MB"
+            done
+          done
+          echo "::notice title=static page::$(curl -sS -o /dev/null -w 'ttfb=%{time_starttransfer}s total=%{time_total}s' https://mburzhinsky-hub.github.io/burzh_beats/app.js)"
