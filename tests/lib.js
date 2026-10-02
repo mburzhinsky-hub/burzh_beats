@@ -69,6 +69,11 @@ async function open(server, opts = {}) {
   const errs = [];
   p.on('pageerror', e => errs.push('pageerror: ' + e.message));
   p.on('console', m => { if (m.type() === 'error' && !(opts.allowNetworkErrors && /Failed to load resource|net::ERR|MEDIA_ELEMENT/.test(m.text()))) errs.push('console: ' + m.text()); });
+  if (opts.settings) {
+    // Seed saved settings before the page starts (only when nothing is saved yet, so reloads keep what a test changed).
+    await p.addInitScript(([key, value]) => { try { if (!localStorage.getItem(key)) localStorage.setItem(key, value); } catch (e) { /* ignore */ } },
+      ['burzh.radio.settings.v1', JSON.stringify(Object.assign({ v: 2 }, opts.settings))]);
+  }
   await p.addInitScript(() => {
     window.__srcSets = [];
     const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');

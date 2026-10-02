@@ -32,7 +32,15 @@
     function draw() {
       if (!W || !H) { resize(); if (!W) return; }
       const params = opts.getParams();
-      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff3b30';
+      const pal = window.BurzhTheme ? window.BurzhTheme.read() : null;
+      const accent = pal ? pal.accent : '#ff3b30';
+      const ink = pal ? pal.ink : [241, 241, 236];
+      const mute = pal ? pal.eqMuted : [139, 140, 134];
+      const acc = pal ? pal.accentRgb : [255, 59, 48];
+      const handle = pal ? pal.eqHandle : '#070808';
+      const core = pal ? pal.core : '#fff4f0';
+      const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+      const inkSolid = rgba(ink, 1);
       ctx.clearRect(0, 0, W, H);
       ctx.font = '10px "IBM Plex Mono", monospace';
       ctx.textBaseline = 'alphabetic';
@@ -40,11 +48,11 @@
       // Grid.
       [-EQ_RANGE, -EQ_RANGE / 2, 0, EQ_RANGE / 2, EQ_RANGE].forEach(db => {
         const y = dy(db);
-        ctx.strokeStyle = db === 0 ? 'rgba(241,241,236,.22)' : 'rgba(241,241,236,.07)';
+        ctx.strokeStyle = db === 0 ? rgba(ink, .22) : rgba(ink, .07);
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(PAD - 6, y + .5); ctx.lineTo(W - PAD + 6, y + .5); ctx.stroke();
       });
-      ctx.fillStyle = 'rgba(139,140,134,.8)';
+      ctx.fillStyle = rgba(mute, .8);
       ctx.textAlign = 'left';
       ctx.fillText('+' + EQ_RANGE, 6, dy(EQ_RANGE) - 3);
       ctx.fillText('−' + EQ_RANGE, 6, dy(-EQ_RANGE) + 11);
@@ -57,7 +65,7 @@
         for (let i = 0; i < BARS; i++) {
           smooth[i] += (spec[i] - smooth[i]) * (spec[i] > smooth[i] ? 0.6 : 0.18);
           const h = Math.pow(smooth[i] / 255, 1.5) * plotH() * 0.95;
-          ctx.fillStyle = 'rgba(255,59,48,' + (0.1 + 0.2 * smooth[i] / 255).toFixed(3) + ')';
+          ctx.fillStyle = rgba(acc, (0.1 + 0.2 * smooth[i] / 255).toFixed(3));
           ctx.fillRect(PAD + i * bw + 0.5, base - h, Math.max(1, bw - 1.5), h);
         }
       } else { smooth.fill(0); }
@@ -66,9 +74,9 @@
       ctx.textAlign = 'center';
       BANDS.forEach((b, i) => {
         const x = fx(b.f);
-        ctx.strokeStyle = 'rgba(241,241,236,.06)';
+        ctx.strokeStyle = rgba(ink, .06);
         ctx.beginPath(); ctx.moveTo(x + .5, TOP); ctx.lineTo(x + .5, H - BOTTOM); ctx.stroke();
-        ctx.fillStyle = i === drag ? '#f1f1ec' : 'rgba(139,140,134,.9)';
+        ctx.fillStyle = i === drag ? inkSolid : rgba(mute, .9);
         ctx.fillText(b.label, x, H - 8);
       });
 
@@ -76,25 +84,25 @@
       const db = opts.engine.curve(curveFreqs);
       ctx.beginPath();
       curveFreqs.forEach((f, i) => { const x = fx(f), y = dy(clamp(db[i], -EQ_RANGE * 1.4, EQ_RANGE * 1.4)); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-      ctx.strokeStyle = '#f1f1ec'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.strokeStyle = inkSolid; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
       ctx.lineTo(fx(FMAX), dy(0)); ctx.lineTo(fx(FMIN), dy(0)); ctx.closePath();
-      ctx.fillStyle = 'rgba(241,241,236,.06)'; ctx.fill();
+      ctx.fillStyle = rgba(ink, .06); ctx.fill();
 
       // Handles.
       BANDS.forEach((b, i) => {
         const x = fx(b.f), y = dy(params.bands[i] || 0), on = i === drag;
         if (on) {
           const g = ctx.createRadialGradient(x, y, 0, x, y, 26);
-          g.addColorStop(0, 'rgba(255,59,48,.45)'); g.addColorStop(1, 'rgba(255,59,48,0)');
+          g.addColorStop(0, rgba(acc, .45)); g.addColorStop(1, rgba(acc, 0));
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 26, 0, Math.PI * 2); ctx.fill();
         }
         ctx.beginPath(); ctx.arc(x, y, on ? 9 : 7, 0, Math.PI * 2);
-        ctx.fillStyle = on ? accent : '#070808'; ctx.fill();
-        ctx.lineWidth = 2; ctx.strokeStyle = on ? '#fff4f0' : '#f1f1ec'; ctx.stroke();
+        ctx.fillStyle = on ? accent : handle; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = on ? core : inkSolid; ctx.stroke();
         if (on) {
           const v = params.bands[i] || 0;
           const label = (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' dB';
-          ctx.fillStyle = '#f1f1ec'; ctx.textAlign = 'center';
+          ctx.fillStyle = inkSolid; ctx.textAlign = 'center';
           ctx.fillText(label, clamp(x, 28, W - 28), y < TOP + 26 ? y + 24 : y - 16);
         }
       });
@@ -131,6 +139,7 @@
       raf = setTimeout(() => requestAnimationFrame(loop), 33);
     }
     if ('ResizeObserver' in window) new ResizeObserver(() => { resize(); draw(); }).observe(canvas);
+    if (window.BurzhTheme) window.BurzhTheme.onChange(() => draw());
 
     return {
       draw,

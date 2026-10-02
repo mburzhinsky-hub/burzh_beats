@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.22.2';
+  const VERSION = '0.23.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -34,10 +34,13 @@
   // v0.20 asked for a typed city; weather now works from the device location.
   if (!storedSettings.geo) storedSettings.weather = false;
   delete storedSettings.city;
+  // v0.23: the Graphite background became White.
+  if (storedSettings.theme === 'graphite') storedSettings.theme = 'white';
   const settings = Object.assign(
     { v: 2, keepAwake: true, night: 'off', theme: 'black', weather: false, geo: null, sound: {} },
     storedSettings
   );
+  if (settings.theme !== 'white') settings.theme = 'black';
   settings.sound = Object.assign({ on: false, preset: 'auto', custom: null }, settings.sound || {});
   const saveSettings = () => store.set(KEYS.settings, settings);
 
@@ -760,7 +763,7 @@
   function applyStationTheme() {
     if (!station) return;
     const root = document.documentElement.style;
-    root.setProperty('--accent', station.accent || '#ff3b30');
+    applyAccent();
     root.setProperty('--orbit', (station.tempo || 11) + 's');
     document.documentElement.dataset.current = station.id;
     const idx = stations.indexOf(station);
@@ -963,13 +966,30 @@
     const h = new Date().getHours();
     return h >= NIGHT_FROM || h < NIGHT_TO;
   }
+  // Night mode always uses the black palette, whatever background is chosen.
+  const THEME_COLOR = { black: '#050606', white: '#F1F1EE', night: '#000000' };
+  const onPaper = () => settings.theme === 'white' && !isNight();
+  // The station's accent, as shown on the current background. On paper it is a touch deeper
+  // (20 % towards black) so small red text and thin red lines keep their contrast.
+  function accentFor(hex) {
+    const base = /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : '#ff3b30';
+    if (!onPaper()) return base;
+    const k = 0.8, ch = i => Math.round(parseInt(base.slice(1 + i * 2, 3 + i * 2), 16) * k).toString(16).padStart(2, '0');
+    return '#' + ch(0) + ch(1) + ch(2);
+  }
+  function applyAccent() {
+    document.documentElement.style.setProperty('--accent', accentFor(station && station.accent));
+    if (window.BurzhTheme) window.BurzhTheme.refresh();   // canvases pick the new colours up on their next frame
+  }
   function applyNight() {
-    document.documentElement.classList.toggle('night', isNight());
+    const night = isNight();
+    document.documentElement.classList.toggle('night', night);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = isNight() ? '#000000' : (settings.theme === 'graphite' ? '#17191a' : '#050606');
+    if (meta) meta.content = night ? THEME_COLOR.night : (THEME_COLOR[settings.theme] || THEME_COLOR.black);
+    applyAccent();
   }
   function applyTheme() {
-    document.documentElement.classList.toggle('theme-graphite', settings.theme === 'graphite');
+    document.documentElement.classList.toggle('theme-white', settings.theme === 'white');
     applyNight();
   }
 

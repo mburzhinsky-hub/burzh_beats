@@ -49,11 +49,21 @@
   const STAR_COUNT = 46;
   const BEACON_LAT = [0.34, -0.28, 0.12, -0.5];
 
-  const bucketColor = Array.from({ length: BUCKETS }, (_, b) => {
+  // Used only if theme.js is missing: the original Black palette.
+  const FALLBACK = {
+    accent: '#ff3b30', accentRgb: [255, 59, 48], core: '#fff4f0',
+    planetDim: [64, 64, 60], planetLit: [255, 255, 251], planetA0: 0.22, planetA1: 1,
+    star: [215, 216, 210], starK: 1, trackFront: 'rgba(236,237,231,.5)', trackBack: 'rgba(205,207,202,.18)',
+    beacon: 'rgba(236,237,231,.8)', haloK: 1
+  };
+  const readPalette = () => (window.BurzhTheme ? window.BurzhTheme.read() : FALLBACK);
+  // Dot colour runs from "dim" (shadow side) to "lit" (towards the light), growing more opaque on the way.
+  const bucketsFor = p => Array.from({ length: BUCKETS }, (_, b) => {
     const i = (b + 0.5) / BUCKETS;
-    const v = Math.round(64 + 191 * i);
-    return 'rgba(' + v + ',' + v + ',' + (v - 4) + ',' + (0.22 + 0.78 * i).toFixed(3) + ')';
+    const c = p.planetDim.map((d, k) => Math.round(d + (p.planetLit[k] - d) * i));
+    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (p.planetA0 + (p.planetA1 - p.planetA0) * i).toFixed(3) + ')';
   });
+  const clear = c => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0)';
 
   function create(box, opts = {}) {
     const canvas = document.createElement('canvas');
@@ -65,7 +75,10 @@
 
     let W = 0, H = 0, dpr = 1, cx = 0, cy = 0, S = 0, R = 0, Ro = 0;
     let pts = null;               // { n, x, y, z, land, h }
-    let seed = 1, accent = '#ff3b30';
+    let seed = 1;
+    let pal = readPalette(), accent = pal.accent, accentClear = clear(pal.accentRgb), bucketColor = bucketsFor(pal);
+    const applyPalette = p => { pal = p; accent = p.accent; accentClear = clear(p.accentRgb); bucketColor = bucketsFor(p); };
+    if (window.BurzhTheme) window.BurzhTheme.onChange(applyPalette);
     let stationIndex = 0, stationCount = 4, period = 14;
     let playing = false;
     let spin = 0.6, omega = 0.035, seek = null;
@@ -135,7 +148,7 @@
         const isFront = p.z > 0;
         if (isFront !== front) continue;
         if (!isFront && inDisc(p)) continue;
-        ctx.fillStyle = isFront ? 'rgba(236,237,231,.5)' : 'rgba(205,207,202,.18)';
+        ctx.fillStyle = isFront ? pal.trackFront : pal.trackBack;
         ctx.beginPath(); ctx.arc(p.x, p.y, isFront ? 1.25 : 1, 0, TAU); ctx.fill();
       }
     }
@@ -151,12 +164,12 @@
         const a = Math.pow(f, 1.7) * (isFront ? 0.95 : 0.5);
         if (j === 0) {
           const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R * (0.2 + 0.1 * level));
-          g.addColorStop(0, accent); g.addColorStop(1, 'rgba(0,0,0,0)');
+          g.addColorStop(0, accent); g.addColorStop(1, accentClear);
           ctx.globalAlpha = (0.38 + 0.3 * glow) * (isFront ? 1 : 0.6);
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, R * 0.32, 0, TAU); ctx.fill();
           ctx.globalAlpha = isFront ? 1 : 0.7;
           dot(p.x, p.y, R * 0.036 * (1 + 0.25 * level), accent);
-          dot(p.x, p.y, R * 0.014, '#fff4f0');
+          dot(p.x, p.y, R * 0.014, pal.core);
           ctx.globalAlpha = 1;
         } else {
           ctx.globalAlpha = a;
@@ -173,15 +186,15 @@
 
       // Atmosphere behind everything.
       const halo = ctx.createRadialGradient(cx, cy, R * 0.85, cx, cy, R * 1.75);
-      halo.addColorStop(0, accent); halo.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.globalAlpha = 0.035 + 0.1 * glow + 0.05 * level;
+      halo.addColorStop(0, accent); halo.addColorStop(1, accentClear);
+      ctx.globalAlpha = (0.035 + 0.1 * glow + 0.05 * level) * pal.haloK;
       ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, R * 1.8, 0, TAU); ctx.fill();
       ctx.globalAlpha = 1;
 
       // Stars.
       for (const s of stars) {
-        const a = 0.14 + 0.2 * (0.5 + 0.5 * Math.sin(t * s.s + s.p));
-        ctx.fillStyle = 'rgba(215,216,210,' + a.toFixed(3) + ')';
+        const a = (0.14 + 0.2 * (0.5 + 0.5 * Math.sin(t * s.s + s.p))) * pal.starK;
+        ctx.fillStyle = 'rgba(' + pal.star[0] + ',' + pal.star[1] + ',' + pal.star[2] + ',' + a.toFixed(3) + ')';
         ctx.fillRect(s.x * W, s.y * H, s.r, s.r);
       }
 
@@ -235,10 +248,10 @@
           ctx.beginPath(); ctx.arc(px, py, R * (0.03 + 0.1 * ph), 0, TAU); ctx.stroke();
           ctx.globalAlpha = vis;
           dot(px, py, R * 0.038 * (1 + 0.45 * level), accent);
-          dot(px, py, R * 0.014, '#fff4f0');
+          dot(px, py, R * 0.014, pal.core);
         } else {
           ctx.globalAlpha = 0.55 * vis;
-          ctx.strokeStyle = 'rgba(236,237,231,.8)'; ctx.lineWidth = 1;
+          ctx.strokeStyle = pal.beacon; ctx.lineWidth = 1;
           ctx.beginPath(); ctx.arc(px, py, R * 0.02, 0, TAU); ctx.stroke();
         }
         ctx.globalAlpha = 1;
@@ -297,7 +310,7 @@
         seed = nextSeed;
         stationIndex = index; stationCount = Math.max(1, count);
         period = Math.max(6, Number(st.tempo) || 14);
-        accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff3b30';
+        applyPalette(readPalette());
         buildTerrain();
         if (!changed) return;
         const lon = index * TAU / stationCount + 0.5;
