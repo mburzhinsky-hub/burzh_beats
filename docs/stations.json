@@ -70,7 +70,22 @@
         "TAPE"
       ],
       "art": "./art/lofi.png",
-      "items": [],
+      "items": [
+        {
+          "file": "lofi/mix-01-part1.m4a",
+          "title": "Mix 01 · 1/2",
+          "duration": 3073.737,
+          "cues": [],
+          "group": "mix-01"
+        },
+        {
+          "file": "lofi/mix-01-part2.m4a",
+          "title": "Mix 01 · 2/2",
+          "duration": 3033.5,
+          "cues": [],
+          "group": "mix-01"
+        }
+      ],
       "sound": "warm"
     },
     {

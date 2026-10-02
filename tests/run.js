@@ -597,6 +597,10 @@ const paintStats = (page, selector) => page.evaluate(sel => {
 }, selector);
 
 // The station the app opens with (the first one with music) and its two accents.
+// A station without music (what a new station is until its first mix arrives): the "off air" state keeps being checked
+// even when every real station has music.
+const lofiOffAir = j => { j.stations.find(x => x.id === 'lofi').items = []; };
+
 const firstStation = () => { const s = stationsFile().stations.find(x => x.items.length); return { id: s.id, black: s.accent.toLowerCase(), paper: s.accentPaper.toLowerCase() }; };
 
 const themeState = t => t.p.evaluate(() => {
@@ -892,7 +896,7 @@ test('app-icon shortcuts: the manifest lists the stations; ?station= opens one a
   r = await open('?station=no-such-station');
   assert.strictEqual(r.search, ''); assert.strictEqual(r.station, 'deep-house', 'an unknown id changes nothing');
   await t.play(); assert.ok(await t.live(), 'and the station opened from a shortcut plays');
-}, { viewport: PORT, touch: true });
+}, { viewport: PORT, touch: true, mutate: lofiOffAir });
 
 /* ----------------------------------------------------------- launch images */
 
@@ -947,7 +951,7 @@ for (const theme of ['black', 'white']) {
         assert.strictEqual(r.tag === '"soon"', r.off, `${r.id}: the "soon" tag belongs to stations without music only (${r.tag})`);
       });
     }
-  }, { viewport: LAND, settings: { theme } });
+  }, { viewport: LAND, settings: { theme }, mutate: lofiOffAir });
 }
 
 /* ----------------------------------------------------- portrait fitting */
