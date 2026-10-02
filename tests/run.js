@@ -398,7 +398,9 @@ test('service worker list: every saved file exists, every file the page loads is
   const shell = [...sw.slice(sw.indexOf('const SHELL'), sw.indexOf('];')).matchAll(/'\.\/([^']*)'/g)].map(m => m[1]).filter(Boolean);
   shell.forEach(f => assert.ok(fs.existsSync(path.join(DOCS, f)), `sw.js lists ${f}, which does not exist (the whole install would fail)`));
   const html = fs.readFileSync(path.join(DOCS, 'index.html'), 'utf8');
-  [...html.matchAll(/(?:src|href)="\.\/([^"#?]+)"/g)].map(m => m[1]).forEach(f => assert.ok(shell.includes(f), `index.html loads ${f}, but sw.js does not save it`));
+  // The launch images (apple-touch-startup-image) are read by iOS itself when the icon is added; the page never loads them.
+  const loaded = html.replace(/<!-- splash:start[\s\S]*?<!-- splash:end -->/, '');
+  [...loaded.matchAll(/(?:src|href)="\.\/([^"#?]+)"/g)].map(m => m[1]).forEach(f => assert.ok(shell.includes(f), `index.html loads ${f}, but sw.js does not save it`));
   fs.readdirSync(path.join(DOCS, 'art')).filter(f => /\.png$/.test(f)).forEach(f => assert.ok(shell.includes('art/' + f), `art/${f} is not saved by sw.js`));
   assert.ok(shell.includes('stations.json') && shell.includes('app.js'));
 });
@@ -684,6 +686,256 @@ test('canvases follow the theme: planet and equalizer are drawn in ink on white,
   assert.ok(w && w.bright > 300, 'switching to Black repaints the planet in light dots: ' + JSON.stringify(w));
   assert.ok(w.dark < w.bright / 10, 'without ink left over: ' + JSON.stringify(w));
 }, { viewport: PORT, touch: true, scale: 2, settings: { theme: 'white' } });
+
+/* ------------------------------------------------- station character */
+
+const wcag = (a, b) => {
+  const lum = hex => { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+const stationsFile = () => JSON.parse(fs.readFileSync(path.join(DOCS, 'stations.json'), 'utf8'));
+const visiblePlanet = t => t.p.evaluate(() => (window.BURZH.planets().find(p => p.drawn) || null));
+const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const clickStation = (t, id) => t.p.evaluate(sid => document.querySelector(`button[data-station="${sid}"]`).click(), id);
+
+test('every station has its own colour and character, readable on Black and on White, in step with the validator', async t => {
+  const data = stationsFile();
+  const accents = data.stations.map(s => s.accent.toLowerCase());
+  assert.strictEqual(new Set(accents).size, accents.length, 'every station has its own accent: ' + accents);
+  assert.strictEqual(new Set(data.stations.map(s => JSON.stringify(s.look))).size, data.stations.length, 'every station has its own look');
+  data.stations.forEach(s => {
+    assert.ok(wcag(s.accent, '#050606') >= 4.5, `${s.id}: accent ${s.accent} on Black is ${wcag(s.accent, '#050606').toFixed(2)}`);
+    assert.ok(s.accentPaper, `${s.id}: needs accentPaper`);
+    [['#f1f1ee', 'page'], ['#fafaf8', 'card']].forEach(([bg, what]) => assert.ok(wcag(s.accentPaper, bg) >= 4.5, `${s.id}: accentPaper ${s.accentPaper} on the White ${what} is ${wcag(s.accentPaper, bg).toFixed(2)}`));
+  });
+  // The ranges in tools/radio.py (validator) and docs/planet.js (what the planet accepts) are one table.
+  const py = JSON.parse(require('child_process').execFileSync('python3', ['-c', 'import json,sys; sys.path.insert(0,"tools"); import radio; print(json.dumps(radio.LOOK_LIMITS))'], { cwd: path.join(DOCS, '..') }).toString());
+  const page = await t.p.evaluate(() => window.BurzhPlanet.LIMITS);
+  assert.deepStrictEqual(page, py, 'LIMITS in planet.js and LOOK_LIMITS in tools/radio.py must match');
+  data.stations.forEach(s => Object.entries(s.look).forEach(([k, v]) => assert.ok(k in page && v >= page[k][0] && v <= page[k][1], `${s.id}: look.${k}=${v} is out of range`)));
+
+  // Tuning: the page takes the station's colour, and the planet glides to its look and colour.
+  for (const s of data.stations) {
+    await clickStation(t, s.id);
+    assert.strictEqual(await t.p.evaluate(() => document.documentElement.style.getPropertyValue('--accent').trim().toLowerCase()), s.accent.toLowerCase(), s.id + ' accent');
+    const want = await t.p.evaluate(look => window.BurzhPlanet.look(look), s.look);
+    const got = await waitFor(async () => {
+      const pl = await visiblePlanet(t);
+      const close = pl && Object.keys(want).every(k => k === 'grain' || k === 'land' || Math.abs(pl.look[k] - want[k]) < 0.03);
+      return close && pl.accent.every((v, i) => Math.abs(v - hexToRgb(s.accent)[i]) <= 3) ? pl : null;
+    }, 5000, 150);
+    assert.ok(got, `${s.id}: the planet should glide to its look and colour: ` + JSON.stringify(await visiblePlanet(t)));
+    assert.strictEqual(got.grain, want.grain, s.id + ' grain');
+    assert.ok(got.points > 100, 'the globe has dots');
+  }
+}, { viewport: PORT, touch: true });
+
+test('White uses each station\'s paper colour', async t => {
+  for (const s of stationsFile().stations) {
+    await clickStation(t, s.id);
+    assert.strictEqual(await t.p.evaluate(() => document.documentElement.style.getPropertyValue('--accent').trim().toLowerCase()), s.accentPaper.toLowerCase(), s.id + ' paper accent');
+  }
+}, { viewport: PORT, touch: true, settings: { theme: 'white' } });
+
+test('planet: a kick in the music sends a ring out; nothing without a real signal; nothing in calm mode', async t => {
+  const r = await t.p.evaluate(async () => {
+    const sleep = ms => new Promise(res => setTimeout(res, ms));
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:0;top:0;width:300px;height:300px;z-index:-1';
+    document.body.appendChild(box);
+    window.__lv = 0.05; window.__calm = false;
+    const pl = window.BurzhPlanet.create(box, { getLevel: () => window.__lv, calm: () => window.__calm });
+    pl.setStation(window.BURZH.stations()[2], 2, 4, { instant: true });
+    pl.setPlaying(true);
+    await sleep(500);
+    const beat = async n => { for (let i = 0; i < n; i++) { window.__lv = 0.05; await sleep(420); window.__lv = 0.9; await sleep(160); } window.__lv = 0.05; await sleep(200); };
+    const out = { start: pl.state().kickCount };
+    await beat(6); out.beats = pl.state().kickCount - out.start;
+    out.visible = pl.state().kicks;
+    const before = pl.state().kickCount;
+    window.__lv = null; await sleep(2400); out.noSignal = pl.state().kickCount - before;   // the engine is off: only the slow breathing
+    window.__lv = 0.05; window.__calm = true; await sleep(400);
+    const b2 = pl.state().kickCount; await beat(4); out.calm = pl.state().kickCount - b2;
+    out.calmState = pl.state().calm;
+    pl.destroy(); box.remove();
+    return out;
+  });
+  assert.ok(r.beats >= 5 && r.beats <= 8, 'six kicks should make about six rings: ' + JSON.stringify(r));
+  assert.ok(r.visible >= 0 && r.visible <= 5, 'at most five rings at once: ' + JSON.stringify(r));
+  assert.strictEqual(r.noSignal, 0, 'no rings without a real level: ' + JSON.stringify(r));
+  assert.strictEqual(r.calm, 0, 'no rings in calm mode: ' + JSON.stringify(r));
+  assert.strictEqual(r.calmState, true);
+}, { viewport: PORT, touch: true });
+
+/* ------------------------------------------------------- reduce motion */
+
+const motionState = t => t.p.evaluate(() => ({
+  calm: document.documentElement.classList.contains('calm'), api: window.BURZH.calm(),
+  anim: parseFloat(getComputedStyle(document.querySelector('.soft-colon i')).animationDuration) * (/ms$/.test(getComputedStyle(document.querySelector('.soft-colon i')).animationDuration) ? 0.001 : 1),
+  planet: window.BURZH.planets().find(p => p.drawn) || null
+}));
+
+test('reduce motion: follows the phone, can be switched on or off in Settings, stills the planet and the animations', async t => {
+  let m = await motionState(t);
+  assert.strictEqual(m.calm, false, 'normal motion by default');
+  assert.ok(m.anim > 1, 'the colon breathes: ' + m.anim);
+
+  await t.p.emulateMedia({ reducedMotion: 'reduce' });                    // iPhone: Accessibility → Motion → Reduce Motion
+  m = await waitFor(async () => { const x = await motionState(t); return x.calm ? x : null; }, 4000, 100) || await motionState(t);
+  assert.deepStrictEqual([m.calm, m.api], [true, true], 'Auto follows the phone');
+  assert.ok(m.anim < 0.01, 'CSS animations are stilled: ' + m.anim);
+  await t.play(); assert.ok(await t.live());
+  await sleep(600);
+  const a = (await motionState(t)).planet; await sleep(900); const b = (await motionState(t)).planet;
+  assert.strictEqual(a.calm, true);
+  assert.strictEqual(a.spin, b.spin, 'the planet does not turn');
+  assert.strictEqual(b.omega, 0); assert.strictEqual(b.orbitRate, 0);
+  assert.strictEqual(b.kicks, 0, 'no rings');
+
+  await t.openSettings(); await t.p.click('#tab-screen');
+  await t.p.click('.seg[data-seg="motion"] button[data-value="off"]'); await sleep(250);
+  m = await motionState(t);
+  assert.deepStrictEqual([m.calm, m.api], [false, false], 'Off wins over the phone setting');
+  assert.ok(m.anim > 1, 'animations are back');
+  await sleep(700);
+  const c = (await motionState(t)).planet; await sleep(700); const d = (await motionState(t)).planet;
+  assert.ok(Math.abs(d.spin - c.spin) > 0.01, 'the planet turns again');
+
+  await t.p.emulateMedia({ reducedMotion: 'no-preference' }); await sleep(1300);
+  await t.p.click('.seg[data-seg="motion"] button[data-value="on"]'); await sleep(250);
+  m = await motionState(t);
+  assert.deepStrictEqual([m.calm, m.api], [true, true], 'On works with a normal phone');
+  assert.strictEqual(await t.p.getAttribute('.seg[data-seg="motion"] button[data-value="on"]', 'aria-pressed'), 'true');
+  assert.strictEqual(await t.p.evaluate(() => JSON.parse(localStorage.getItem('burzh.radio.settings.v1')).motion), 'on', 'saved');
+  await t.p.reload(); await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 8000);
+  assert.strictEqual((await motionState(t)).calm, true, 'and kept after a relaunch');
+}, { viewport: PORT, touch: true });
+
+test('reduce motion is applied before the app script runs (no animation frame of motion)', async t => {
+  const p2 = await t.ctx.newPage();
+  await p2.route('**/app.js', r => r.abort());
+  await p2.emulateMedia({ reducedMotion: 'reduce' });
+  await p2.goto(t.p.url(), { waitUntil: 'domcontentloaded' });
+  assert.strictEqual(await p2.evaluate(() => document.documentElement.classList.contains('calm')), true);
+  await p2.close();
+}, { viewport: PORT });
+
+/* ------------------------------------------------ icon shortcuts, launch */
+
+test('app-icon shortcuts: the manifest lists the stations; ?station= opens one and leaves the address clean', async t => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(DOCS, 'manifest.webmanifest'), 'utf8'));
+  const data = stationsFile();
+  assert.ok(manifest.shortcuts && manifest.shortcuts.length >= 1 && manifest.shortcuts.length <= 4, 'one to four shortcuts (Android shows four)');
+  manifest.shortcuts.forEach(sc => {
+    const m = /^\.\/\?station=([a-z0-9-]+)$/.exec(sc.url);
+    assert.ok(m, 'shortcut url: ' + sc.url);
+    const st = data.stations.find(x => x.id === m[1]);
+    assert.ok(st, 'shortcut for an unknown station ' + m[1]);
+    assert.strictEqual(sc.name, st.name);
+    sc.icons.forEach(i => assert.ok(fs.existsSync(path.join(DOCS, i.src)), 'shortcut icon ' + i.src));
+  });
+  assert.strictEqual(manifest.shortcuts[0].url.endsWith(data.stations.find(s => s.items.length).id), true, 'stations with music come first');
+  assert.ok(manifest.icons.length >= 3 && manifest.background_color === '#050606', 'manifest keeps its icons and the dark launch colour');
+
+  const open = async q => {
+    await t.p.goto(new URL(q, t.p.url()).href);
+    await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 8000);
+    await sleep(300);
+    return t.p.evaluate(() => ({ station: window.BURZH.debug().station, search: location.search, saved: localStorage.getItem('burzh.radio.station.v1'), name: document.querySelector('[data-bind="station"]').textContent, status: document.querySelector('.p-live [data-bind="status"]').textContent }));
+  };
+  let r = await open('?station=trance');
+  assert.strictEqual(r.station, 'trance'); assert.strictEqual(r.search, '', 'the address is clean'); assert.strictEqual(JSON.parse(r.saved), 'trance', 'remembered');
+  r = await open('?station=lofi');
+  assert.strictEqual(r.station, 'lofi'); assert.strictEqual(r.status, 'OFF AIR', 'a station without music opens and says so');
+  r = await open('?station=deep-house');
+  assert.strictEqual(r.station, 'deep-house');
+  r = await open('?station=no-such-station');
+  assert.strictEqual(r.search, ''); assert.strictEqual(r.station, 'deep-house', 'an unknown id changes nothing');
+  await t.play(); assert.ok(await t.live(), 'and the station opened from a shortcut plays');
+}, { viewport: PORT, touch: true });
+
+/* ----------------------------------------------------------- launch images */
+
+test('launch images: every iPhone size, both orientations and appearances, right dimensions, dark launch colour', async () => {
+  const html = fs.readFileSync(path.join(DOCS, 'index.html'), 'utf8');
+  const links = [...html.matchAll(/<link rel="apple-touch-startup-image" media="([^"]+)" href="\.\/([^"]+)">/g)].map(m => ({ media: m[1], file: m[2] }));
+  assert.ok(links.length >= 24, 'launch images are declared: ' + links.length);
+  const seen = new Set();
+  const png = f => { const b = fs.readFileSync(path.join(DOCS, f)); assert.strictEqual(b.toString('latin1', 1, 4), 'PNG', f + ' is a PNG'); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20), size: b.length }; };
+  let bytes = 0;
+  links.forEach(({ media, file }) => {
+    const m = /device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: (\d)\) and \(orientation: (portrait|landscape)\) and \(prefers-color-scheme: (dark|light)\)/.exec(media);
+    assert.ok(m, 'media query: ' + media);
+    const [, w, h, dpr, orient, scheme] = m;
+    const want = orient === 'portrait' ? [w * dpr, h * dpr] : [h * dpr, w * dpr];
+    const g = png(file); bytes += g.size;
+    assert.deepStrictEqual([g.w, g.h], want, `${file} must be ${want.join('x')} for ${media}`);
+    seen.add([w, h, dpr, orient, scheme].join('/'));
+  });
+  // every device has all four variants
+  const devices = new Set(links.map(l => /device-width: (\d+)px\) and \(device-height: (\d+)px\) and \(-webkit-device-pixel-ratio: (\d)/.exec(l.media).slice(1).join('/')));
+  devices.forEach(d => ['portrait', 'landscape'].forEach(o => ['dark', 'light'].forEach(c => assert.ok(seen.has(`${d}/${o}/${c}`), `${d} is missing ${o} ${c}`))));
+  assert.ok(bytes < 2.5e6, 'launch images stay small: ' + Math.round(bytes / 1024) + ' KB');
+  // the files in docs/splash are exactly the declared ones (nothing stale)
+  assert.deepStrictEqual(fs.readdirSync(path.join(DOCS, 'splash')).sort(), links.map(l => l.file.replace('splash/', '')).sort());
+  assert.ok(/<meta name="apple-mobile-web-app-capable" content="yes">/.test(html));
+});
+
+/* ------------------------------------------------------ station selector */
+
+const dialReport = t => t.p.evaluate(() => {
+  const chan = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = c => 0.2126 * chan(c[0]) + 0.7152 * chan(c[1]) + 0.0722 * chan(c[2]);
+  const rgb = css => (css.match(/[\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number);
+  const bg = rgb(getComputedStyle(document.body).backgroundColor);
+  return [...document.querySelectorAll('.dial button')].map(b => {
+    let op = 1; for (let e = b; e; e = e.parentElement) op *= Number(getComputedStyle(e).opacity);
+    const fg = rgb(getComputedStyle(b).color).map((v, i) => v * op + bg[i] * (1 - op));      // what the eye sees
+    const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    return { id: b.dataset.station, off: b.classList.contains('off'), active: b.classList.contains('active'), ratio: (hi + 0.05) / (lo + 0.05), tag: getComputedStyle(b, '::after').content };
+  });
+});
+
+for (const theme of ['black', 'white']) {
+  test(`landscape station dial (${theme}): inactive stations stay readable, stations without music say "soon", also when the screen goes idle`, async t => {
+    for (const idle of [false, true]) {
+      if (idle) { await t.p.evaluate(() => document.documentElement.classList.add('idle')); await sleep(1200); }
+      const rep = await dialReport(t);
+      assert.strictEqual(rep.length, 4);
+      rep.forEach(r => {
+        assert.ok(r.ratio >= 4.5, `${r.id} reads at ${r.ratio.toFixed(2)}:1 (idle ${idle})`);
+        assert.strictEqual(r.tag === '"soon"', r.off, `${r.id}: the "soon" tag belongs to stations without music only (${r.tag})`);
+      });
+    }
+  }, { viewport: LAND, settings: { theme } });
+}
+
+/* ----------------------------------------------------- portrait fitting */
+
+for (const [w, h] of [[375, 667], [390, 844], [393, 852], [430, 932], [402, 874], [360, 740], [320, 568]]) {
+  test(`portrait ${w}x${h}: the blocks stack without overlap and the planet takes the room that is left`, async t => {
+    const m = await t.p.evaluate(() => {
+      const box = sel => { const e = document.querySelector(sel); if (!e || getComputedStyle(e).display === 'none') return null; const r = e.getBoundingClientRect(); return { t: r.top, b: r.bottom, l: r.left, r: r.right, w: r.width, h: r.height }; };
+      const blocks = ['.p-logo', '.stations', '.p-artwrap', '.p-caption', '.p-meta', '.p-live', '.p-controls', '.p-footer'].map(s => [s, box(s)]);
+      return { blocks, card: box('.p-artwrap .art-frame'), menu: box('.p-menu'), iw: innerWidth, ih: innerHeight, sw: document.scrollingElement.scrollWidth, sh: document.scrollingElement.scrollHeight, tag: document.querySelector('.p-caption').scrollWidth - document.querySelector('.p-caption').clientWidth };
+    });
+    let prev = null;
+    m.blocks.filter(([, b]) => b).forEach(([name, b]) => {
+      assert.ok(b.l >= -1 && b.r <= m.iw + 1 && b.b <= m.ih + 1 && b.t >= -1, `${name} is outside the screen: ${JSON.stringify(b)}`);
+      if (prev && name !== '.p-menu') assert.ok(b.t >= prev[1].b - 1, `${name} (top ${b.t.toFixed(1)}) overlaps ${prev[0]} (bottom ${prev[1].b.toFixed(1)})`);
+      prev = [name, b];
+    });
+    assert.ok(m.sh <= m.ih + 1 && m.sw <= m.iw + 1, 'no scrolling');
+    const art = m.blocks.find(([n]) => n === '.p-artwrap')[1];
+    assert.ok(m.card.t >= art.t - 1 && m.card.b <= art.b + 1, 'the planet card stays inside its area');
+    const room = Math.min(0.86 * art.w, art.h);
+    assert.ok(m.card.w >= room * 0.97, `the planet card should use the room: ${m.card.w.toFixed(0)} of ${room.toFixed(0)}`);
+    assert.ok(m.card.w >= m.iw * 0.5, 'the planet card is at least half the screen wide: ' + m.card.w.toFixed(0));
+    assert.ok(m.tag <= 1, 'the caption fits on one line');
+    await t.shot(`portrait-fit-${w}x${h}.png`);
+  }, { viewport: { width: w, height: h }, touch: true });
+}
 
 /* --------------------------------------------------------------- layouts */
 

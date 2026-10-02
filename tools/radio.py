@@ -17,6 +17,7 @@ For every audio file this will:
 Other commands:
     python3 tools/radio.py validate   # check stations.json, media, icons, artwork
     python3 tools/radio.py list       # show stations and what is on them
+    python3 tools/radio.py manifest   # refresh the app-icon shortcuts (long press) from stations.json
 
 Requires ffmpeg + ffprobe on PATH for "build". "validate" uses only the
 Python standard library (it runs in CI).
@@ -40,6 +41,27 @@ DOCS = ROOT / "docs"
 STATIONS = DOCS / "stations.json"
 AUDIO_EXT = {".mp3", ".m4a", ".aac", ".wav", ".flac", ".aif", ".aiff", ".ogg", ".opus"}
 GLYPHS = {"grid", "wave", "rings", "tri"}
+
+# A station's planet character ("look"). Same table as LIMITS in docs/planet.js (a browser check keeps them equal).
+LOOK_LIMITS = {
+    "spin": (0.2, 2.5), "rings": (1, 3), "spread": (0, 1.2), "tilt": (0.1, 0.9), "roll": (-1.4, 1.4),
+    "grain": (0.7, 1.5), "land": (-0.06, 0.08), "halo": (0.5, 2), "pulse": (0, 2), "flutter": (0, 0.6),
+    "rain": (0, 1), "comets": (1, 2),
+}
+BG_BLACK, BG_PAPER = "#050606", "#f1f1ee"      # the two app backgrounds (docs/index.html)
+
+
+def luminance(hex_colour: str) -> float:
+    def lin(c: int) -> float:
+        v = c / 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (int(hex_colour[i:i + 2], 16) for i in (1, 3, 5))
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+
+def contrast(a: str, b: str) -> float:
+    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
 TARGET_LUFS = -14.0
 TARGET_TP = -1.0
 TARGET_LRA = 11.0
@@ -53,8 +75,36 @@ def load() -> dict:
     return json.loads(STATIONS.read_text(encoding="utf-8"))
 
 
+MANIFEST = DOCS / "manifest.webmanifest"
+
+
+def shortcut_list(data: dict) -> list[dict]:
+    """Long-press actions on the app icon (Android and desktop; iOS ignores them): one per station, stations with music first.
+    Android shows four at most."""
+    stations = sorted(data.get("stations", []), key=lambda st: 0 if st.get("items") else 1)[:4]
+    return [{
+        "name": st["name"],
+        "short_name": st["name"],
+        "description": "Tune to " + st["name"],
+        "url": "./?station=" + st["id"],
+        "icons": [{"src": "./icon-192.png", "sizes": "192x192", "type": "image/png"}],
+    } for st in stations]
+
+
+def sync_manifest(data: dict) -> bool:
+    """Keep manifest.webmanifest's shortcuts in step with the stations. Returns True when the file changed."""
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    wanted = shortcut_list(data)
+    if manifest.get("shortcuts") == wanted:
+        return False
+    manifest["shortcuts"] = wanted
+    MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return True
+
+
 def save(data: dict) -> None:
     STATIONS.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    sync_manifest(data)
 
 
 def slug(text: str) -> str:
@@ -386,6 +436,25 @@ def validate(_args: argparse.Namespace) -> None:
             errors.append(f"{sid}: missing name")
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", st.get("accent", "")):
             errors.append(f"{sid}: accent must look like #ff3b30")
+        elif contrast(st["accent"], BG_BLACK) < 4.5:
+            errors.append(f"{sid}: accent {st['accent']} is too dark for the Black background (contrast {contrast(st['accent'], BG_BLACK):.1f}, needs 4.5)")
+        paper = st.get("accentPaper")
+        if paper is not None:
+            if not re.fullmatch(r"#[0-9a-fA-F]{6}", str(paper)):
+                errors.append(f"{sid}: accentPaper must look like #cc2f26")
+            elif contrast(paper, BG_PAPER) < 4.5:
+                errors.append(f"{sid}: accentPaper {paper} is too light for the White background (contrast {contrast(paper, BG_PAPER):.1f}, needs 4.5)")
+        elif re.fullmatch(r"#[0-9a-fA-F]{6}", st.get("accent", "")):
+            notes.append(f"{sid}: no accentPaper; on White the accent is darkened automatically")
+        look = st.get("look", {})
+        if not isinstance(look, dict):
+            errors.append(f"{sid}: look must be an object")
+            look = {}
+        for key, val in look.items():
+            if key not in LOOK_LIMITS:
+                errors.append(f"{sid}: look.{key} is not a known setting ({', '.join(sorted(LOOK_LIMITS))})")
+            elif isinstance(val, bool) or not isinstance(val, (int, float)) or not LOOK_LIMITS[key][0] <= val <= LOOK_LIMITS[key][1]:
+                errors.append(f"{sid}: look.{key} must be a number from {LOOK_LIMITS[key][0]} to {LOOK_LIMITS[key][1]}")
         if st.get("glyph") not in GLYPHS:
             errors.append(f"{sid}: glyph must be one of {sorted(GLYPHS)}")
         art = st.get("art")
@@ -415,6 +484,13 @@ def validate(_args: argparse.Namespace) -> None:
                     break
                 last = c["at"]
 
+    try:
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        if manifest.get("shortcuts") != shortcut_list(data):
+            errors.append("manifest.webmanifest: shortcuts are out of date; run `python3 tools/radio.py manifest`")
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"manifest.webmanifest: {e}")
+
     expected = {"apple-touch-icon.png": (180, 180), "icon-192.png": (192, 192), "icon-512.png": (512, 512),
                 "icon-maskable-512.png": (512, 512), "favicon-32.png": (32, 32)}
     for name, size in expected.items():
@@ -432,6 +508,11 @@ def validate(_args: argparse.Namespace) -> None:
         sys.exit(1)
     on_air = sum(1 for s in data["stations"] if s.get("items") or s.get("stream"))
     print(f"✓ {len(data['stations'])} stations ({on_air} on air), icons and artwork OK")
+
+
+def manifest_cmd(_args: argparse.Namespace) -> None:
+    changed = sync_manifest(load())
+    print("manifest.webmanifest: shortcuts " + ("updated" if changed else "already up to date"))
 
 
 def list_cmd(_args: argparse.Namespace) -> None:
@@ -457,6 +538,7 @@ def main() -> None:
     b.set_defaults(func=build)
     sub.add_parser("validate", help="check stations.json, media files, icons and artwork").set_defaults(func=validate)
     sub.add_parser("list", help="show stations").set_defaults(func=list_cmd)
+    sub.add_parser("manifest", help="refresh the app-icon shortcuts in manifest.webmanifest from stations.json").set_defaults(func=manifest_cmd)
     args = p.parse_args()
     args.func(args)
 

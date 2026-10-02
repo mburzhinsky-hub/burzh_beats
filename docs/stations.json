@@ -7,7 +7,20 @@
       "id": "future-garage",
       "name": "Future Garage",
       "glyph": "grid",
-      "accent": "#ff3b30",
+      "accent": "#3fc8ff",
+      "accentPaper": "#0a6c9c",
+      "look": {
+        "spin": 0.6,
+        "rings": 2,
+        "spread": 0.0,
+        "tilt": 0.55,
+        "roll": -0.3,
+        "grain": 1.0,
+        "land": -0.02,
+        "halo": 1.35,
+        "pulse": 1.0,
+        "rain": 1.0
+      },
       "tempo": 13,
       "tagline": [
         "NIGHT",
@@ -22,7 +35,19 @@
       "id": "lofi",
       "name": "Lo-Fi",
       "glyph": "wave",
-      "accent": "#ff3b30",
+      "accent": "#ffb224",
+      "accentPaper": "#955600",
+      "look": {
+        "spin": 0.55,
+        "rings": 1,
+        "tilt": 0.3,
+        "roll": -0.62,
+        "grain": 1.35,
+        "land": 0.02,
+        "halo": 1.2,
+        "pulse": 0.5,
+        "flutter": 0.35
+      },
       "tempo": 18,
       "tagline": [
         "SLOW",
@@ -38,6 +63,18 @@
       "name": "Deep House",
       "glyph": "rings",
       "accent": "#ff3b30",
+      "accentPaper": "#cc2f26",
+      "look": {
+        "spin": 1.0,
+        "rings": 2,
+        "spread": 0.0,
+        "tilt": 0.38,
+        "roll": -0.54,
+        "grain": 1.0,
+        "land": 0.0,
+        "halo": 1.0,
+        "pulse": 1.1
+      },
       "tempo": 10,
       "tagline": [
         "LATE",
@@ -65,7 +102,20 @@
       "id": "trance",
       "name": "Trance",
       "glyph": "tri",
-      "accent": "#ff3b30",
+      "accent": "#b26bff",
+      "accentPaper": "#7430c9",
+      "look": {
+        "spin": 1.6,
+        "rings": 3,
+        "spread": 0.5,
+        "tilt": 0.62,
+        "roll": 0.45,
+        "grain": 0.82,
+        "land": 0.03,
+        "halo": 1.4,
+        "pulse": 1.5,
+        "comets": 2
+      },
       "tempo": 6,
       "tagline": [
         "A HIGHER",

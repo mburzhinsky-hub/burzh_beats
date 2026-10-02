@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.25.0';
+  const VERSION = '0.26.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -39,10 +39,11 @@
   // v0.23: the Graphite background became White.
   if (storedSettings.theme === 'graphite') storedSettings.theme = 'white';
   const settings = Object.assign(
-    { v: 2, keepAwake: true, night: 'off', theme: 'black', weather: false, geo: null, sound: {} },
+    { v: 2, keepAwake: true, night: 'off', theme: 'black', motion: 'auto', weather: false, geo: null, sound: {} },
     storedSettings
   );
   if (settings.theme !== 'white') settings.theme = 'black';
+  if (!['auto', 'on', 'off'].includes(settings.motion)) settings.motion = 'auto';
   settings.sound = Object.assign({ on: false, preset: 'auto', custom: null }, settings.sound || {});
   const saveSettings = () => store.set(KEYS.settings, settings);
 
@@ -1086,8 +1087,15 @@
     bind('title', np.title);
     bind('sub', np.sub);
     bind('channel', 'CH ' + String(idx).padStart(2, '0') + ' / ' + String(stations.length).padStart(2, '0'));
-    const tag = (station.tagline || []).join('\n');
-    document.querySelectorAll('[data-bind="tagline"]').forEach(el => { if (el.dataset.raw !== tag) { el.dataset.raw = tag; el.textContent = ''; (station.tagline || []).forEach((line, i) => { if (i) el.appendChild(document.createElement('br')); el.appendChild(document.createTextNode(line)); }); } });
+    const lines = station.tagline || [];
+    const tag = lines.join('\n');
+    document.querySelectorAll('[data-bind="tagline"]').forEach(el => {
+      if (el.dataset.raw === tag) return;
+      el.dataset.raw = tag;
+      el.textContent = '';
+      if (el.dataset.join) { el.textContent = lines.join(el.dataset.join); return; }     // one line (caption under the planet)
+      lines.forEach((line, i) => { if (i) el.appendChild(document.createElement('br')); el.appendChild(document.createTextNode(line)); });
+    });
     renderStatus();
     renderProgress(np);
   }
@@ -1250,16 +1258,18 @@
   // Night mode always uses the black palette, whatever background is chosen.
   const THEME_COLOR = { black: '#050606', white: '#F1F1EE', night: '#000000' };
   const onPaper = () => settings.theme === 'white' && !isNight();
-  // The station's accent, as shown on the current background. On paper it is a touch deeper
-  // (20 % towards black) so small red text and thin red lines keep their contrast.
-  function accentFor(hex) {
-    const base = /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : '#ff3b30';
+  // The station's own colour, as shown on the current background. Every station brings a version for
+  // paper (accentPaper); without one the accent is darkened 20 % so small text and thin lines keep their contrast.
+  const isHex = h => /^#[0-9a-f]{6}$/i.test(h || '');
+  function accentFor(st) {
+    const base = isHex(st && st.accent) ? st.accent : '#ff3b30';
     if (!onPaper()) return base;
+    if (isHex(st && st.accentPaper)) return st.accentPaper;
     const k = 0.8, ch = i => Math.round(parseInt(base.slice(1 + i * 2, 3 + i * 2), 16) * k).toString(16).padStart(2, '0');
     return '#' + ch(0) + ch(1) + ch(2);
   }
   function applyAccent() {
-    document.documentElement.style.setProperty('--accent', accentFor(station && station.accent));
+    document.documentElement.style.setProperty('--accent', accentFor(station));
     if (window.BurzhTheme) window.BurzhTheme.refresh();   // canvases pick the new colours up on their next frame
   }
   function applyNight() {
@@ -1273,6 +1283,16 @@
     document.documentElement.classList.toggle('theme-white', settings.theme === 'white');
     applyNight();
   }
+
+  // Reduce motion: follows the phone's setting (Accessibility → Motion) unless it is switched on or off here.
+  // Calm mode stills the planet, the stars and every CSS animation (see html.calm in index.html).
+  const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+  const calmOn = () => settings.motion === 'on' || (settings.motion !== 'off' && !!motionQuery.matches);
+  function applyMotion() { document.documentElement.classList.toggle('calm', calmOn()); }
+  // The change event alone is not enough: Chromium drops it when something reads `.matches` in between (the planet
+  // does, every frame). So the class is also re-checked every second and when the app comes back to the front.
+  if (motionQuery.addEventListener) motionQuery.addEventListener('change', applyMotion);
+  else if (motionQuery.addListener) motionQuery.addListener(applyMotion);
 
   function shiftPixels() {
     // Tiny drift keeps static pixels from burning into an OLED panel.
@@ -1295,6 +1315,7 @@
     if (document.visibilityState === 'visible') {
       configureAudioSession();
       applyNight();
+      applyMotion();
       render();
       refreshWeather(false);
       warmStation(station);
@@ -1752,7 +1773,7 @@
     document.querySelectorAll('[data-seg] button').forEach(b => b.addEventListener('click', () => {
       feedback();
       settings[b.parentElement.dataset.seg] = b.dataset.value;
-      saveSettings(); syncControls(); applyTheme();
+      saveSettings(); syncControls(); applyTheme(); applyMotion();
     }));
     $('locationBtn').addEventListener('click', () => { feedback(); updateLocation(); });
     if ($('netBtn')) $('netBtn').addEventListener('click', () => { feedback(); testConnection(); });
@@ -1844,11 +1865,15 @@
     applyStations(data);
   }
 
+  // ?station=<id> (app-icon shortcut), read once and removed from the address.
+  const requestedStation = (() => { try { return new URLSearchParams(location.search).get('station'); } catch (e) { return null; } })();
+
   async function boot() {
     applyTheme();
+    applyMotion();
     renderClock();
     if (window.BurzhPlanet) {
-      document.querySelectorAll('[data-planet]').forEach(box => planets.push(window.BurzhPlanet.create(box, { getLevel: () => (fxActive() ? sound.level() : null) })));
+      document.querySelectorAll('[data-planet]').forEach(box => planets.push(window.BurzhPlanet.create(box, { getLevel: () => (fxActive() ? sound.level() : null), calm: calmOn })));
     }
     bindUi();
     bindMediaSession();
@@ -1874,6 +1899,11 @@
 
     const saved = stations.find(s => s.id === store.get(KEYS.station, null));
     station = (saved && available(saved) ? saved : null) || availableStations()[0] || saved || stations[0];
+    // A shortcut on the app icon (long press) opens a station: ./?station=<id>. It only picks the station;
+    // the browser does not let a page start sound by itself, so play stays one tap away.
+    const asked = stations.find(s => s.id === requestedStation);
+    if (asked) { station = asked; store.set(KEYS.station, asked.id); rec('opened from a shortcut: ' + asked.id); }
+    if (requestedStation !== null) { try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignore */ } }
     applyStationTheme();
     setPhase('stopped');
     selectOutput();
@@ -1887,7 +1917,7 @@
     renderSettings();
     warmStation(station);
 
-    setInterval(() => { renderClock(); renderProgress(); checkCue(); }, 1000);
+    setInterval(() => { renderClock(); renderProgress(); checkCue(); applyMotion(); }, 1000);
     setInterval(() => { if (station && (wantPlaying || document.visibilityState === 'visible')) warmStation(station); }, 20000);
     setInterval(engineHealth, 1000);
     setInterval(() => { applyNight(); shiftPixels(); if (wantPlaying) updateMediaSession(false); }, 60 * 1000);
@@ -1902,6 +1932,8 @@
     audioEl: () => audio,
     seekTo: t => seekTo(t),
     debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken: fxUnsupported || fxFails > 0, fxFails, fxUnsupported, fxHeld, ctx: sound ? sound.state : 'none', lastStart, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek(), problem: lastProblem, useFragment }),
+    planets: () => planets.map(p => p.state()),
+    calm: () => calmOn(),
     spectrum: () => { const a = new Uint8Array(64); return sound && sound.spectrum(a) ? Array.from(a) : Array(64).fill(0); }
   };
 
