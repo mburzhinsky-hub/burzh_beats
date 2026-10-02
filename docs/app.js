@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.22.1';
+  const VERSION = '0.22.2';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
@@ -111,6 +111,15 @@
     return found;
   }
 
+  /* Same-origin audio needs no CORS for the sound engine. Asking for it anyway makes iPhone load the file
+   * through a different (slower, separately cached) path, so it is only requested for other hosts. */
+  function setCors(el, url) {
+    let cross = false;
+    try { cross = new URL(url, location.href).origin !== location.origin; } catch (e) { /* relative */ }
+    if (el.dataset.fx === '1' && cross) el.crossOrigin = 'anonymous';
+    else el.removeAttribute('crossorigin');
+  }
+
   function mediaUrl(item) {
     return item.url ? item.url : new URL(item.file, mediaBase).href;
   }
@@ -127,7 +136,7 @@
     el.playsInline = true;
     el.setAttribute('playsinline', '');
     el.setAttribute('webkit-playsinline', '');
-    if (fx) el.crossOrigin = 'anonymous';
+    el.dataset.fx = fx ? '1' : '';
     return el;
   }
   const audioPlain = makeAudio(false);
@@ -163,6 +172,7 @@
   let stallTimer = 0;
   let stallRetried = false;
   let lastMetaKey = '';
+  let stallExtended = false;
   let tuneToken = 0;             // a late answer to an older tune() must not trigger recovery of the new one
   let playedSinceTune = false;   // did this tune ever reach "playing"? (decides between recovering and retrying)
   let useFragment = true;        // #t=offset in the URL; dropped as a last resort for picky players
@@ -188,6 +198,7 @@
     clearTimeout(retryTimer);
     retryTimer = 0;
     playedSinceTune = false;
+    stallExtended = false;
     const token = ++tuneToken;
     if (!retry) useFragment = true;
     if (!available(st)) { wantPlaying = false; shifted = false; setPhase('stopped'); render(); return; }
@@ -228,6 +239,7 @@
       if (!st.stream) { try { audio.currentTime = offset; } catch (e) { /* not seekable yet */ } }
     } else {
       switching++;
+      setCors(audio, url);
       audio.src = st.stream || !useFragment ? url : url + '#t=' + offset.toFixed(1);
       audio.dataset.sync = st.stream ? '' : '1';
     }
@@ -300,13 +312,20 @@
   }
 
   // If tuning never reaches "live": walk down the fallback ladder, then report a lost signal.
-  function armStall() {
+  function armStall(ms = 8000) {
     clearTimeout(stallTimer);
     stallTimer = setTimeout(() => {
       if (!wantPlaying || phase === 'live') return;
+      // Still downloading without an error: a slow network or a cold CDN, not a broken engine. Wait longer.
+      if (!stallExtended && audio.networkState === 2 && !audio.error) {
+        stallExtended = true;
+        toast('STILL TUNING · SLOW NETWORK', 'info', 4000);
+        armStall(12000);
+        return;
+      }
       noteProblem('no sound after 8 s (ready ' + audio.readyState + ', net ' + audio.networkState + ')');
       if (!recover()) signalLost();
-    }, 8000);
+    }, ms);
   }
 
   function play() {

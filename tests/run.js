@@ -26,6 +26,8 @@ test('play starts through the sound engine and time advances', async t => {
   const d = await t.live();
   assert.ok(d, 'playback did not reach live');
   assert.strictEqual(d.fx, true, 'engine should be attached from the first play');
+  assert.strictEqual(await t.p.evaluate(() => window.BURZH.audioEl().getAttribute('crossorigin')), null, 'same-origin audio must load without CORS (iPhone loads CORS media through a slower path)');
+  assert.ok(await waitFor(() => t.p.evaluate(() => window.BURZH.spectrum().some(v => v > 0)), 4000), 'the engine must hear the music (not CORS-tainted)');
   const t0 = d.time; await sleep(1200);
   assert.ok((await t.dbg()).time - t0 > 0.8, 'time did not advance');
 });
@@ -141,7 +143,7 @@ test('engine request fails, the plain player takes over and plays (and keeps the
 
 test('engine request hangs, playback still starts (stall watchdog)', async t => {
   await t.play();
-  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 24000, 300);
+  const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused ? x : null; }, 34000, 300);
   assert.ok(d, 'no playback after a hang: ' + JSON.stringify(await t.dbg()));
   assert.strictEqual(d.fxBroken, true);
 }, { policy: r => (r.fx && r.type === 'media' ? 'hang' : undefined), allowNetworkErrors: true });
