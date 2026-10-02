@@ -914,7 +914,7 @@ for (const [w, h] of [[375, 667], [390, 844], [393, 852], [430, 932], [402, 874]
     const stage = m.blocks.find(([n]) => n === '.p-stage')[1];
     assert.ok(stage.h >= m.ih * 0.28, 'the planet takes the room that is left: ' + stage.h.toFixed(0));
     const head = await t.p.evaluate(() => { const b = document.querySelector('.p-head .brand').getBoundingClientRect(), tl = document.querySelector('.p-head .tools').getBoundingClientRect(); return { brand: b.right, tools: tl.left }; });
-    assert.ok(head.brand <= head.tools + 1, `the brand and the weather do not touch (${head.brand.toFixed(0)} > ${head.tools.toFixed(0)})`);
+    assert.ok(head.brand + 6 <= head.tools, `the logo with its clock and the weather keep 6px apart (${head.brand.toFixed(0)} vs ${head.tools.toFixed(0)})`);
     await t.shot(`portrait-${w}x${h}.png`);
   }, { viewport: { width: w, height: h }, touch: true, settings: { weather: true, geo: { lat: 55.75, lon: 37.62, name: 'Moscow' } } });
 }
@@ -950,6 +950,52 @@ test('weather pill: icon, temperature and the place, tidy name; a tap opens the 
   await t.p.locator('.weather:visible').first().click(); await sleep(400);
   assert.strictEqual(await t.p.getAttribute('#tab-screen', 'aria-selected'), 'true', 'the pill opens Settings → Screen');
 }, { viewport: PORT, touch: true, settings: { weather: true, geo: { lat: 55.75, lon: 37.62, name: 'Gorodskoy Okrug Krasnogorsk' } } });
+
+// The clock: small, under the logo, in both layouts. It must show the real local time and never touch a neighbour.
+for (const [name, viewport, wordmark, wideRing] of [
+  ['portrait 390x844', { width: 390, height: 844 }, '.p-head .wordmark', false],
+  ['portrait 320x568', { width: 320, height: 568 }, '.p-head .wordmark', false],
+  ['landscape 932x430', { width: 932, height: 430 }, '.l-brand .wordmark', true],
+  ['landscape 667x375', { width: 667, height: 375 }, '.l-brand .wordmark', true],
+]) {
+  test(`clock under the logo (${name}): local time and date, one line, nothing touches it`, async t => {
+    await t.play(); await t.live(); await sleep(300);
+    const r = await t.p.evaluate(({ wordmark, wideRing }) => {
+      const vis = sel => [...document.querySelectorAll(sel)].find(e => e.getClientRects().length);
+      const line = vis('.clockline'), clk = vis('.clockline .clk'), date = vis('.clockline .cdate'), mark = vis(wordmark);
+      const rect = e => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+      const d = new Date();
+      const out = {
+        time: clk.textContent, date: date.textContent, line: rect(line), mark: rect(mark), color: getComputedStyle(clk).color,
+        now: String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'), fontPx: parseFloat(getComputedStyle(clk).fontSize),
+        tagline: !!document.querySelector('.tagline'),
+      };
+      if (wideRing) {          // landscape: the orbit ring of the planet must not run through the clock
+        const boxes = [...document.querySelectorAll('[data-planet]')];
+        const i = boxes.findIndex(b => b.getClientRects().length);
+        const st = window.BURZH.planets()[i], fx = (boxes[i].querySelector('.planet-fx') || boxes[i]).getBoundingClientRect();
+        const cx = fx.left + st.cx, cy = fx.top + st.cy, L = out.line;
+        const nx = Math.max(L.l, Math.min(cx, L.r)), ny = Math.max(L.t, Math.min(cy, L.b));
+        out.ringGap = Math.hypot(nx - cx, ny - cy) - st.ringR;
+      }
+      return out;
+    }, { wordmark, wideRing });
+    assert.match(r.time, /^\d\d:\d\d$/, 'time is HH:MM, got ' + r.time);
+    assert.ok(r.time === r.now || Math.abs(Number(r.time.slice(0, 2)) * 60 + Number(r.time.slice(3)) - (Number(r.now.slice(0, 2)) * 60 + Number(r.now.slice(3)))) <= 1, `the clock shows the local time (${r.time} vs ${r.now})`);
+    assert.match(r.date, /^(MON|TUE|WED|THU|FRI|SAT|SUN) \d\d (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)$/, 'date looks like FRI 02 OCT, got ' + r.date);
+    assert.strictEqual(r.color, 'rgb(255, 255, 255)', 'the time is white');
+    assert.ok(r.fontPx >= 11 && r.fontPx <= 18, 'the clock stays small: ' + r.fontPx.toFixed(1) + 'px');
+    assert.ok(r.line.h <= r.fontPx * 1.3, 'the clock is one line, height ' + r.line.h.toFixed(1));
+    assert.ok(r.line.t >= r.mark.b, `the clock sits under the logo (${r.line.t.toFixed(1)} vs ${r.mark.b.toFixed(1)})`);
+    assert.ok(Math.abs(r.line.l - r.mark.l) <= 1.5, 'the clock is left-aligned with the logo');
+    assert.strictEqual(r.tagline, false, 'the old tagline is gone');
+    if (wideRing) assert.ok(r.ringGap >= 2, 'the orbit ring does not touch the clock, gap ' + r.ringGap.toFixed(1));
+    // it keeps going: one minute is too long to wait, so check that the binding is alive instead
+    await t.p.evaluate(() => { document.querySelectorAll('[data-bind="mm"]').forEach(e => { e.textContent = 'xx'; }); });
+    assert.ok(await waitFor(() => t.p.evaluate(() => [...document.querySelectorAll('[data-bind="mm"]')].every(e => /^\d\d$/.test(e.textContent))), 3000, 150), 'the clock refreshes itself every second');
+    await t.shot('clock-' + name.replace(/[^a-z0-9]+/gi, '-') + '.png');
+  }, { viewport, touch: true, settings: { weather: true, geo: { lat: 55.75, lon: 37.62, name: 'Moscow' } } });
+}
 
 test('play button: the ring around it shows how far the mix has played', async t => {
   await t.play(); await t.live();

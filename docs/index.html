@@ -120,7 +120,9 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .wordmark{display:flex;align-items:baseline;gap:.22em;white-space:nowrap;line-height:1}
 .wordmark b{font:800 1em/1 var(--wide);font-stretch:125%;letter-spacing:-.01em;color:#fff}
 .wordmark span{font:300 1em/1 var(--sans);letter-spacing:-.02em;color:rgba(244,244,242,.82)}
-.tagline{margin-top:.95em;font:500 max(8.5px,.3em)/1 var(--sans);letter-spacing:.42em;color:var(--muted);white-space:nowrap;text-transform:uppercase}
+.clockline{display:flex;align-items:baseline;gap:1.15em;margin-top:.95em;font:500 max(8.5px,.3em)/1 var(--sans);letter-spacing:.42em;color:var(--muted);white-space:nowrap;text-transform:uppercase}
+.clockline .clk{font:600 1.5em/1 var(--sans);letter-spacing:.06em;color:#fff;font-variant-numeric:tabular-nums}
+.clockline .colon{margin:0 .04em;opacity:.7}
 
 /* ---------- Header tools: weather pill, settings ---------- */
 .tools{display:flex;align-items:center;gap:12px}
@@ -228,7 +230,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .l-shell{position:absolute;inset:0;container-type:size;display:grid;grid-template-columns:minmax(0,46fr) minmax(0,54fr);grid-template-rows:auto minmax(0,1fr);column-gap:clamp(16px,3cqw,40px);padding:max(10px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left));transform:translate(var(--shift-x),var(--shift-y));transition:transform 2.5s var(--ease)}
 .l-brand{grid-column:1;grid-row:1;font-size:clamp(22px,7.2cqh,38px);padding-top:clamp(4px,2.4cqh,22px)}
 .l-tools{grid-column:2;grid-row:1;justify-self:end;align-self:start;padding-top:clamp(4px,2cqh,18px)}
-.l-stage{grid-column:1;grid-row:1/3;margin:clamp(24px,7cqh,64px) 0 0 0}
+.l-stage{grid-column:1;grid-row:1/3;margin:clamp(28px,9cqh,70px) 0 0 0}
 .l-panel{grid-column:2;grid-row:2;display:flex;flex-direction:column;justify-content:center;min-height:0;container-type:inline-size;padding:1cqh 0 1cqh}
 .l-panel .np{grid-template-columns:minmax(0,1fr)}
 .l-panel .np-title{font-size:clamp(18px,6.8cqh,36px)}
@@ -247,6 +249,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
   .weather{height:46px;border-radius:15px}.w-icon{width:26px;height:26px}.w-text b{font-size:18px}
   .icon-btn.pill{width:46px;height:46px;border-radius:15px}
 }
+@media(orientation:portrait) and (max-width:340px){.p-head .brand{font-size:18.5px}.p-head .tools{gap:4px}.p-head .weather{padding:0 9px 0 8px}}
 @media(orientation:portrait) and (max-height:600px){
   .p-head .weather{height:42px}.p-head .w-icon{width:22px;height:22px}.p-head .w-text b{font-size:16px}
   .p-np .np-title{font-size:17px}.p-np .np-sub{font-size:13px;margin-top:3px}
@@ -365,7 +368,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
 
 <section class="screen portrait" aria-label="BURZH beats radio">
   <header class="p-head">
-    <div class="brand"><div class="wordmark"><b>BURZH</b><span>beats</span></div><div class="tagline">BURZH RADIO · 24/7</div></div>
+    <div class="brand"><div class="wordmark"><b>BURZH</b><span>beats</span></div><div class="clockline"><b class="clk"><span data-bind="hh">--</span><span class="colon">:</span><span data-bind="mm">--</span></b><span class="cdate" data-bind="date"></span></div></div>
     <div class="tools"><button class="weather" type="button" data-open="settingsOverlay" data-tab-open="screen" hidden aria-live="polite"><span class="w-icon" aria-hidden="true"></span><span class="w-text"><b data-bind="w-temp">--°</b><small data-bind="w-city"></small></span><span class="sr" data-bind="w-cond"></span></button><button class="icon-btn gear" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
   </header>
   <div class="stage p-stage">
@@ -401,7 +404,7 @@ html.calm *,html.calm *:before,html.calm *:after{animation-duration:.001ms!impor
 
 <section class="screen landscape" aria-label="BURZH beats radio, desk screen">
   <div class="l-shell">
-    <div class="brand l-brand"><div class="wordmark"><b>BURZH</b><span>beats</span></div><div class="tagline">BURZH RADIO · 24/7</div></div>
+    <div class="brand l-brand"><div class="wordmark"><b>BURZH</b><span>beats</span></div><div class="clockline"><b class="clk"><span data-bind="hh">--</span><span class="colon">:</span><span data-bind="mm">--</span></b><span class="cdate" data-bind="date"></span></div></div>
     <div class="tools l-tools chrome"><button class="weather" type="button" data-open="settingsOverlay" data-tab-open="screen" hidden aria-live="polite"><span class="w-icon" aria-hidden="true"></span><span class="w-text"><b data-bind="w-temp">--°</b><small data-bind="w-city"></small></span><span class="sr" data-bind="w-cond"></span></button><button class="icon-btn gear pill" data-open="settingsOverlay" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
     <div class="stage l-stage">
     <div class="planet swipe" data-planet data-scale="1">
