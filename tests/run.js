@@ -127,12 +127,16 @@ test('a silent engine falls back to the original sound', async t => {
 
 /* ------------------------------------------------ never silent: fallbacks */
 
-test('engine request fails, the plain player takes over and plays', async t => {
+test('engine request fails, the plain player takes over and plays (and keeps the saved setting)', async t => {
+  await t.p.evaluate(() => { const k = 'burzh.radio.settings.v1'; const s = JSON.parse(localStorage.getItem(k) || '{}'); s.sound = Object.assign({}, s.sound, { on: true }); localStorage.setItem(k, JSON.stringify(s)); });
+  await t.p.reload(); await waitFor(() => t.p.evaluate(() => !!(window.BURZH && window.BURZH.stations().length)), 6000); await sleep(400);
   await t.play();
   const d = await waitFor(async () => { const x = await t.dbg(); return x.phase === 'live' && !x.paused && x.fxBroken ? x : null; }, 14000);
   assert.ok(d, 'no playback after the engine failed: ' + JSON.stringify(await t.dbg()));
   assert.strictEqual(d.fx, false);
   assert.match(d.problem, /E\d|no sound|could not start/i, 'problem was not recorded: ' + JSON.stringify(d.problem));
+  const saved = await t.p.evaluate(() => JSON.parse(localStorage.getItem('burzh.radio.settings.v1')).sound.on);
+  assert.strictEqual(saved, true, 'a fallback must not switch Sound shaping off for the next launch');
 }, { policy: r => (r.fx ? { status: 404 } : undefined), allowNetworkErrors: true });
 
 test('engine request hangs, playback still starts (stall watchdog)', async t => {
