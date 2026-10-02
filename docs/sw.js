@@ -1,11 +1,19 @@
 /* BURZH beats service worker.
- * - HTML, JS and stations.json: network first with offline fallback, so new
- *   mixes and app updates show up on the next launch.
- * - Fonts, icons, artwork: cache first, refreshed in the background.
- * - Audio and range requests: never touched, Safari streams them natively
- *   (needed for seeking, background audio and the lock screen).
+ *
+ * The app opens from the copy saved on the device, so a launch never waits for the network
+ * (GitHub Pages can need seconds for a cold request; a saved copy needs milliseconds).
+ *
+ * - Shell (HTML, JS, fonts, icons, artwork): cache first. Every release carries its own BUILD id,
+ *   so the browser sees a changed sw.js, installs the new copy in the background (all files or
+ *   none), and the page switches over when that costs nothing (see applyUpdate in app.js).
+ * - stations.json: network first with a short timeout, then the saved copy. New mixes show up
+ *   quickly, and a slow connection never blocks the start.
+ * - Audio and range requests: never touched. Safari streams them natively (seeking, background
+ *   audio, the lock screen).
  */
-const CACHE = 'burzh-radio-v30';
+const BUILD = 'dev';                       // replaced with the commit id by the deploy workflow
+const CACHE = 'burzh-radio-' + BUILD;
+const DATA_WAIT_MS = 2500;
 const SHELL = [
   './',
   './index.html',
@@ -30,48 +38,72 @@ const SHELL = [
   './art/trance.png'
 ];
 
+// Install is all or nothing: a half-filled cache would mix old and new files.
+// `reload` skips the browser's HTTP cache, so the copy is exactly what the server has now.
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil((async () => {
+    try {
+      const cache = await caches.open(CACHE);
+      await Promise.all(SHELL.map(async path => {
+        const response = await fetch(new Request(path, { cache: 'reload' }));
+        if (!response.ok) throw new Error(path + ' ' + response.status);
+        await cache.put(path, response);
+      }));
+    } catch (e) {
+      await caches.delete(CACHE);      // nothing half-saved; the installed release keeps running
+      throw e;
+    }
+    self.skipWaiting();              // not awaited: in some engines it only settles after install has finished
+  })());
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
 
 function cacheable(response) {
   return response && response.ok && response.type === 'basic';
 }
 
-async function networkFirst(request) {
+async function fromCache(request, cache) {
+  return (await cache.match(request, { ignoreSearch: true }))
+    || (request.mode === 'navigate' ? await cache.match('./index.html') : null);
+}
+
+// Saved copy first. Anything not saved yet (should not happen) comes from the network and is kept.
+async function cacheFirst(request) {
   const cache = await caches.open(CACHE);
+  const cached = await fromCache(request, cache);
+  if (cached) return cached;
   try {
-    const response = await fetch(request, { cache: 'no-cache' });
+    const response = await fetch(request);
     if (cacheable(response)) cache.put(request, response.clone());
     return response;
   } catch (e) {
-    const cached = await cache.match(request, { ignoreSearch: true });
-    if (cached) return cached;
-    if (request.mode === 'navigate') return (await cache.match('./index.html')) || Response.error();
     return Response.error();
   }
 }
 
-async function staleWhileRevalidate(request, event) {
+// Station list: fresh when the network answers in time, the saved copy otherwise.
+async function dataFirst(request, event) {
   const cache = await caches.open(CACHE);
-  const cached = await cache.match(request, { ignoreSearch: true });
-  const update = fetch(request).then(response => {
+  const network = fetch(request, { cache: 'no-cache' }).then(response => {
     if (cacheable(response)) cache.put(request, response.clone());
     return response;
-  }).catch(() => null);
-  if (cached) {
-    event.waitUntil(update);
+  });
+  const cached = await cache.match(request, { ignoreSearch: true });
+  if (!cached) return network.catch(() => Response.error());
+  event.waitUntil(network.catch(() => null));      // finish saving even after the timeout
+  const timeout = new Promise(resolve => setTimeout(() => resolve(null), DATA_WAIT_MS));
+  try {
+    return (await Promise.race([network, timeout])) || cached;
+  } catch (e) {
     return cached;
   }
-  return (await update) || Response.error();
 }
 
 self.addEventListener('fetch', event => {
@@ -81,11 +113,9 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;            // weather API etc.
   if (url.pathname.includes('/media/') || request.headers.has('range')) return;
 
-  // Code and data: always try the network so HTML and JS never get out of step.
-  if (request.mode === 'navigate' || /\.(js|json|webmanifest)$/.test(url.pathname)) {
-    event.respondWith(networkFirst(request));
+  if (url.pathname.endsWith('/stations.json')) {
+    event.respondWith(dataFirst(request, event));
     return;
   }
-  // Fonts, icons, artwork: instant from cache, refreshed quietly.
-  event.respondWith(staleWhileRevalidate(request, event));
+  event.respondWith(cacheFirst(request));
 });

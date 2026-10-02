@@ -11,17 +11,17 @@ const OUT = path.join(__dirname, 'out');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml' };
 
 /* Static server for docs/ (the real app files; /media/ is answered by the mock in the page route). */
-function startServer() {
+function startServer(root = DOCS) {
   return new Promise(resolve => {
     const srv = http.createServer((req, res) => {
       let p = decodeURIComponent(req.url.split('?')[0]);
       if (p.endsWith('/')) p += 'index.html';
-      const f = path.join(DOCS, p);
-      if (!f.startsWith(DOCS) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
+      const f = path.join(root, p);
+      if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
       fs.createReadStream(f).pipe(res);
     });
-    srv.listen(0, '127.0.0.1', () => resolve({ url: 'http://127.0.0.1:' + srv.address().port + '/', close: () => srv.close() }));
+    srv.listen(0, '127.0.0.1', () => resolve({ url: 'http://127.0.0.1:' + srv.address().port + '/', close: () => { srv.close(); if (srv.closeAllConnections) srv.closeAllConnections(); } }));
   });
 }
 
@@ -57,16 +57,20 @@ async function waitFor(fn, ms = 8000, step = 150) {
 }
 
 /* Open the app with mocked audio. `media` is a fixture name; `policy(req)` can fail or hang requests:
- *   req = { n, fx, url, type }  ->  undefined | 'hang' | { status }   (n = number of src assignments so far) */
+ *   req = { n, fx, url, type, ms }  ->  undefined | 'hang' | 'abort' | { status } | { delay: ms }   (n = number of src assignments so far) */
 async function open(server, opts = {}) {
   const b = await getBrowser();
   const ctx = await b.newContext({
     viewport: opts.viewport || { width: 932, height: 430 },
     hasTouch: !!opts.touch, isMobile: !!opts.touch, deviceScaleFactor: opts.scale || 1,
-    permissions: opts.geolocation ? ['geolocation'] : [], geolocation: opts.geolocation
+    permissions: opts.geolocation ? ['geolocation'] : [], geolocation: opts.geolocation,
+    // Tests drive the page through routes; a service worker would answer around them. Only the SW tests allow it.
+    serviceWorkers: opts.sw ? 'allow' : 'block'
   });
   const p = await ctx.newPage();
   const errs = [];
+  const net = { stationsDelay: 0 };      // a test can slow the station list down: t.net.stationsDelay = 6000
+  const log = [];            // every request to /media/: { url, type, range, fx, at, verdict }
   p.on('pageerror', e => errs.push('pageerror: ' + e.message));
   p.on('console', m => { if (m.type() === 'error' && !(opts.allowNetworkErrors && /Failed to load resource|net::ERR|MEDIA_ELEMENT/.test(m.text()))) errs.push('console: ' + m.text()); });
   if (opts.settings) {
@@ -80,29 +84,38 @@ async function open(server, opts = {}) {
     Object.defineProperty(HTMLMediaElement.prototype, 'src', { get() { return d.get.call(this); }, set(v) { window.__srcSets.push(String(v)); d.set.call(this, v); } });
   });
   const mock = fs.readFileSync(path.join(FIXTURES, opts.media || 'mock.ogg'));
-  await p.route('**/media/**', async r => {
+  // `policyFactory` builds a fresh policy per page, so a test that keeps state ("fail the first request only") also works on its retry.
+  const policy = opts.policyFactory ? opts.policyFactory() : opts.policy;
+  const opened = Date.now();
+  // A route callback that outlives its page (a slow or hanging request) must not crash the whole run.
+  const guarded = fn => async r => { try { await fn(r); } catch (e) { /* page closed */ } };
+  await p.route('**/media/**', guarded(async r => {
     const req = r.request();
     const n = await p.evaluate(() => window.__srcSets.length).catch(() => 0);
     const fx = await p.evaluate(() => { try { return window.BURZH.debug().fx; } catch (e) { return false; } }).catch(() => false);
     const kind = req.resourceType();
-    const verdict = opts.policy && (kind === 'media' || kind === 'fetch') ? opts.policy({ n, fx, url: req.url(), type: kind }) : undefined;
-    if (verdict === 'hang') { await sleep(60000); return r.abort().catch(() => {}); }
-    if (verdict && verdict.status) return r.fulfill({ status: verdict.status, body: 'nope' });
+    const verdict = policy && (kind === 'media' || kind === 'fetch') ? policy({ n, fx, url: req.url(), type: kind, ms: Date.now() - opened }) : undefined;
     const h = (await req.allHeaders())['range'];
+    log.push({ url: req.url(), type: kind, range: h || '', fx, at: Date.now(), verdict: verdict ? (typeof verdict === 'string' ? verdict : Object.keys(verdict).join(',')) : '' });
+    if (verdict === 'hang') { await sleep(60000); return r.abort().catch(() => {}); }
+    if (verdict === 'abort') return r.abort('connectionfailed').catch(() => {});      // no connection at all
+    if (verdict && verdict.status) return r.fulfill({ status: verdict.status, body: 'nope' });
+    if (verdict && verdict.delay) await sleep(verdict.delay);                          // slow, but it answers
     if (h) {
       const m = /bytes=(\d*)-(\d*)/.exec(h);
       const a = m[1] ? +m[1] : 0, e = m[2] ? Math.min(+m[2], mock.length - 1) : mock.length - 1;
       return r.fulfill({ status: 206, headers: { 'Content-Type': 'audio/ogg', 'Content-Range': `bytes ${a}-${e}/${mock.length}`, 'Accept-Ranges': 'bytes' }, body: mock.subarray(a, e + 1) });
     }
     return r.fulfill({ status: 200, headers: { 'Content-Type': 'audio/ogg', 'Accept-Ranges': 'bytes' }, body: mock });
-  });
-  await p.route('**/stations.json', async r => {
+  }));
+  await p.route('**/stations.json', guarded(async r => {
+    if (net.stationsDelay) await sleep(net.stationsDelay);
     const j = await (await r.fetch()).json();
     j.stations.forEach(st => st.items.forEach(it => { it.duration = opts.duration || 60; }));
     // Deterministic clock: every station starts a few seconds into its mix, far from the end of the 60 s fixture.
     j.epoch = new Date(Math.floor(Date.now() / 1000) * 1000 - 120 * 10000 * 1000 - (opts.startOffset || 5) * 1000).toISOString();
     r.fulfill({ json: j });
-  });
+  }));
   await p.route('**/api.open-meteo.com/**', r => r.fulfill({ json: { timezone: 'Europe/Moscow', current: { temperature_2m: 5.4, weather_code: 2 } } }));
   await p.route('**/api.bigdatacloud.net/**', r => r.fulfill({ json: { city: 'Moscow' } }));
   await p.goto(server.url);
@@ -110,16 +123,17 @@ async function open(server, opts = {}) {
   await sleep(400);
 
   const t = {
-    p, ctx, errs,
+    p, ctx, errs, log, net, opened,
     dbg: () => p.evaluate(() => window.BURZH.debug()),
     srcs: () => p.evaluate(() => window.__srcSets.slice()),
     play: async () => { await p.locator('.play-toggle:visible').first().click(); },
     live: (ms = 8000) => waitFor(async () => { const d = await t.dbg(); return d.phase === 'live' && !d.paused && d.time > 0.3 ? d : null; }, ms),
-    openSettings: async () => { await p.locator('[data-open]:visible').first().click(); await sleep(350); },
+    // Any key wakes an idle landscape screen (the first touch alone would only wake it).
+    openSettings: async () => { await p.keyboard.press('Shift'); await sleep(150); await p.locator('[data-open]:visible').first().click(); await sleep(350); },
     shot: async name => { fs.mkdirSync(OUT, { recursive: true }); await p.screenshot({ path: path.join(OUT, name) }); },
     close: async () => { await ctx.close().catch(() => {}); }
   };
   return t;
 }
 
-module.exports = { startServer, open, closeBrowser, sleep, waitFor };
+module.exports = { startServer, open, closeBrowser, sleep, waitFor, DOCS };
