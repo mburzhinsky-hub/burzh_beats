@@ -1,0 +1,28 @@
+name: Live end-to-end
+
+# Opens the deployed site in real Chrome on a GitHub runner with the real audio files and reports launch time
+# and time-to-first-sound (engine on and off) as annotations. Run it by hand after a release.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Site address
+        default: https://mburzhinsky-hub.github.io/burzh_beats/
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        working-directory: tests
+        run: npm install --no-audit --no-fund
+      - name: Real Chrome, real audio, real network
+        working-directory: tests
+        run: node live.js "${{ github.event.inputs.url }}"

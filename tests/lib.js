@@ -83,6 +83,17 @@ async function open(server, opts = {}) {
     const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
     Object.defineProperty(HTMLMediaElement.prototype, 'src', { get() { return d.get.call(this); }, set(v) { window.__srcSets.push(String(v)); d.set.call(this, v); } });
   });
+  if (opts.audioHooks) {
+    // Lets a test take the audio engine away (like iOS does for a call or Siri) and refuse to give it back until a tap.
+    await p.addInitScript(() => {
+      const A = window.AudioContext;
+      window.__ctxs = [];
+      window.AudioContext = class extends A {
+        constructor(...a) { super(...a); window.__ctxs.push(this); }
+        resume() { return window.__noResume ? new Promise(() => {}) : super.resume(); }
+      };
+    });
+  }
   const mock = fs.readFileSync(path.join(FIXTURES, opts.media || 'mock.ogg'));
   // `policyFactory` builds a fresh policy per page, so a test that keeps state ("fail the first request only") also works on its retry.
   const policy = opts.policyFactory ? opts.policyFactory() : opts.policy;

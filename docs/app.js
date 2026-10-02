@@ -9,13 +9,14 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.24.0';
+  const VERSION = '0.25.0';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
     settings: 'burzh.radio.settings.v1',
     weather: 'burzh.radio.weather.v1',
-    data: 'burzh.radio.data.v1'
+    data: 'burzh.radio.data.v1',
+    log: 'burzh.radio.log.v1'
   };
   const IDLE_MS = 8000;
   const NIGHT_FROM = 23;
@@ -44,6 +45,40 @@
   if (settings.theme !== 'white') settings.theme = 'black';
   settings.sound = Object.assign({ on: false, preset: 'auto', custom: null }, settings.sound || {});
   const saveSettings = () => store.set(KEYS.settings, settings);
+
+  /* ------------------------------------------------------------------ */
+  /* Flight recorder: the last events survive a relaunch (Settings → About) */
+  /* ------------------------------------------------------------------ */
+
+  const LOG_MAX = 160;
+  let logBuf = [];
+  try { const saved = store.get(KEYS.log, []); if (Array.isArray(saved)) logBuf = saved.filter(e => Array.isArray(e) && typeof e[1] === 'string').slice(-LOG_MAX); } catch (e) { /* ignore */ }
+  let logTimer = 0, logLast = '', logLastAt = 0, logOpen = false;
+  const clock = t => new Date(t).toTimeString().slice(0, 8);
+  const logText = () => logBuf.map(e => clock(e[0]) + '  ' + e[1]).join('\n');
+  function saveLog() { clearTimeout(logTimer); logTimer = 0; store.set(KEYS.log, logBuf); }
+  function renderLog() {
+    const el = document.getElementById('logView');
+    if (!el || !logOpen) return;
+    const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
+    el.textContent = logText();
+    if (stick) el.scrollTop = el.scrollHeight;
+  }
+  function rec(text) {
+    const now = Date.now();
+    text = String(text).replace(/\s+/g, ' ').slice(0, 220);
+    if (text === logLast && now - logLastAt < 1500) return;
+    logLast = text; logLastAt = now;
+    logBuf.push([now, text]);
+    if (logBuf.length > LOG_MAX) logBuf.splice(0, logBuf.length - LOG_MAX);
+    if (!logTimer) logTimer = setTimeout(saveLog, 1000);
+    renderLog();
+  }
+  window.addEventListener('pagehide', saveLog);
+  window.addEventListener('online', () => rec('network online'));
+  window.addEventListener('offline', () => rec('network offline'));
+  window.addEventListener('error', e => rec('JS error: ' + (e && e.message) + (e && e.lineno ? ' @' + e.lineno : '')));
+  window.addEventListener('unhandledrejection', e => rec('JS rejection: ' + ((e && e.reason && (e.reason.message || e.reason.name)) || e.reason)));
 
   /* ------------------------------------------------------------------ */
   /* Broadcast schedule                                                  */
@@ -152,6 +187,7 @@
   if (sound) {
     // iOS interrupts audio contexts (calls, Siri, route changes); bring the chain back when the app is visible.
     sound.onstate = state => {
+      rec('audio engine ' + state);
       if (fxActive() && wantPlaying && state !== 'running' && document.visibilityState === 'visible') sound.resume();
       const el = document.getElementById('engineState');
       if (el) el.textContent = engineLabel();
@@ -161,6 +197,7 @@
     if (!sound) return 'Not supported';
     if (fxUnsupported) return 'Unavailable on this device';
     if (audio === audioFx) return 'Active · ' + sound.info();
+    if (fxHeld) return 'Paused · tap to restore';
     return fxFails ? 'Paused · did not start ' + fxFails + '×' : 'Standby';
   }
 
@@ -183,6 +220,7 @@
   let stallRetries = 0;          // reloads of a stuck loader since the last successful start
   let fastStrikes = 0;           // looks in a row where the server was fine but the element stayed silent
   let slowShown = false;
+  let waitStartedAt = 0;         // when the current stall in playback began ("buffering")
   let probing = false;
   let fxRescue = false;          // the engine stalled and the plain player took over: its first start is the verdict
   let rescueFrom = null;         // the engine element the rescue left; the way back if the plain player fails too
@@ -247,6 +285,7 @@
     }
 
     const sameSource = current && current.url === url && audio.readyState >= 1;
+    rec('tune ' + st.id + ' ' + (item ? (item.file || item.url) : 'stream') + (st.stream ? '' : ' @' + Math.round(offset) + 's') + ' · ' + (fxActive() ? 'engine' : 'plain') + (useFragment ? '' : ' · no #t') + (retry ? ' · retry' : '') + (sameSource ? ' · same source' : ''));
     current = { st, item, url };
     // While the source is being swapped the element fires "pause"; that must not count as a stop.
     const swapping = !sameSource;
@@ -303,8 +342,12 @@
     warmedAt.set(url, Date.now());
     let same = true;
     try { same = new URL(url, location.href).origin === location.origin; } catch (e) { /* relative */ }
+    const t0 = performance.now();
     fetch(url, { headers: { Range: 'bytes=0-1' }, cache: 'no-store', credentials: 'omit', mode: same ? 'same-origin' : 'no-cors' })
-      .then(r => { try { if (r.body) r.body.cancel(); } catch (e) { /* ignore */ } })
+      .then(r => {
+        try { if (r.body) r.body.cancel(); } catch (e) { /* ignore */ }
+        rec('warm ' + url.split('/').slice(-2).join('/') + ' ' + Math.round(performance.now() - t0) + ' ms · ' + (r.type === 'opaque' ? 'opaque' : 'HTTP ' + r.status + (r.headers.get('x-cache') ? ' ' + r.headers.get('x-cache').toLowerCase() : '')));
+      })
       .catch(() => warmedAt.delete(url));
   }
   function warmStation(st) {
@@ -323,6 +366,7 @@
 
   // Remember what went wrong (and, asynchronously, what the server said) for Settings → About.
   function noteProblem(what) {
+    rec('problem: ' + what);
     const url = current && current.url;
     const engine = audio === audioFx ? 'engine' : 'plain';
     lastProblem = new Date().toTimeString().slice(0, 5) + ' ' + what + ' · ' + engine + (useFragment ? '' : ' · no #t');
@@ -356,6 +400,7 @@
     return false;
   }
   function rescueWithPlain() {
+    rec('rescue: trying the plain player');
     fxRescue = true;
     rescueFrom = audio;
     stallRetries = 0;
@@ -374,6 +419,7 @@
    * The sound engine is only ever blamed when the plain player works where the engine did not. */
   const QUIET_MS = 6000;      // this long without a sign of life and the watchdog looks closer
   const GIVE_UP_MS = 60000;   // a very slow link may need this long for the first sound; beyond it, start over
+  const LOADING_PATIENCE_MS = 20000;   // while the element reports an open request, a restart waits this long
   const SLOW_MS = 2500;       // the 64 KB probe taking longer than this means a slow network, not a stuck loader
 
   function startWatch() { clearInterval(watchTimer); watchTimer = setInterval(watchTick, 1000); }
@@ -408,6 +454,7 @@
       probing = false;
       if (token !== tuneToken || !wantPlaying || phase === 'live' || phase === 'stopped') return;
       const waited = Math.round((Date.now() - tuneStartedAt) / 1000);
+      rec('probe ' + (res.ok ? 'HTTP ' + res.status : 'FAILED ' + res.why) + ' ' + Math.round(res.ms) + ' ms · quiet ' + waited + 's · ready ' + audio.readyState + ' net ' + audio.networkState);
       if (!res.ok) {
         noteProblem('server did not answer (' + res.why + ') after ' + waited + ' s');
         stopWatch();
@@ -425,6 +472,10 @@
         }
         return;
       }
+      // The element still has a request open: it is working, only slowly (Safari needs several round trips
+      // before the first sound). Restarting it would throw that progress away, so give it time.
+      const since = Date.now() - (phase === 'buffering' ? waitStartedAt : tuneStartedAt);
+      if (audio.networkState === 2 && since < (stallRetries ? LOADING_PATIENCE_MS * 0.6 : LOADING_PATIENCE_MS)) { fastStrikes = 0; lastLife = Date.now() - QUIET_MS + 4000; return; }
       if (++fastStrikes < 2) { lastLife = Date.now() - QUIET_MS + 3000; return; }   // one more look before blaming the loader
       fastStrikes = 0;
       stuckLoader(res, waited);
@@ -454,11 +505,13 @@
 
   function play() {
     if (!available(station)) { toast(station.name.toUpperCase() + ' · OFF AIR', 'info', 2600); nudge(); return; }
-    fxRescue = false; rescueFrom = null; stallRetries = 0;
+    fxRescue = false; rescueFrom = null; stallRetries = 0; fxHeld = false;
+    rec('play');
     ensureEngine();          // only a deliberate Play (inside the tap) attaches the engine; a retune never undoes a fallback
     tune({ autoplay: true });
   }
   function stop() {
+    rec('stop');
     wantPlaying = false;
     shifted = false;
     clearTimeout(retryTimer);
@@ -477,6 +530,7 @@
     const st = stations.find(s => s.id === id);
     if (!st) return;
     const changed = st !== station;
+    rec('station ' + st.id);
     station = st;
     store.set(KEYS.station, st.id);
     applyStationTheme();
@@ -512,6 +566,7 @@
     const code = (lastProblem.match(/E\d/) || [''])[0];
     toast('SIGNAL LOST' + (code ? ' · ' + code : '') + ' · RETUNING', 'error', 3000);
     if (retryTimer) return;      // a retry is already scheduled (the element reports one failure twice)
+    rec('signal lost, retry in ' + Math.round(retryDelay / 1000) + ' s');
     retryTimer = setTimeout(() => {
       retryTimer = 0;
       retryDelay = Math.min(30000, retryDelay * 2);
@@ -550,6 +605,7 @@
     waiting() {
       if (!wantPlaying || phase === 'tuning') return;
       setPhase('buffering');
+      waitStartedAt = Date.now();
       lastLife = Date.now(); fastStrikes = 0;
       startWatch();
     },
@@ -605,6 +661,14 @@
       .forEach(type => el.addEventListener(type, () => { if (el === audio) lastLife = Date.now(); }));
     ['loadstart', 'loadedmetadata', 'canplay', 'playing']
       .forEach(type => el.addEventListener(type, () => { if (el === audio && marks.t0 !== undefined && marks[type] === undefined) marks[type] = Math.round(performance.now() - marks.t0); }));
+    // The flight recorder: what the element did, and when, relative to the start of this tune.
+    ['loadstart', 'loadedmetadata', 'canplay', 'waiting', 'stalled', 'pause', 'ended', 'error']
+      .forEach(type => el.addEventListener(type, () => {
+        if (el !== audio) return;
+        const code = type === 'error' && audio.error ? ' E' + audio.error.code : '';
+        const page = type === 'pause' ? ' · page ' + document.visibilityState : '';
+        rec(type + code + ' +' + ((Date.now() - tuneStartedAt) / 1000).toFixed(1) + 's · ready ' + audio.readyState + ' net ' + audio.networkState + page);
+      }));
   }
 
   // Settings → About: how long the last start took, and where the time went.
@@ -618,6 +682,7 @@
       + (stallRetries ? ' · ' + stallRetries + ' retry' : '');
     const el = document.getElementById('startState');
     if (el) el.textContent = lastStart;
+    rec('START ' + lastStart);
   }
   wireAudio(audioPlain);
 
@@ -682,6 +747,7 @@
   // is parked until the Sound switch is toggled. The switch itself always stays usable.
   function fxFault(message, { switchAway = false } = {}) {
     fxFails++;
+    rec('engine fault ' + fxFails + '/' + FX_MAX_FAILS + ': ' + message);
     clearInterval(fxWatchTimer);
     noteProblem(message.toLowerCase());
     notice = { message: message + (fxParked() ? ' · SWITCH SHAPING OFF AND ON TO RETRY' : ''), kind: 'error' };
@@ -690,6 +756,42 @@
     applySound();
     syncControls();
     renderSettings();
+  }
+
+  /* The audio system can take the chain away while the app is open (a call, Siri, another app, a route change,
+   * the screen locking): the context stops and the music, which flows through it, goes silent. Resume it as
+   * soon as possible; if it stays down, play on the plain player so the music never stays silent, and bring the
+   * chain back at the next tap (iOS only restarts a context inside a gesture). This is not an engine failure. */
+  let fxIdle = 0;              // seconds in a row (page visible, music live) that the chain was not running
+  let fxHeld = false;          // the chain is paused for the moment; a tap restores it
+  let lastRestore = 0, restoreCount = 0;
+  function engineHealth() {
+    if (!fxActive() || !wantPlaying || phase !== 'live') { fxIdle = 0; return; }
+    if (document.visibilityState !== 'visible') return;
+    if (sound.state === 'running') { fxIdle = 0; return; }
+    fxIdle++;
+    if (fxIdle === 1 || fxIdle === 3) { rec('engine ' + sound.state + ' while playing, resuming'); sound.resume(); }
+    if (fxIdle >= 6) holdEngine();
+  }
+  function holdEngine() {
+    fxIdle = 0;
+    if (!fxActive()) return;
+    const wanted = settings.sound.on;
+    fxHeld = wanted;
+    rec('engine held (' + sound.state + '): playing on the plain player' + (wanted ? ', a tap restores shaping' : ''));
+    toast(wanted ? 'SOUND SHAPING PAUSED · TAP TO RESTORE' : 'AUDIO RESTARTED', 'info', 5000);
+    switchTo(audioPlain);
+    applySound(); syncControls(); renderSettings();
+  }
+  function restoreEngine() {
+    if (!fxHeld || !sound || fxUnsupported) return;
+    if (!settings.sound.on || !wantPlaying) { fxHeld = false; return; }
+    if (Date.now() - lastRestore < 15000 || restoreCount >= 3) return;
+    lastRestore = Date.now(); restoreCount++;
+    fxHeld = false;
+    rec('tap: restoring the sound engine (' + restoreCount + ')');
+    sound.resume();                                    // inside the tap: the only place iOS lets a stopped context start
+    try { switchTo(ensureFx()); } catch (e) { fxUnavailable('SOUND SHAPING IS NOT AVAILABLE HERE'); }
   }
 
   // After playback starts through the chain, make sure sound actually comes out of it.
@@ -1108,6 +1210,7 @@
       e.stopPropagation();
     }
     wake();
+    if (fxHeld && !(e.target && e.target.closest && e.target.closest('.play-toggle'))) restoreEngine();
   }, true);
   document.addEventListener('click', e => {
     if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); }
@@ -1187,6 +1290,8 @@
   else if (landscapeQuery.addListener) landscapeQuery.addListener(onOrientation);
 
   document.addEventListener('visibilitychange', () => {
+    rec('page ' + document.visibilityState);
+    if (document.visibilityState === 'hidden') saveLog();
     if (document.visibilityState === 'visible') {
       configureAudioSession();
       applyNight();
@@ -1319,6 +1424,7 @@
     if (!el) return;
     clearTimeout(toastTimer);
     if (!message) { el.classList.remove('show', 'error'); return; }
+    rec('toast: ' + message);
     el.textContent = message;
     el.classList.toggle('error', kind === 'error');
     el.classList.add('show');
@@ -1393,6 +1499,7 @@
       sh.textContent = fxUnsupported ? 'Not supported on this device. Playing the original sound.'
         : !settings.sound.on ? 'Off. Plays the original sound; you can still set things up.'
         : fxActive() ? 'On · engine ' + sound.info().split(' ·')[0] + '. The equalizer and enhancer shape every station.'
+        : fxHeld ? 'Paused while the audio system was busy (call, Siri, lock). Tap the screen to restore.'
         : fxFails ? (fxParked() ? 'Paused: the engine did not start. Switch off and on to try again.' : 'The engine did not start. It tries again when you press play; switch off and on to try now.')
         : 'On. Press play to start the engine.';
     }
@@ -1408,7 +1515,7 @@
       keys.forEach(k => {
         const b = document.createElement('button');
         b.className = 'chip'; b.dataset.preset = k; b.textContent = PRESET_LABEL(k);
-        b.addEventListener('click', () => { feedback(); settings.sound.preset = k; saveSettings(); applySound(); });
+        b.addEventListener('click', () => { feedback(); settings.sound.preset = k; rec('preset ' + k); saveSettings(); applySound(); });
         chips.appendChild(b);
       });
     }
@@ -1484,10 +1591,61 @@
       const mbps = b.bytes / 1048576 / Math.max(0.001, b.ms / 1000);
       out.textContent = 'first byte ' + (a.first / 1000).toFixed(2) + ' s · 1 MB in ' + (b.ms / 1000).toFixed(2) + ' s (' + mbps.toFixed(1) + ' MB/s)' + (a.cache ? ' · ' + a.cache : '') + (a.status === 206 || a.status === 200 ? '' : ' · HTTP ' + a.status);
       warmedAt.set(url, Date.now());
+      rec('connection test: ' + out.textContent);
     } catch (e) {
       out.textContent = 'failed: ' + ((e && e.message) || e);
+      rec('connection test: ' + out.textContent);
     }
     btn.disabled = false;
+  }
+
+  // Settings → About → Event log: everything needed to understand a problem, as text that can be pasted anywhere.
+  let cacheNames = '';
+  try { if (window.caches) caches.keys().then(k => { cacheNames = k.join(', '); }).catch(() => {}); } catch (e) { /* ignore */ }
+  function buildReport() {
+    const nav = navigator, c = nav.connection || {};
+    const head = [
+      'BURZH beats v' + VERSION + ' · report ' + new Date().toString().slice(0, 33),
+      'device: ' + nav.userAgent,
+      'mode: ' + (nav.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? 'home-screen app' : 'browser tab') + ' · online ' + nav.onLine + (c.effectiveType ? ' · ' + c.effectiveType + (c.downlink ? ' ' + c.downlink + ' Mbit/s' : '') + (c.rtt ? ' rtt ' + c.rtt + ' ms' : '') : ''),
+      'saved copy: ' + (nav.serviceWorker && nav.serviceWorker.controller ? 'active' : 'none') + (cacheNames ? ' (' + cacheNames + ')' : ''),
+      'launch: ' + (launchInfo || '-') + ' · last start: ' + (lastStart || '-'),
+      'sound: shaping ' + (settings.sound.on ? 'on' : 'off') + ' · preset ' + settings.sound.preset + ' · engine ' + (sound ? sound.info() : 'none') + ' · strikes ' + fxFails + (fxHeld ? ' · held' : '') + (fxUnsupported ? ' · unsupported' : ''),
+      'last problem: ' + (lastProblem || 'none'),
+      '--- events (newest last) ---'
+    ];
+    return head.join('\n') + '\n' + logText();
+  }
+  function copyText(text) {
+    const fallback = () => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+        document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+        const ok = document.execCommand && document.execCommand('copy');
+        ta.remove();
+        return !!ok;
+      } catch (e) { return false; }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(() => true).catch(() => fallback());
+    return Promise.resolve(fallback());
+  }
+  function bindLog() {
+    const view = $('logView'), box = $('logBox');
+    if (!view || !box) return;
+    box.addEventListener('toggle', () => { logOpen = box.open; if (logOpen) { renderLog(); view.scrollTop = view.scrollHeight; } });
+    if ($('logCopy')) $('logCopy').addEventListener('click', () => {
+      feedback();
+      copyText(buildReport()).then(ok => {
+        const out = $('logState');
+        if (out) out.textContent = ok ? 'Copied. Paste it into the chat.' : 'Could not copy: select the text above and copy it by hand.';
+      });
+    });
+    if ($('logShare')) {
+      if (!navigator.share) $('logShare').hidden = true;
+      else $('logShare').addEventListener('click', () => { feedback(); navigator.share({ title: 'BURZH beats report', text: buildReport() }).catch(() => { /* cancelled */ }); });
+    }
+    if ($('logClear')) $('logClear').addEventListener('click', () => { feedback(); logBuf = []; saveLog(); renderLog(); const out = $('logState'); if (out) out.textContent = 'Cleared.'; });
   }
 
   // Last resort for a stuck app: forget every saved copy and load everything again.
@@ -1574,6 +1732,8 @@
       if (key === 'weather') { setWeather(!settings.weather); return; }
       if (key === 'sound.on') {
         settings.sound.on = !settings.sound.on;
+        rec('shaping ' + (settings.sound.on ? 'on' : 'off'));
+        fxHeld = false; restoreCount = 0;
         saveSettings(); syncControls(); selectOutput();
         // A deliberate tap gives a parked engine a fresh start (this one re-tunes, so it is only done when the engine is wanted and missing).
         if (fxFails || (settings.sound.on && wantPlaying && !fxActive() && !fxUnsupported)) {
@@ -1597,6 +1757,7 @@
     $('locationBtn').addEventListener('click', () => { feedback(); updateLocation(); });
     if ($('netBtn')) $('netBtn').addEventListener('click', () => { feedback(); testConnection(); });
     if ($('refreshBtn')) $('refreshBtn').addEventListener('click', () => { feedback(); refreshApp(); });
+    bindLog();
 
     document.querySelectorAll('input[data-param]').forEach(inp => {
       inp.addEventListener('input', () => editParams(p => { p[inp.dataset.param] = Number(inp.value); }));
@@ -1722,22 +1883,25 @@
     refreshWeather(false);
     onOrientation();
     launchInfo = (performance.now() / 1000).toFixed(1) + ' s · ' + (saved0 ? 'saved list' : 'first load');
+    rec('launch v' + VERSION + ' · ' + launchInfo + ' · ' + (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? 'app' : 'browser') + ' · service worker ' + (navigator.serviceWorker && navigator.serviceWorker.controller ? 'on' : 'off') + ' · ' + station.id);
     renderSettings();
     warmStation(station);
 
     setInterval(() => { renderClock(); renderProgress(); checkCue(); }, 1000);
     setInterval(() => { if (station && (wantPlaying || document.visibilityState === 'visible')) warmStation(station); }, 20000);
+    setInterval(engineHealth, 1000);
     setInterval(() => { applyNight(); shiftPixels(); if (wantPlaying) updateMediaSession(false); }, 60 * 1000);
     setInterval(() => refreshWeather(false), WEATHER_REFRESH_MS);
   }
 
   window.BURZH = {
     version: VERSION,
+    report: () => buildReport(),
     liveAt: (id, t) => liveAt(stations.find(s => s.id === id), t),
     stations: () => stations,
     audioEl: () => audio,
     seekTo: t => seekTo(t),
-    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken: fxUnsupported || fxFails > 0, fxFails, fxUnsupported, lastStart, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek(), problem: lastProblem, useFragment }),
+    debug: () => ({ station: station && station.id, phase, wantPlaying, fx: fxActive(), fxOn: settings.sound.on, fxBroken: fxUnsupported || fxFails > 0, fxFails, fxUnsupported, fxHeld, ctx: sound ? sound.state : 'none', lastStart, engine: sound ? sound.info() : null, preset: presetKey(), src: audio.currentSrc, time: audio.currentTime, paused: audio.paused, shifted, canSeek: canSeek(), problem: lastProblem, useFragment }),
     spectrum: () => { const a = new Uint8Array(64); return sound && sound.spectrum(a) ? Array.from(a) : Array(64).fill(0); }
   };
 
@@ -1758,6 +1922,8 @@
     try { last = Number(sessionStorage.getItem('burzh.reloaded') || 0); } catch (e) { /* ignore */ }
     if (Date.now() - last < 30000) return;       // never loop
     try { sessionStorage.setItem('burzh.reloaded', String(Date.now())); } catch (e) { /* ignore */ }
+    rec('reloading for the new release');
+    saveLog();
     location.reload();
   }
   window.BURZH_applyUpdate = applyUpdate;
@@ -1766,6 +1932,7 @@
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!hadController) { hadController = true; return; }     // the very first install replaces nothing
       updateReady = true;
+      rec('new release is ready');
       applyUpdate();
     });
     window.addEventListener('load', () => {
