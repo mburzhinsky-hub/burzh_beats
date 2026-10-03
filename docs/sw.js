@@ -31,14 +31,14 @@ const SHELL = [
   './planet/surface.jpg',
   './planet/fallback.png',
   './planet/tile-future-garage.jpg',
-  './planet/tile-lofi.jpg',
+  './planet/tile-ambient.jpg',
   './planet/tile-deep-house.jpg',
   './planet/tile-trance.jpg',
   './apple-touch-icon.png',
   './icon-192.png',
   './favicon-32.png',
   './art/future-garage.png',
-  './art/lofi.png',
+  './art/ambient.png',
   './art/deep-house.png',
   './art/trance.png'
 ];

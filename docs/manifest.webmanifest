@@ -2,7 +2,7 @@
   "id": "./",
   "name": "BURZH beats",
   "short_name": "BURZH beats",
-  "description": "Minimal genre radio: Future Garage, Lo-Fi, Deep House, Trance.",
+  "description": "Minimal genre radio: Future Garage, Ambient, Deep House, Trance.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",
@@ -49,10 +49,10 @@
       ]
     },
     {
-      "name": "Lo-Fi",
-      "short_name": "Lo-Fi",
-      "description": "Tune to Lo-Fi",
-      "url": "./?station=lofi",
+      "name": "Ambient",
+      "short_name": "Ambient",
+      "description": "Tune to Ambient",
+      "url": "./?station=ambient",
       "icons": [
         {
           "src": "./icon-192.png",

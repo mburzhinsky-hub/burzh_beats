@@ -43,43 +43,35 @@
       "sound": "wide"
     },
     {
-      "id": "lofi",
-      "name": "Lo-Fi",
+      "id": "ambient",
+      "name": "Ambient",
       "glyph": "wave",
-      "accent": "#ffb224",
-      "accentPaper": "#955600",
+      "accent": "#5fe0a4",
+      "accentPaper": "#13734a",
       "look": {
-        "spin": 0.45,
-        "tilt": 0.04,
-        "face": 0.3,
-        "halo": 0.9,
-        "pulse": 0.7,
-        "orbit": 0.6
+        "spin": 0.3,
+        "tilt": 0.05,
+        "face": 0.62,
+        "halo": 1.35,
+        "pulse": 0.4,
+        "orbit": 0.5
       },
-      "tempo": 18,
+      "tempo": 26,
       "tagline": [
-        "SLOW",
-        "WARM",
-        "TAPE"
+        "DRIFT",
+        "SPACE",
+        "FOCUS"
       ],
-      "art": "./art/lofi.png",
+      "art": "./art/ambient.png",
       "items": [
         {
-          "file": "lofi/mix-01-part1.m4a",
-          "title": "Mix 01",
-          "duration": 3073.737,
-          "cues": [],
-          "group": "mix-01"
-        },
-        {
-          "file": "lofi/mix-01-part2.m4a",
-          "title": "Mix 01",
-          "duration": 3033.5,
-          "cues": [],
-          "group": "mix-01"
+          "file": "ambient/founder-mode.m4a",
+          "title": "Founder mode",
+          "duration": 3636.9,
+          "cues": []
         }
       ],
-      "sound": "warm"
+      "sound": "wide"
     },
     {
       "id": "deep-house",

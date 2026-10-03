@@ -76,17 +76,29 @@ def tex_rain(n: int) -> np.ndarray:
     return base + lamp + small * (0.75 + lamp * 2)
 
 
-def tex_dune(n: int) -> np.ndarray:
-    """Lo-Fi: a slow wave of sand, fine ripples, warm grain."""
+def tex_haze(n: int) -> np.ndarray:
+    """Ambient: out-of-focus lights drifting in a dark room, a pale haze rising behind them."""
+    from PIL import ImageDraw
+    rng = np.random.default_rng(29)
+    ss = 3
+    N = n * ss
     yy, xx = np.mgrid[0:n, 0:n] / n
-    crest = 0.62 - 0.22 * np.sin(xx * 2.6 + 0.4) - 0.08 * np.sin(xx * 6.1 + 1.3)
-    above = yy < crest
-    dist = crest - yy
-    ripples = 0.5 + 0.5 * np.sin((yy - 0.3 * np.sin(xx * 3)) * 140 + np.sin(xx * 9) * 2)
-    lit = np.where(above, np.exp(-dist * 7) * (0.55 + 0.35 * ripples), 0)
-    face = np.where(~above, 0.05 + 0.18 * np.exp(-(yy - crest) * 5) * (0.6 + 0.4 * ripples), 0)
-    edge = np.exp(-((yy - crest) * n / 1.6) ** 2) * 0.9
-    return lit * 0.85 + face + edge + 0.04
+    acc = np.zeros((n, n))
+    # three depths: many small and dim, fewer larger, a few huge and very soft
+    for count, r_lo, r_hi, blur, bright in ((34, 0.008, 0.022, 1.4, 0.24), (11, 0.03, 0.065, 2.4, 0.26), (4, 0.11, 0.19, 7.0, 0.25)):
+        lay = Image.new("L", (N, N), 0)
+        d = ImageDraw.Draw(lay)
+        for _ in range(count):
+            x, y = rng.uniform(-0.05, 1.05) * N, rng.uniform(-0.05, 1.05) * N
+            r = rng.uniform(r_lo, r_hi) * N
+            b = int(255 * bright * rng.uniform(0.45, 1.0))
+            d.ellipse([x - r, y - r, x + r, y + r], fill=b)
+            d.ellipse([x - r * 0.86, y - r * 0.86, x + r * 0.86, y + r * 0.86], fill=int(b * 0.8))
+            d.ellipse([x - r, y - r, x + r, y + r], outline=min(255, int(b * 1.5)), width=max(1, ss))   # a brighter rim, like a real lens
+        lay = lay.filter(ImageFilter.GaussianBlur(blur * ss))
+        acc = acc + np.asarray(lay.resize((n, n), Image.LANCZOS), dtype=np.float64) / 255
+    haze = 0.03 + 0.15 * np.exp(-(((xx - 0.30) / 0.55) ** 2 + ((yy - 0.95) / 0.45) ** 2))
+    return haze + acc * (0.55 + 0.9 * np.exp(-(((xx - 0.45) / 0.6) ** 2 + ((yy - 0.55) / 0.5) ** 2)))
 
 
 def tex_silk(n: int) -> np.ndarray:
@@ -119,7 +131,7 @@ def tex_grooves(n: int) -> np.ndarray:
     return 0.035 + grooves * (0.05 + 0.85 * band + 0.6 * band2) * (0.5 + 0.5 * np.clip((r - 0.8) * 2, 0, 1))
 
 
-TEXTURES = {"future-garage": tex_rain, "lofi": tex_dune, "deep-house": tex_silk, "trance": tex_grooves}
+TEXTURES = {"future-garage": tex_rain, "ambient": tex_haze, "deep-house": tex_silk, "trance": tex_grooves}
 
 
 def tile(station_id: str, n: int = 320) -> Image.Image:

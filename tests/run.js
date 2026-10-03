@@ -289,7 +289,8 @@ test('smart sound (settings): Smart / Manual, strength, what it is doing, a new 
   await sleep(1500);
   const s0 = await st();
   const added = () => t.p.evaluate(() => Math.max(...window.BURZH.autoCurve([60, 140, 280, 560, 1120, 2240, 4480, 8400, 14000]).map(Math.abs)));
-  assert.ok(await added() > 0.3, 'smart sound is adding something to the tone (' + (await added()).toFixed(2) + ' dB)');
+  // (it eases in from zero at a fraction of a dB per second, so give it a few seconds on a slow machine instead of a fixed 1.5 s)
+  assert.ok(await waitFor(async () => (await added()) > 0.3, 8000, 250), 'smart sound is adding something to the tone (' + (await added()).toFixed(2) + ' dB)');
   await t.p.locator('#abBtn').scrollIntoViewIfNeeded(); await sleep(200);
   const b = await t.p.locator('#abBtn').boundingBox();
   await t.p.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await t.p.mouse.down(); await sleep(500);
@@ -300,7 +301,7 @@ test('smart sound (settings): Smart / Manual, strength, what it is doing, a new 
   await t.p.mouse.up(); await sleep(500);
   const back = await st();
   assert.strictEqual(back.bypass, false); assert.ok(back.seconds >= held.seconds, 'released: it picks up where it was');
-  assert.ok(await added() > 0.3, 'released: it is adding the same again');
+  assert.ok(await waitFor(async () => (await added()) > 0.3, 5000, 250), 'released: it is adding the same again (' + (await added()).toFixed(2) + ' dB)');
 
   // A new station: it starts learning the new music again (the average is fresh), the sound it had does not snap to zero.
   await t.p.evaluate(() => document.querySelector('button[data-station="deep-house"]').click());
@@ -647,7 +648,7 @@ test('service worker: saves the whole app, removes older copies, then opens with
 test('service worker: a release that cannot be saved completely is not installed (nothing half-saved, the app still runs)', async t => {
   const dir = copyDocs('b1'), srv = await startServer(dir);
   try {
-    fs.rmSync(path.join(dir, 'art', 'lofi.png'));             // one file of the release is missing
+    fs.rmSync(path.join(dir, 'art', 'ambient.png'));             // one file of the release is missing
     await t.p.goto(srv.url);
     await sleep(3500);
     const st = await swState(t.p);
@@ -814,7 +815,7 @@ const themeState = t => t.p.evaluate(() => ({
 
 // A station without music (what a new station is until its first mix arrives): the "off air" state keeps being checked
 // even when every real station has music.
-const lofiOffAir = j => { j.stations.find(x => x.id === 'lofi').items = []; };
+const ambientOffAir = j => { j.stations.find(x => x.id === 'ambient').items = []; };
 const stationsFile = () => JSON.parse(fs.readFileSync(path.join(DOCS, 'stations.json'), 'utf8'));
 const visiblePlanet = t => t.p.evaluate(() => (window.BURZH.planets().find(p => p.drawn) || null));
 const clickStation = (t, id) => t.p.evaluate(sid => document.querySelector(`button[data-station="${sid}"]`).click(), id);
@@ -1048,14 +1049,14 @@ test('app-icon shortcuts: the manifest lists the stations; ?station= opens one a
   let r = await open('?station=trance');
   assert.strictEqual(r.station, 'trance'); assert.strictEqual(r.search, '', 'the address is clean'); assert.strictEqual(JSON.parse(r.saved), 'trance', 'remembered');
   assert.deepStrictEqual([r.name, r.top, r.status], ['Trance', 'ON AIR NOW', 'TAP TO PLAY']);
-  r = await open('?station=lofi');
-  assert.strictEqual(r.station, 'lofi'); assert.deepStrictEqual([r.top, r.status], ['NO SIGNAL', 'OFF AIR'], 'a station without music opens and says so');
+  r = await open('?station=ambient');
+  assert.strictEqual(r.station, 'ambient'); assert.deepStrictEqual([r.top, r.status], ['NO SIGNAL', 'OFF AIR'], 'a station without music opens and says so');
   r = await open('?station=deep-house');
   assert.strictEqual(r.station, 'deep-house');
   r = await open('?station=no-such-station');
   assert.strictEqual(r.search, ''); assert.strictEqual(r.station, 'deep-house', 'an unknown id changes nothing');
   await t.play(); assert.ok(await t.live(), 'and the station opened from a shortcut plays');
-}, { viewport: PORT, touch: true, mutate: lofiOffAir });
+}, { viewport: PORT, touch: true, mutate: ambientOffAir });
 
 /* ----------------------------------------------------------- launch images */
 
@@ -1112,7 +1113,7 @@ for (const [label, viewport, sel] of [['portrait', PORT, '.p-tiles'], ['landscap
         assert.ok(r.box.l >= -1 && r.box.r <= viewport.width + 1 && r.box.b <= viewport.height + 1, `${r.id} is on the screen: ${JSON.stringify(r.box)}`);
       });
     }
-  }, { viewport, mutate: lofiOffAir });
+  }, { viewport, mutate: ambientOffAir });
 }
 
 /* ----------------------------------------------------------- layouts */
