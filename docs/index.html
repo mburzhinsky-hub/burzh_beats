@@ -187,7 +187,7 @@ button,input{font:inherit;color:inherit}button{background:none;border:0;padding:
 .arc .arc-fg{stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-dasharray:301.6;stroke-dashoffset:calc(301.6 * (1 - var(--p,0)));filter:drop-shadow(0 0 3px rgba(255,255,255,.9)) drop-shadow(0 0 8px rgba(255,255,255,.45));transition:stroke-dashoffset 1s linear;opacity:0}
 .is-on .arc .arc-fg{opacity:1}
 .play-toggle .i-pause{display:none}.play-toggle.is-playing .i-play{display:none}.play-toggle.is-playing .i-pause{display:block}
-.play-toggle .i-play{transform:translateX(2px)}
+/* The triangle's path already carries its optical offset (its centre of mass sits on the circle's centre); no extra nudge here, or it drifts right and breaks at other sizes. */
 
 /* ---------- Station tiles ---------- */
 .tiles{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:clamp(8px,2.6cqw,14px)}

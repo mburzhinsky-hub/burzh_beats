@@ -1234,6 +1234,63 @@ test('play button: the ring around it shows how far the mix has played', async t
   near(parseFloat(r.offset), want, 8, 'arc length');
 }, { viewport: PORT, touch: true });
 
+// The glyph inside the big circle: measured on real pixels, not on boxes. Pause is symmetric, so its box centre must sit on the circle's
+// centre. Play is a triangle: its centre of mass (what the eye reads as "the middle") must sit on the circle's centre; centring its
+// bounding box instead leaves it looking pushed left, and a stray extra nudge (it once had translateX(2px)) pushes it right.
+for (const [name, viewport] of [
+  ['portrait 390x844', { width: 390, height: 844 }],
+  ['portrait 320x568', { width: 320, height: 568 }],
+  ['landscape 932x430', { width: 932, height: 430 }],
+  ['landscape 667x375', { width: 667, height: 375 }],
+]) {
+  test(`play button glyph is centred in its circle (${name})`, async t => {
+    // the landscape screen drifts a few pixels on its own (burn-in protection): hold it still while we measure
+    await t.p.addStyleTag({ content: '.l-shell,.portrait{transform:none!important;transition:none!important}' });
+    const measure = async () => {
+      const q = await t.p.evaluate(() => {
+        const b = [...document.querySelectorAll('.play-toggle')].find(e => e.getClientRects().length);
+        const g = b.querySelector(b.classList.contains('is-playing') ? '.i-pause' : '.i-play').getBoundingClientRect();
+        const a = b.querySelector('.arc').getBoundingClientRect();
+        return { playing: b.classList.contains('is-playing'), ring: { x: a.left + a.width / 2, y: a.top + a.height / 2, w: a.width }, clip: { x: Math.floor(g.left) - 1, y: Math.floor(g.top) - 1, width: Math.ceil(g.width) + 3, height: Math.ceil(g.height) + 3 }, dsf: window.devicePixelRatio };   // whole CSS pixels, so the screenshot starts exactly where we think it does
+      });
+      const png = await t.p.screenshot({ clip: q.clip });
+      const ink = await t.p.evaluate(async ({ b64, dsf }) => {
+        const bmp = await createImageBitmap(await (await fetch('data:image/png;base64,' + b64)).blob());
+        const c = new OffscreenCanvas(bmp.width, bmp.height), x = c.getContext('2d');
+        x.drawImage(bmp, 0, 0);
+        const d = x.getImageData(0, 0, bmp.width, bmp.height).data;
+        let m = 0, sx = 0, sy = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
+        for (let j = 0; j < bmp.height; j++) for (let i = 0; i < bmp.width; i++) {
+          const v = d[(j * bmp.width + i) * 4] / 255;       // white glyph on a near-black button
+          if (v < 0.35) continue;
+          m += v; sx += v * (i + 0.5); sy += v * (j + 0.5);
+          if (i < x0) x0 = i; if (i + 1 > x1) x1 = i + 1; if (j < y0) y0 = j; if (j + 1 > y1) y1 = j + 1;
+        }
+        return { cx: sx / m / dsf, cy: sy / m / dsf, bx: (x0 + x1) / 2 / dsf, by: (y0 + y1) / 2 / dsf, w: (x1 - x0) / dsf, h: (y1 - y0) / dsf, n: m };
+      }, { b64: png.toString('base64'), dsf: q.dsf });
+      assert.ok(ink.n > 50, 'the glyph is drawn');
+      return {
+        playing: q.playing, ringW: q.ring.w, w: ink.w, h: ink.h,
+        massX: q.clip.x + ink.cx - q.ring.x, massY: q.clip.y + ink.cy - q.ring.y,
+        boxX: q.clip.x + ink.bx - q.ring.x, boxY: q.clip.y + ink.by - q.ring.y,
+      };
+    };
+    const play = await measure();
+    assert.strictEqual(play.playing, false);
+    assert.ok(Math.abs(play.massY) <= 0.6, `play: vertically centred (off by ${play.massY.toFixed(2)}px)`);
+    assert.ok(Math.abs(play.massX) <= 0.9, `play: the triangle's centre of mass sits on the circle's centre (off by ${play.massX.toFixed(2)}px; its box is ${play.boxX.toFixed(2)}px right)`);
+    assert.ok(play.boxX > 0.04 * play.w && play.boxX < 0.22 * play.w, `play: optically centred, not box-centred (box ${play.boxX.toFixed(2)}px right of the middle, glyph ${play.w.toFixed(1)}px wide)`);
+    await t.shot('play-glyph-' + name.replace(/[^a-z0-9]+/gi, '-') + '.png');
+    await t.play(); await t.live(); await sleep(600);
+    const pause = await measure();
+    assert.strictEqual(pause.playing, true);
+    assert.ok(Math.abs(pause.boxX) <= 0.6 && Math.abs(pause.boxY) <= 0.6, `pause: bars centred (off by ${pause.boxX.toFixed(2)}, ${pause.boxY.toFixed(2)}px)`);
+    assert.ok(Math.abs(pause.massX) <= 0.6, 'pause: balanced left-right, off by ' + pause.massX.toFixed(2));
+    assert.ok(Math.abs(pause.h - play.h) <= play.h * 0.2 && pause.w < play.w, 'both glyphs have about the same size');
+    console.log('       glyph', name, JSON.stringify({ play: { massX: +play.massX.toFixed(2), massY: +play.massY.toFixed(2), boxX: +play.boxX.toFixed(2), w: +play.w.toFixed(1), h: +play.h.toFixed(1) }, pause: { boxX: +pause.boxX.toFixed(2), boxY: +pause.boxY.toFixed(2), w: +pause.w.toFixed(1), h: +pause.h.toFixed(1) } }));
+  }, { viewport, touch: true, scale: 4 });
+}
+
 /* ------------------------------------------------- long mixes cut in parts */
 
 // A station with three single mixes and one mix cut into three parts (what tools/radio.py makes of a very long mix).
