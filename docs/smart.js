@@ -32,7 +32,7 @@
   ];
 
   // Energy of each band in dB, relative to the whole signal. Measured on the radio's own mixes
-  // (neutral = their average; dark = the soft-topped mixes of the former Lo-Fi station, now used by the Warm preset; bright = the Trance mixes).
+  // (neutral = their average; dark = warm, soft-topped mixes (the Warm preset); bright = the Trance mixes).
   const PROFILES = {
     neutral: [-1.6, -9.0, -12.0, -13.8, -18.4, -24.0, -27.2, -29.6, -35.5],
     bright:  [-2.0, -7.4, -13.0, -15.0, -15.6, -18.6, -21.0, -23.0, -29.5],
