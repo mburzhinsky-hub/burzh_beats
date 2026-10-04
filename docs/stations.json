@@ -65,12 +65,6 @@
       "art": "./art/ambient.png",
       "items": [
         {
-          "file": "ambient/deep-focus.m4a",
-          "title": "Deep focus",
-          "duration": 3856.207,
-          "cues": []
-        },
-        {
           "file": "ambient/founder-mode.m4a",
           "title": "Founder mode",
           "duration": 3636.9,

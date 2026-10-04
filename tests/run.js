@@ -238,6 +238,13 @@ test('smart sound (the engine): dull, thin and loud music is corrected through t
       eng.setSmart({ on: true, strength: sc.strength == null ? 0.7 : sc.strength, profile: 'neutral' });
       const src = ctx.createBufferSource(); src.buffer = noise(ctx.sampleRate, sc.b, sc.rms); src.loop = true; src.connect(node); src.start();
       await new Promise(r => setTimeout(r, 4200));
+      if (name === 'dull') {       // the output meter trails the gains by about a second: on a busy machine give it time to catch up instead of judging a moving number
+        for (let k = 0; k < 15; k++) {
+          const s = eng.smart(), ob = eng.outputBands();
+          if (ob && s.measured && ob[7] - s.measured[7] >= 1.5) break;
+          await new Promise(r => setTimeout(r, 400));
+        }
+      }
       out[name] = { st: eng.smart(), outBands: eng.outputBands() };
       eng.setSmart({ on: false }); try { src.stop(); } catch (e) { /* stopped */ } await ctx.close();
     }
@@ -1346,6 +1353,8 @@ test('a mix cut into parts looks and scrubs as one mix: one title, one length, o
     max: document.querySelector('.p-live .seek').getAttribute('aria-valuemax'),
     now: +document.querySelector('.p-live .seek').getAttribute('aria-valuenow')
   }));
+  // the rail is the page's own "100" until the audio is ready to seek: wait for it to take the length of the mix
+  await waitFor(async () => (await text()).max === '120', 5000, 150);
   let x = await text();
   assert.strictEqual(x.title, st.name);
   assert.strictEqual(x.line, st.name + ' · Mix 01', 'no part number: ' + x.line);

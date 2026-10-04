@@ -9,7 +9,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.30.1';
+  const VERSION = '0.30.2';
   const DATA_URL = './stations.json';
   const KEYS = {
     station: 'burzh.radio.station.v1',
