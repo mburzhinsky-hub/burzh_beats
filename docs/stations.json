@@ -69,6 +69,12 @@
           "title": "Founder mode",
           "duration": 3636.9,
           "cues": []
+        },
+        {
+          "file": "ambient/concentration.m4a",
+          "title": "Concentration",
+          "duration": 2951.9,
+          "cues": []
         }
       ],
       "sound": "wide"
