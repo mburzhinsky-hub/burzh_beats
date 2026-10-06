@@ -75,6 +75,12 @@
           "title": "Concentration",
           "duration": 2951.9,
           "cues": []
+        },
+        {
+          "file": "ambient/nocturnal-focus.m4a",
+          "title": "Nocturnal focus",
+          "duration": 1030.0,
+          "cues": []
         }
       ],
       "sound": "wide"
